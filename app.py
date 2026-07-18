@@ -119,11 +119,11 @@ def parse_single_chunk_with_ai(chunk_path):
                     match = re.search(r"Please retry in ([0-9.]+)s", error_msg)
                     wait_time = float(match.group(1)) + 1.5 if match else backoff_delay
                     print(f"DEBUG: Rate limit reached. Sleeping for {wait_time} seconds...")
-                if wait_time > 5:
-                    raise Exception("API rate limit reached. Please wait a minute and try uploading again.")
-                time.sleep(wait_time)
-                backoff_delay *= 2
-                continue
+                    if wait_time > 5:
+                             raise Exception("API rate limit reached. Please wait a minute and try uploading again.")
+                    time.sleep(wait_time)
+                    backoff_delay *= 2
+                    continue
                 break
 
     # Force cleanup on total failure
