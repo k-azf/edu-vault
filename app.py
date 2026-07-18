@@ -119,9 +119,11 @@ def parse_single_chunk_with_ai(chunk_path):
                     match = re.search(r"Please retry in ([0-9.]+)s", error_msg)
                     wait_time = float(match.group(1)) + 1.5 if match else backoff_delay
                     print(f"DEBUG: Rate limit reached. Sleeping for {wait_time} seconds...")
-                    time.sleep(wait_time)
-                    backoff_delay *= 2
-                    continue
+                if wait_time > 5:
+                    raise Exception("API rate limit reached. Please wait a minute and try uploading again.")
+                time.sleep(wait_time)
+                backoff_delay *= 2
+                continue
                 break
 
     # Force cleanup on total failure
@@ -311,7 +313,10 @@ def submit_exam_results():
     
     score = int(data['score'])
     total = int(data['total_questions'])
-    accuracy = float(data_val) if data_val is not None else 0.0
+    # Safely handle missing or None accuracy values
+    accuracy_val = data.get('accuracy')
+    accuracy = float(accuracy_val) if accuracy_val is not None else 0.0
+
     
     rec_prompt = f"The student scored {score}/{total} ({accuracy}% accuracy) in an exam. Provide a brief, supportive, 2-sentence study plan."
     try:
