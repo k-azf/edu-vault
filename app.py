@@ -311,7 +311,7 @@ def submit_exam_results():
     
     score = int(data['score'])
     total = int(data['total_questions'])
-    accuracy = float(data['accuracy'])
+    accuracy = float(data_val) if data_val is not None else 0.0
     
     rec_prompt = f"The student scored {score}/{total} ({accuracy}% accuracy) in an exam. Provide a brief, supportive, 2-sentence study plan."
     try:
