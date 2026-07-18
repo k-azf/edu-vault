@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-6xl mx-auto px-6 py-10 space-y-10">
+
+    <!-- Hero Greeting & Stats Panel -->
+    <div class="grid md:grid-cols-12 gap-6 items-stretch">
+        <div class="md:col-span-8 bg-gradient-to-br from-blue-600 to-indigo-800 text-white rounded-3xl p-8 shadow-lg flex flex-col justify-between">
+            <div>
+                <span class="bg-white/20 text-white text-[10px] font-black tracking-widest px-3 py-1 rounded-full uppercase">Global Score</span>
+                <h1 class="text-3xl font-extrabold mt-4">Welcome back, <span class="text-yellow-300">{{ username }}</span>!</h1>
+                <p class="text-slate-100/90 text-sm mt-2 max-w-md leading-relaxed">Continue practicing to preserve your study streak and reach your daily target goal.</p>
+            </div>
+            <div class="mt-8 flex items-center space-x-6">
+                <a href="/tutor" class="bg-white text-blue-900 font-bold text-sm px-5 py-3 rounded-xl shadow-md hover:scale-105 transition">Ask AI Tutor</a>
+                {% if role == 'admin' %}
+                    <a href="/admin" class="bg-blue-900/40 border border-white/20 text-white font-bold text-sm px-5 py-3 rounded-xl hover:bg-blue-900/60 transition">Admin Portal</a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Progress Metrics Widget -->
+        <div class="md:col-span-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 flex flex-col justify-between shadow-sm">
+            <div>
+                <h3 class="text-sm font-extrabold text-slate-400 uppercase tracking-wider">Learning Metrics</h3>
+                <div class="mt-6 flex justify-between items-center">
+                    <div>
+                        <span class="text-4xl font-extrabold text-slate-800 dark:text-white" id="streak-num">3</span>
+                        <span class="text-xs font-bold text-slate-400 block uppercase mt-1">Day Streak 🔥</span>
+                    </div>
+                    <div class="h-12 w-px bg-slate-200 dark:bg-slate-800"></div>
+                    <div>
+                        <span class="text-4xl font-extrabold text-slate-800 dark:text-white">82%</span>
+                        <span class="text-xs font-bold text-slate-400 block uppercase mt-1">Accuracy 🎯</span>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-8">
+                <div class="flex justify-between text-xs font-bold text-slate-400 mb-2">
+                    <span>DAILY GOAL</span>
+                    <span>15 / 30 MINS</span>
+                </div>
+                <div class="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                    <div class="bg-blue-600 h-full rounded-full" style="width: 50%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Subjects Portal -->
+    <div>
+        <h2 class="text-xl font-bold mb-6 tracking-tight">Active Subjects</h2>
+        <div class="grid sm:grid-cols-2 md:grid-cols-4 gap-6">
+            <!-- Math Card -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 hover:shadow-md transition">
+                <div class="h-12 w-12 bg-emerald-100 dark:bg-emerald-950 text-emerald-600 rounded-xl flex items-center justify-center font-bold text-lg mb-4">∑</div>
+                <h3 class="font-bold text-slate-800 dark:text-white">Mathematics</h3>
+                <p class="text-xs text-slate-400 mt-1">CBT, Algebra, Calculus</p>
+                <a href="/subject/Mathematics" class="mt-4 block text-xs font-extrabold text-blue-600 hover:underline">Open Dashboard →</a>
+            </div>
+            <!-- Biology Card -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 hover:shadow-md transition">
+                <div class="h-12 w-12 bg-red-100 dark:bg-red-950 text-red-600 rounded-xl flex items-center justify-center font-bold text-lg mb-4">🧬</div>
+                <h3 class="font-bold text-slate-800 dark:text-white">Biology</h3>
+                <p class="text-xs text-slate-400 mt-1">Cell, Anatomy, Ecology</p>
+                <a href="/subject/Biology" class="mt-4 block text-xs font-extrabold text-blue-600 hover:underline">Open Dashboard →</a>
+            </div>
+            <!-- Physics Card -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 hover:shadow-md transition">
+                <div class="h-12 w-12 bg-purple-100 dark:bg-purple-950 text-purple-600 rounded-xl flex items-center justify-center font-bold text-lg mb-4">⚛️</div>
+                <h3 class="font-bold text-slate-800 dark:text-white">Physics</h3>
+                <p class="text-xs text-slate-400 mt-1">Mechanics, Relativity</p>
+                <a href="/subject/Physics" class="mt-4 block text-xs font-extrabold text-blue-600 hover:underline">Open Dashboard →</a>
+            </div>
+            <!-- Chemistry Card -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 hover:shadow-md transition">
+                <div class="h-12 w-12 bg-amber-100 dark:bg-amber-950 text-amber-600 rounded-xl flex items-center justify-center font-bold text-lg mb-4">🧪</div>
+                <h3 class="font-bold text-slate-800 dark:text-white">Chemistry</h3>
+                <p class="text-xs text-slate-400 mt-1">Organic, Inorganic</p>
+                <a href="/subject/Chemistry" class="mt-4 block text-xs font-extrabold text-blue-600 hover:underline">Open Dashboard →</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Practice Exams Listing -->
+    <div>
+        <h2 class="text-xl font-bold mb-6 tracking-tight">Available Practice Exams</h2>
+        <div id="exam-list" class="grid md:grid-cols-2 gap-6">
+            <!-- Dynamic Exam Cards Go Here -->
+        </div>
+    </div>
+</div>
+
+<script>
+    // Fetch Exams list
+    fetch('/api/exams')
+        .then(res => res.json())
+        .then(exams => {
+            const list = document.getElementById('exam-list');
+            if (exams.length === 0) {
+                list.innerHTML = `
+                    <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 text-center col-span-2">
+                        <p class="text-slate-400 text-sm">No custom exams available. Visit the admin panel to upload a PDF!</p>
+                    </div>`;
+                return;
+            }
+            exams.forEach(exam => {
+                list.innerHTML += `
+                    <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 flex justify-between items-center">
+                        <div>
+                            <span class="bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 text-[10px] font-black tracking-widest px-2 py-0.5 rounded uppercase">${exam.category}</span>
+                            <h3 class="text-lg font-bold text-slate-800 dark:text-white mt-1">${exam.title}</h3>
+                            <p class="text-xs text-slate-400">${exam.school_name || "National Exam"}</p>
+                        </div>
+                        <a href="/exam/${exam.id}" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl">Start Practice</a>
+                    </div>
+                `;
+            });
+        });
+</script>
+{% endblock %}

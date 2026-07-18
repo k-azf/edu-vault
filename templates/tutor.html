@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-4xl mx-auto px-6 py-10 flex flex-col h-[85vh]">
+
+    <div class="mb-6 flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-black">AI Tutor Assistant</h1>
+            <p class="text-xs text-slate-400">Ask any academic question and receive step-by-step guidance.</p>
+        </div>
+        <button onclick="clearTutorLogs()" class="text-xs font-bold text-red-500 hover:underline">Clear Logs</button>
+    </div>
+
+    <!-- Chat Stream Pane -->
+    <div id="tutor-chat-stream" class="flex-grow bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 overflow-y-auto space-y-4 custom-scrollbar">
+        <div class="bg-blue-50/50 dark:bg-blue-950/20 p-4 rounded-xl max-w-lg text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+            Hi, I am your EduVault AI Tutor. Paste a question, topic, or ask me to explain a concept step-by-step!
+        </div>
+    </div>
+
+    <!-- Message Inputs -->
+    <div class="mt-4 flex gap-3">
+        <input type="text" id="tutor-msg-field" placeholder="Ask about calculus, anatomy, or paste a question..." class="flex-grow bg-white dark:bg-slate-900 p-3.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+        <button onclick="sendTutorMessage()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-6 rounded-xl">Send Query</button>
+    </div>
+</div>
+
+<script>
+    function sendTutorMessage() {
+        const input = document.getElementById('tutor-msg-field');
+        const msg = input.value.trim();
+        if (!msg) return;
+
+        const stream = document.getElementById('tutor-chat-stream');
+        
+        // Append user message
+        stream.innerHTML += `
+            <div class="flex justify-end">
+                <div class="bg-blue-600 text-white p-4 rounded-xl max-w-lg text-xs leading-relaxed font-semibold">
+                    ${msg}
+                </div>
+            </div>
+        `;
+        input.value = "";
+        stream.scrollTop = stream.scrollHeight;
+
+        // Append loading indicator
+        const loadingId = "loader-" + Date.now();
+        stream.innerHTML += `
+            <div id="${loadingId}" class="bg-slate-100 dark:bg-slate-800 p-4 rounded-xl max-w-lg text-xs leading-relaxed text-slate-400">
+                AI is formulating answer...
+            </div>
+        `;
+        stream.scrollTop = stream.scrollHeight;
+
+        // Send query
+        fetch('/api/tutor/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: msg })
+        })
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById(loadingId).remove();
+            if (data.error) {
+                stream.innerHTML += `<div class="p-3 bg-red-100 text-red-800 text-xs rounded-xl">${data.error}</div>`;
+            } else {
+                stream.innerHTML += `
+                    <div class="bg-slate-100 dark:bg-slate-800 p-4 rounded-xl max-w-lg text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+                        ${data.response}
+                    </div>
+                `;
+            }
+            stream.scrollTop = stream.scrollHeight;
+        });
+    }
+
+    function clearTutorLogs() {
+        document.getElementById('tutor-chat-stream').innerHTML = `
+            <div class="bg-blue-50/50 dark:bg-blue-950/20 p-4 rounded-xl max-w-lg text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+                Chat logs cleared. Ask a new query!
+            </div>
+        `;
+    }
+</script>
+{% endblock %}

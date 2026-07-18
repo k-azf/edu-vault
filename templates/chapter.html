@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-6xl mx-auto px-6 py-10 space-y-10">
+    <div>
+        <a href="/subject/{{ subject }}" class="text-blue-600 hover:underline text-xs font-bold tracking-wider uppercase mb-2 block">← Back to Subject Hub</a>
+        <h1 class="text-3xl font-black tracking-tight">{{ subject }} Chapters</h1>
+        <p class="text-sm text-slate-400 mt-1">Review estimated study durations and start practice sessions.</p>
+    </div>
+
+    <!-- Chapter Grid -->
+    <div id="chapter-list" class="grid md:grid-cols-2 gap-6">
+        <!-- Dynamically Loaded Chapters -->
+    </div>
+</div>
+
+<script>
+    const sub = "{{ subject }}";
+    fetch(`/api/chapters/${sub}`)
+        .then(res => res.json())
+        .then(chapters => {
+            const list = document.getElementById('chapter-list');
+            if (chapters.length === 0) {
+                list.innerHTML = `<p class="text-slate-400 text-sm">No chapters loaded for this subject yet.</p>`;
+                return;
+            }
+            chapters.forEach(chap => {
+                list.innerHTML += `
+                    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-start mb-4">
+                                <span class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[9px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full">${chap.difficulty}</span>
+                                <span class="text-xs text-slate-400 font-mono">${chap.estimated_time_mins} Mins Est.</span>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-800 dark:text-white">${chap.name}</h3>
+                            <p class="text-xs text-slate-400 mt-1">${chap.question_count} Practice Questions available</p>
+                        </div>
+                        <div class="mt-6 flex justify-between items-center border-t border-slate-100 dark:border-slate-800 pt-4">
+                            <span class="text-xs font-bold text-slate-400 uppercase">Best: 80%</span>
+                            <button class="bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-700 dark:text-slate-300 text-xs font-bold px-4 py-2 rounded-xl transition">Start Practice</button>
+                        </div>
+                    </div>
+                `;
+            });
+        });
+</script>
+{% endblock %}

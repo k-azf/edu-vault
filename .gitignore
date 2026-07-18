@@ -1,0 +1,6 @@
+   .env
+   exams.db
+   uploads/
+   __pycache__/
+   venv/
+   

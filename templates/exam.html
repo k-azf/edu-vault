@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+{% block content %}
+<!-- Exam Interface with Sidebar -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-screen relative">
+
+    <!-- Left Sidebar: Question Navigator -->
+    <div class="lg:col-span-3 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 p-6 flex flex-col justify-between">
+        <div>
+            <h3 class="text-sm font-extrabold text-slate-400 uppercase tracking-widest mb-4">Navigator</h3>
+            <div id="question-nav-grid" class="grid grid-cols-5 gap-2.5">
+                <!-- Dynamically Generated Navigation buttons -->
+            </div>
+        </div>
+        
+        <!-- Utility Widgets -->
+        <div class="mt-8 space-y-4 border-t border-slate-100 dark:border-slate-800 pt-4">
+            <div class="bg-slate-100 dark:bg-slate-800 p-4 rounded-xl">
+                <span class="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-2">Scratchpad Calculator</span>
+                <input type="text" id="calculator-input" placeholder="e.g., 25 * 12" oninput="runScratchCalc()" class="w-full bg-white dark:bg-slate-900 p-2 border border-slate-200 dark:border-slate-800 rounded text-xs font-mono">
+                <div id="calculator-output" class="text-xs font-bold font-mono mt-1 text-slate-700 dark:text-slate-300">Ans: </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Question Arena -->
+    <div class="lg:col-span-9 px-6 py-8 max-w-4xl mx-auto w-full">
+        <div id="exam-timer-header" class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 flex justify-between items-center mb-8">
+            <div>
+                <h1 id="exam-header-title" class="text-xl font-extrabold">Loading Exam Module...</h1>
+                <p id="exam-header-meta" class="text-xs text-slate-400 mt-0.5">Please wait...</p>
+            </div>
+            <div class="text-right">
+                <span class="text-[9px] font-black text-slate-400 uppercase block tracking-wider">Remaining Time</span>
+                <span id="exam-clock" class="text-2xl font-black text-red-600 font-mono tracking-tight">00:00</span>
+            </div>
+        </div>
+
+        <div id="score-banner" class="hidden mb-8"></div>
+
+        <div id="exam-arena" class="space-y-8">
+            <!-- Render Dynamic Questions -->
+        </div>
+
+        <div class="mt-10 flex justify-between">
+            <button onclick="endExam()" id="submit-paper-btn" class="bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 text-white dark:text-slate-900 font-bold text-sm px-6 py-3 rounded-xl transition">Submit Paper</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const examId = "{{ exam_id }}";
+    let timeLeft = 0;
+    let timerId;
+    let totalQuestions = 0;
+    let questionsData = [];
+    let isExamFinished = false;
+    let correctAnswersCount = 0;
+
+    Promise.all([
+        fetch('/api/exams').then(res => res.json()),
+        fetch(`/api/exams/${examId}/questions`).then(res => res.json())
+    ])
+    .then(([exams, questions]) => {
+        questionsData = questions;
+        totalQuestions = questions.length;
+        const container = document.getElementById('exam-arena');
+        const navGrid = document.getElementById('question-nav-grid');
+        
+        if (totalQuestions === 0) {
+            container.innerHTML = `<p class="text-slate-400 text-sm">No questions mapped for this exam.</p>`;
+            return;
+        }
+
+        const currentExam = exams.find(e => e.id == examId);
+        let minutesPerQuestion = 1.5;
+        if (currentExam) {
+            document.getElementById('exam-header-title').innerText = currentExam.title;
+            const category = currentExam.category.toLowerCase();
+            if (category.includes('math')) minutesPerQuestion = 3;
+            else if (category.includes('biology')) minutesPerQuestion = 2;
+        }
+
+        timeLeft = totalQuestions * minutesPerQuestion * 60;
+        document.getElementById('exam-header-meta').innerText = `${currentExam?.category || 'General'} | Rate: ${minutesPerQuestion} Mins/Question`;
+
+        // Render Navigation Grid
+        for (let i = 0; i < totalQuestions; i++) {
+            navGrid.innerHTML += `
+                <button id="nav-btn-${questions[i].id}" class="h-9 w-9 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-600 dark:text-slate-400">${i + 1}</button>
+            `;
+        }
+
+        // Render Question Arena Cards
+        questions.forEach((q, index) => {
+            const card = document.createElement('div');
+            card.className = "bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800";
+            
+            let passagePart = q.passage_text ? `<div class="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900 rounded-xl p-4 mb-4 text-xs font-medium">${q.passage_text}</div>` : "";
+            let diagramPart = q.diagram_instruction ? `<div class="border border-slate-200 dark:border-slate-800 p-4 rounded-xl mb-4 text-xs bg-slate-50 dark:bg-slate-950 font-mono flex items-center gap-2"><span class="text-blue-600">📐</span> ${q.diagram_instruction}</div>` : "";
+
+            card.innerHTML = `
+                ${passagePart}
+                <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-4">${index + 1}. ${q.question_text}</h3>
+                ${diagramPart}
+                <div class="grid gap-3" id="options-box-${q.id}">
+                    <button onclick="checkAnswer(this, 'A', '${q.correct_answer}', '${q.id}')" data-option="A" class="option-btn text-left p-3.5 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition font-medium text-sm text-slate-700 dark:text-slate-300">A. ${q.option_a}</button>
+                    <button onclick="checkAnswer(this, 'B', '${q.correct_answer}', '${q.id}')" data-option="B" class="option-btn text-left p-3.5 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition font-medium text-sm text-slate-700 dark:text-slate-300">B. ${q.option_b}</button>
+                    <button onclick="checkAnswer(this, 'C', '${q.correct_answer}', '${q.id}')" data-option="C" class="option-btn text-left p-3.5 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition font-medium text-sm text-slate-700 dark:text-slate-300">C. ${q.option_c}</button>
+                    <button onclick="checkAnswer(this, 'D', '${q.correct_answer}', '${q.id}')" data-option="D" class="option-btn text-left p-3.5 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition font-medium text-sm text-slate-700 dark:text-slate-300">D. ${q.option_d}</button>
+                </div>
+                <div id="exp-${q.id}" class="hidden p-4 bg-violet-50/50 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900 rounded-xl text-xs text-slate-600 dark:text-slate-400 mt-4 leading-relaxed font-medium">
+                    <strong class="text-violet-700 dark:text-violet-400 block mb-1">AI Explanation</strong>
+                    ${q.explanation}
+                </div>
+            `;
+            container.appendChild(card);
+        });
+
+        startTimer();
+    });
+
+    function startTimer() {
+        timerId = setInterval(() => {
+            if (timeLeft <= 0) {
+                clearInterval(timerId);
+                endExam();
+            } else {
+                timeLeft--;
+                const mins = Math.floor(timeLeft / 60);
+                const secs = timeLeft % 60;
+                document.getElementById('exam-clock').innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            }
+        }, 1000);
+    }
+
+    function checkAnswer(button, selected, correct, qId) {
+        if (isExamFinished) return;
+        const parent = button.parentElement;
+        const buttons = parent.querySelectorAll('.option-btn');
+        const navBtn = document.getElementById(`nav-btn-${qId}`);
+
+        buttons.forEach(btn => btn.disabled = true);
+
+        if (selected === correct) {
+            button.classList.add('bg-emerald-50', 'border-emerald-500', 'text-emerald-800');
+            navBtn.classList.add('bg-emerald-500', 'text-white', 'border-emerald-500');
+            correctAnswersCount++;
+        } else {
+            button.classList.add('bg-rose-50', 'border-rose-500', 'text-rose-800');
+            navBtn.classList.add('bg-rose-500', 'text-white', 'border-rose-500');
+            buttons.forEach(btn => {
+                if (btn.getAttribute('data-option') === correct) {
+                    btn.classList.add('bg-emerald-50', 'border-emerald-500', 'text-emerald-800');
+                }
+            });
+        }
+        document.getElementById(`exp-${qId}`).classList.remove('hidden');
+    }
+
+    function endExam() {
+        if (isExamFinished) return;
+        isExamFinished = true;
+        clearInterval(timerId);
+
+        document.querySelectorAll('.option-btn').forEach(btn => btn.disabled = true);
+        document.querySelectorAll('.explanation-box').forEach(box => box.classList.remove('hidden'));
+
+        const accuracy = Math.round((correctAnswersCount / totalQuestions) * 100);
+
+        // Submit to Backend DB
+        fetch('/api/results/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                exam_id: examId,
+                score: correctAnswersCount,
+                total_questions: totalQuestions,
+                time_used: 1800 - timeLeft,
+                accuracy: accuracy
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                // Redirect immediately to Advanced Result Dashboard
+                window.location.href = `/result/${data.result_id}`;
+            }
+        });
+    }
+
+    function runScratchCalc() {
+        const input = document.getElementById('calculator-input').value;
+        const output = document.getElementById('calculator-output');
+        try {
+            const clean = input.replace(/[^0-9+\-*/().\s]/g, '');
+            const ans = eval(clean);
+            output.innerText = `Ans: ${ans !== undefined ? ans : ""}`;
+        } catch (e) {
+            output.innerText = "Ans: Error";
+        }
+    }
+</script>
+{% endblock %}

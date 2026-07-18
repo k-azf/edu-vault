@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-6xl mx-auto px-6 py-10 space-y-10">
+
+    <div>
+        <h1 class="text-3xl font-black tracking-tight">Admin Operations Center</h1>
+        <p class="text-sm text-slate-400 mt-1">Upload educational materials and generate standardized mock exam tests.</p>
+    </div>
+
+    <!-- Admin Panel Control Widgets -->
+    <div class="grid md:grid-cols-3 gap-6">
+        
+        <!-- Upload Form -->
+        <div class="md:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+            <h3 class="text-lg font-bold mb-4">PDF to JSON Parser (ChatGPT 2.0)</h3>
+            <form id="upload-form" class="space-y-4">
+                <div class="grid sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Exam Title</label>
+                        <input type="text" name="title" required placeholder="e.g. Maths Matric 2024" class="w-full bg-slate-50 dark:bg-slate-950 p-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Category / Subject</label>
+                        <input type="text" name="category" required placeholder="e.g. Mathematics" class="w-full bg-slate-50 dark:bg-slate-950 p-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Select Exam PDF File</label>
+                    <input type="file" name="pdf_file" accept=".pdf" required class="w-full bg-slate-50 dark:bg-slate-950 p-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm">
+                </div>
+                <button type="submit" id="submit-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-6 py-3 rounded-xl transition">Parse with AI</button>
+            </form>
+            <div id="status-msg" class="mt-4 text-xs font-bold"></div>
+        </div>
+
+        <!-- Quick System Logs -->
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+            <div>
+                <h3 class="text-sm font-extrabold text-slate-400 uppercase tracking-widest mb-4">Core System Logs</h3>
+                <div class="space-y-2.5 font-mono text-[10px] text-slate-500 max-h-40 overflow-y-auto">
+                    <div>[INFO] EV Core Bootup: Complete</div>
+                    <div>[DB] Connection Established</div>
+                    <div>[AI] ChatGPT SDK Initialized</div>
+                </div>
+            </div>
+            <button onclick="alert('Log cleanup successful')" class="w-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-xs py-2.5 rounded-xl mt-4">Clean Logs</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('upload-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('submit-btn');
+        const status = document.getElementById('status-msg');
+        const formData = new FormData(this);
+
+        btn.disabled = true;
+        btn.innerText = "Parsing with AI (Wait ~30s)...";
+        status.className = "mt-4 text-xs font-bold text-slate-500";
+        status.innerText = "Processing PDF and executing dynamic schema alignment...";
+
+        fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                status.className = "mt-4 text-xs font-bold text-green-600";
+                status.innerText = data.message;
+                document.getElementById('upload-form').reset();
+            } else {
+                status.className = "mt-4 text-xs font-bold text-red-600";
+                status.innerText = "Failure: " + data.error;
+            }
+        })
+        .catch(() => {
+            status.className = "mt-4 text-xs font-bold text-red-600";
+            status.innerText = "Error: Connection timed out.";
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerText = "Parse with AI";
+        });
+    });
+</script>
+{% endblock %}
