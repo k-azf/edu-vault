@@ -83,7 +83,14 @@ def parse_single_chunk_with_ai(chunk_path):
     }
     """
 
-    models_to_try = ["gemini-2.0-flash"]
+        # Standard stable free-tier models (including latest 2026 lite releases)
+    models_to_try = [
+        'gemini-1.5-flash',
+        'gemini-1.5-flash-latest',
+        'gemini-2.0-flash',
+        'gemini-2.5-flash-lite'
+    ]
+
     last_error = None
 
     for model_name in models_to_try:
