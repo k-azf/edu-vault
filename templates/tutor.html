@@ -4,27 +4,60 @@
 
     <div class="mb-6 flex justify-between items-center">
         <div>
-            <h1 class="text-2xl font-black">AI Tutor Assistant</h1>
+            <h1 class="text-2xl font-black text-slate-800 dark:text-white">AI Tutor Assistant</h1>
             <p class="text-xs text-slate-400">Ask any academic question and receive step-by-step guidance.</p>
         </div>
-        <button onclick="clearTutorLogs()" class="text-xs font-bold text-red-500 hover:underline">Clear Logs</button>
+        <button onclick="clearTutorLogs()" class="text-xs font-bold text-red-500 hover:text-red-600 hover:underline transition">Clear Logs</button>
     </div>
 
     <!-- Chat Stream Pane -->
-    <div id="tutor-chat-stream" class="flex-grow bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 overflow-y-auto space-y-4 custom-scrollbar">
-        <div class="bg-blue-50/50 dark:bg-blue-950/20 p-4 rounded-xl max-w-lg text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+    <div id="tutor-chat-stream" class="flex-grow bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 overflow-y-auto space-y-4 custom-scrollbar shadow-sm">
+        <div class="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100/50 dark:border-blue-900/30 p-4 rounded-2xl max-w-lg text-xs leading-relaxed text-slate-700 dark:text-slate-300">
             Hi, I am your EduVault AI Tutor. Paste a question, topic, or ask me to explain a concept step-by-step!
         </div>
     </div>
 
     <!-- Message Inputs -->
     <div class="mt-4 flex gap-3">
-        <input type="text" id="tutor-msg-field" placeholder="Ask about calculus, anatomy, or paste a question..." class="flex-grow bg-white dark:bg-slate-900 p-3.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-        <button onclick="sendTutorMessage()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-6 rounded-xl">Send Query</button>
+        <input type="text" id="tutor-msg-field" onkeypress="handleKeyPress(event)" placeholder="Ask about calculus, anatomy, or paste a question..." class="flex-grow bg-white dark:bg-slate-900 p-3.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition dark:text-white">
+        <button onclick="sendTutorMessage()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-6 rounded-xl transition shadow-md shadow-blue-500/10">Send Query</button>
     </div>
 </div>
 
 <script>
+    // Enable pressing "Enter" on keyboard to send message
+    function handleKeyPress(e) {
+        if (e.key === 'Enter') {
+            sendTutorMessage();
+        }
+    }
+
+    // Helper to format Grok's markdown response beautifully
+    function formatAIResponse(text) {
+        if (!text) return "";
+        
+        // Escape HTML
+        let formatted = text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+
+        // Format code blocks ```code```
+        formatted = formatted.replace(/```([\s\S]+?)```/g, '<pre class="bg-slate-950 text-emerald-400 p-3 rounded-lg font-mono text-[11px] my-2 overflow-x-auto border border-slate-800">$1</pre>');
+
+        // Format inline code `code`
+        formatted = formatted.replace(/`([^`]+)`/g, '<code class="bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono text-xs text-rose-600 dark:text-rose-400">$1</code>');
+
+        // Format bold text **text**
+        formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-extrabold text-slate-900 dark:text-white">$1</strong>');
+
+        // Format bullet points (lines starting with * or -)
+        formatted = formatted.replace(/^\s*[\*\-]\s+(.+)$/gm, '<li class="list-disc ml-4 my-1">$1</li>');
+
+        // Convert line breaks to paragraphs
+        return formatted.replace(/\n/g, '<br>');
+    }
+
     function sendTutorMessage() {
         const input = document.getElementById('tutor-msg-field');
         const msg = input.value.trim();
@@ -32,10 +65,10 @@
 
         const stream = document.getElementById('tutor-chat-stream');
         
-        // Append user message
+        // Append user message beautifully aligned to the right
         stream.innerHTML += `
             <div class="flex justify-end">
-                <div class="bg-blue-600 text-white p-4 rounded-xl max-w-lg text-xs leading-relaxed font-semibold">
+                <div class="bg-blue-600 text-white p-4 rounded-2xl max-w-lg text-xs leading-relaxed font-semibold shadow-sm">
                     ${msg}
                 </div>
             </div>
@@ -43,16 +76,19 @@
         input.value = "";
         stream.scrollTop = stream.scrollHeight;
 
-        // Append loading indicator
+        // Append a premium pulsing loading indicator
         const loadingId = "loader-" + Date.now();
         stream.innerHTML += `
-            <div id="${loadingId}" class="bg-slate-100 dark:bg-slate-800 p-4 rounded-xl max-w-lg text-xs leading-relaxed text-slate-400">
-                AI is formulating answer...
+            <div id="${loadingId}" class="flex items-center space-x-2 bg-slate-100 dark:bg-slate-800/60 p-4 rounded-2xl max-w-[200px] text-xs leading-relaxed text-slate-400 dark:text-slate-500 animate-pulse border border-slate-200/40 dark:border-slate-800">
+                <div class="h-2 w-2 bg-blue-600 rounded-full animate-bounce"></div>
+                <div class="h-2 w-2 bg-blue-600 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                <div class="h-2 w-2 bg-blue-600 rounded-full animate-bounce [animation-delay:0.4s]"></div>
+                <span class="font-bold pl-1">Grok is thinking...</span>
             </div>
         `;
         stream.scrollTop = stream.scrollHeight;
 
-        // Send query
+        // Send query to python backend
         fetch('/api/tutor/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -60,23 +96,43 @@
         })
         .then(res => res.json())
         .then(data => {
-            document.getElementById(loadingId).remove();
+            // Remove the loading indicator
+            const loader = document.getElementById(loadingId);
+            if (loader) loader.remove();
+
             if (data.error) {
-                stream.innerHTML += `<div class="p-3 bg-red-100 text-red-800 text-xs rounded-xl">${data.error}</div>`;
-            } else {
+                // Render error banner if Grok API reports a problem
                 stream.innerHTML += `
-                    <div class="bg-slate-100 dark:bg-slate-800 p-4 rounded-xl max-w-lg text-xs leading-relaxed text-slate-700 dark:text-slate-300">
-                        ${data.response}
+                    <div class="p-4 bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-950 text-red-700 dark:text-red-400 text-xs rounded-2xl max-w-lg">
+                        <strong>Error:</strong> ${data.error}
+                    </div>
+                `;
+            } else {
+                // Render beautifully formatted Grok reply
+                const formattedAnswer = formatAIResponse(data.response);
+                stream.innerHTML += `
+                    <div class="bg-slate-100 dark:bg-slate-800/80 border border-slate-200/40 dark:border-slate-800/80 p-4 rounded-2xl max-w-xl text-xs leading-relaxed text-slate-700 dark:text-slate-300 shadow-sm">
+                        ${formattedAnswer}
                     </div>
                 `;
             }
+            stream.scrollTop = stream.scrollHeight;
+        })
+        .catch(err => {
+            const loader = document.getElementById(loadingId);
+            if (loader) loader.remove();
+            stream.innerHTML += `
+                <div class="p-4 bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-950 text-red-700 dark:text-red-400 text-xs rounded-2xl max-w-lg">
+                    <strong>Connection Error:</strong> Could not connect to the EduVault servers.
+                </div>
+            `;
             stream.scrollTop = stream.scrollHeight;
         });
     }
 
     function clearTutorLogs() {
         document.getElementById('tutor-chat-stream').innerHTML = `
-            <div class="bg-blue-50/50 dark:bg-blue-950/20 p-4 rounded-xl max-w-lg text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+            <div class="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100/50 dark:border-blue-900/30 p-4 rounded-2xl max-w-lg text-xs leading-relaxed text-slate-700 dark:text-slate-300">
                 Chat logs cleared. Ask a new query!
             </div>
         `;

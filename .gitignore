@@ -1,6 +1,29 @@
-   .env
-   exams.db
-   uploads/
-   __pycache__/
-   venv/
-   
+# .gitignore file for EduVault Web App
+
+# Ignore Environment Variables (API Keys)
+.env
+edu.env
+*.env
+
+# Ignore Local SQLite Databases
+*.db
+*.sqlite3
+
+# Ignore Uploaded PDF Files and Temporary Chunks
+uploads/
+temp_chunk_*.pdf
+*.pdf
+
+# Ignore Python Cache Files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore Local Virtual Environments
+venv/
+.venv/
+env/
+
+# Ignore Visual Studio Code Configs
+.vscode/

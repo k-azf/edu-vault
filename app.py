@@ -3,6 +3,8 @@ import json
 import time
 import re
 import sqlite3
+import urllib.request
+import urllib.error
 from functools import wraps
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
 from pypdf import PdfReader, PdfWriter
@@ -17,7 +19,7 @@ app = Flask(__name__)
 # Secure Key for encrypting cookies and user sessions
 app.secret_key = os.getenv("SECRET_KEY", "super-secret-eduvault-key-12345")
 
-# Configure Google's GenAI Client using GEMINI_API_KEY
+# Configure Google's GenAI Client (For PDF Parsing)
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 # Helper function to connect to the database
@@ -83,14 +85,12 @@ def parse_single_chunk_with_ai(chunk_path):
     }
     """
 
-        # Standard stable free-tier models (including latest 2026 lite releases)
+    # Optimized models list (using your unthrottled, functional models first!)
     models_to_try = [
-        'gemini-1.5-flash',
-        'gemini-1.5-flash-latest',
-        'gemini-2.0-flash',
-        'gemini-2.5-flash-lite'
+        "gemini-flash-latest",
+        "gemini-3.5-flash",
+        "gemini-3.1-flash-lite"
     ]
-
     last_error = None
 
     for model_name in models_to_try:
@@ -126,8 +126,6 @@ def parse_single_chunk_with_ai(chunk_path):
                     match = re.search(r"Please retry in ([0-9.]+)s", error_msg)
                     wait_time = float(match.group(1)) + 1.5 if match else backoff_delay
                     print(f"DEBUG: Rate limit reached. Sleeping for {wait_time} seconds...")
-                    if wait_time > 5:
-                             raise Exception("API rate limit reached. Please wait a minute and try uploading again.")
                     time.sleep(wait_time)
                     backoff_delay *= 2
                     continue
@@ -147,7 +145,6 @@ def parse_pdf_with_ai(pdf_path):
     total_pages = len(reader.pages)
     print(f"DEBUG: Initiating parser. Total pages detected: {total_pages}")
     
-    # Process page-by-page to keep token count extremely low
     chunk_size = 1
     all_questions = []
     school_name = None
@@ -178,7 +175,7 @@ def parse_pdf_with_ai(pdf_path):
             if os.path.exists(chunk_filename):
                 os.remove(chunk_filename)
 
-        # Mer questionsge extracted metadata &
+        # Merge extracted metadata & questions
         if chunk_data:
             if not school_name and chunk_data.get("school_name"):
                 school_name = chunk_data.get("school_name")
@@ -193,6 +190,7 @@ def parse_pdf_with_ai(pdf_path):
             print(f"DEBUG: Successfully extracted {len(questions_list)} questions from page {start_page + 1}.")
             all_questions.extend(questions_list)
 
+        # Pause 10 seconds between pages to let the Free Tier token quota reset
         if end_page < total_pages:
             print("DEBUG: Pausing for 10 seconds to allow the rolling minute quota to reset...")
             time.sleep(10)
@@ -206,6 +204,7 @@ def parse_pdf_with_ai(pdf_path):
     }
 
 
+# --- Authentication ---
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
@@ -320,14 +319,11 @@ def submit_exam_results():
     
     score = int(data['score'])
     total = int(data['total_questions'])
-    # Safely handle missing or None accuracy values
-    accuracy_val = data.get('accuracy')
-    accuracy = float(accuracy_val) if accuracy_val is not None else 0.0
-
+    accuracy = float(data['accuracy'])
     
     rec_prompt = f"The student scored {score}/{total} ({accuracy}% accuracy) in an exam. Provide a brief, supportive, 2-sentence study plan."
     try:
-        response = client.models.generate_content(model="gemini-2.0-flash", contents=rec_prompt)
+        response = client.models.generate_content(model="gemini-3.5-flash", contents=rec_prompt)
         recommendation = response.text
     except Exception:
         recommendation = "Focus on weak chapters and review explanations for incorrect attempts."
@@ -398,22 +394,75 @@ def upload_pdf():
         if os.path.exists(filepath):
             os.remove(filepath)
 
-# --- AI Tutor Chat Service ---
+
+# --- AI Tutor Chat Service (Powered by Gemini) ---
+
 @app.route('/api/tutor/chat', methods=['POST'])
 @login_required
 def tutor_chat():
-    user_message = request.json.get("message")
+    data = request.get_json(silent=True) or {}
+    user_message = (data.get("message") or "").strip()
+
     if not user_message:
         return jsonify({"error": "Message is required"}), 400
-        
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=f"You are an empathetic, world-class academic tutor. Help the student with this query: {user_message}"
-        )
-        return jsonify({"response": response.text})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+
+    if not client:
+        return jsonify({
+            "error": "GEMINI_API_KEY is not configured on the server."
+        }), 500
+
+    tutor_prompt = f"""
+You are EduVault's friendly academic tutor.
+
+Answer the student's question clearly and accurately.
+- Explain step by step when necessary.
+- Use simple English.
+- For science and mathematics, include examples or formulas when helpful.
+- Do not invent facts.
+- If the question is unclear, ask a short clarifying question.
+- Be supportive and suitable for a high-school student.
+
+Student's question:
+{user_message}
+"""
+
+    # Use the same Gemini model that is working for your PDF parser first.
+    tutor_models = [
+        "gemini-flash-latest",
+        "gemini-3.5-flash",
+        "gemini-3.1-flash-lite"
+    ]
+
+    last_error = None
+
+    for model_name in tutor_models:
+        try:
+            print(f"DEBUG: AI Tutor trying Gemini model: {model_name}")
+
+            response = client.models.generate_content(
+                model=model_name,
+                contents=tutor_prompt
+            )
+
+            if response and response.text:
+                return jsonify({
+                    "response": response.text,
+                    "model": model_name
+                })
+
+            last_error = f"{model_name} returned an empty response."
+
+        except Exception as error:
+            last_error = error
+            print(f"DEBUG: AI Tutor model {model_name} failed: {error}")
+            continue
+
+    return jsonify({
+        "error": "Gemini AI Tutor is temporarily unavailable.",
+        "details": str(last_error)
+    }), 503
+
+
 
 if __name__ == '__main__':
     if not os.path.exists('uploads'):
