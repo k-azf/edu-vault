@@ -24,6 +24,22 @@
     </div>
 </div>
 
+<!-- Markdown, mathematical formulas, and safe HTML rendering CDN integrations -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+    window.MathJax = {
+        tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']],
+            displayMath: [['$$', '$$'], ['\\[', '\\]']]
+        },
+        options: {
+            skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+        }
+    };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
+
 <script>
     // Enable pressing "Enter" on keyboard to send message
     function handleKeyPress(e) {
@@ -32,30 +48,18 @@
         }
     }
 
-    // Helper to format Grok's markdown response beautifully
+    // Helper to format Gemini's Markdown, math LaTeX, emojis, and structures safely
     function formatAIResponse(text) {
         if (!text) return "";
         
-        // Escape HTML
-        let formatted = text
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;");
+        // Convert Markdown to parsed HTML
+        const markdownHtml = marked.parse(text, {
+            breaks: true,
+            gfm: true
+        });
 
-        // Format code blocks ```code```
-        formatted = formatted.replace(/```([\s\S]+?)```/g, '<pre class="bg-slate-950 text-emerald-400 p-3 rounded-lg font-mono text-[11px] my-2 overflow-x-auto border border-slate-800">$1</pre>');
-
-        // Format inline code `code`
-        formatted = formatted.replace(/`([^`]+)`/g, '<code class="bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono text-xs text-rose-600 dark:text-rose-400">$1</code>');
-
-        // Format bold text **text**
-        formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-extrabold text-slate-900 dark:text-white">$1</strong>');
-
-        // Format bullet points (lines starting with * or -)
-        formatted = formatted.replace(/^\s*[\*\-]\s+(.+)$/gm, '<li class="list-disc ml-4 my-1">$1</li>');
-
-        // Convert line breaks to paragraphs
-        return formatted.replace(/\n/g, '<br>');
+        // Sanitize raw HTML string before rendering to prevent XSS vulnerability
+        return DOMPurify.sanitize(markdownHtml);
     }
 
     function sendTutorMessage() {
@@ -65,27 +69,32 @@
 
         const stream = document.getElementById('tutor-chat-stream');
         
-        // Append user message beautifully aligned to the right
-        stream.innerHTML += `
-            <div class="flex justify-end">
-                <div class="bg-blue-600 text-white p-4 rounded-2xl max-w-lg text-xs leading-relaxed font-semibold shadow-sm">
-                    ${msg}
-                </div>
-            </div>
-        `;
+        // Safely append user message aligned to the right (No raw string HTML vulnerabilities)
+        const userBubble = document.createElement("div");
+        userBubble.className = "flex justify-end";
+
+        const userMessageElement = document.createElement("div");
+        userMessageElement.className = "bg-blue-600 text-white p-4 rounded-2xl max-w-lg text-xs leading-relaxed font-semibold shadow-sm";
+        userMessageElement.textContent = msg;
+
+        userBubble.appendChild(userMessageElement);
+        stream.appendChild(userBubble);
+
         input.value = "";
         stream.scrollTop = stream.scrollHeight;
 
-        // Append a premium pulsing loading indicator
+        // Append a premium pulsing loading indicator for Gemini
         const loadingId = "loader-" + Date.now();
-        stream.innerHTML += `
-            <div id="${loadingId}" class="flex items-center space-x-2 bg-slate-100 dark:bg-slate-800/60 p-4 rounded-2xl max-w-[200px] text-xs leading-relaxed text-slate-400 dark:text-slate-500 animate-pulse border border-slate-200/40 dark:border-slate-800">
-                <div class="h-2 w-2 bg-blue-600 rounded-full animate-bounce"></div>
-                <div class="h-2 w-2 bg-blue-600 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                <div class="h-2 w-2 bg-blue-600 rounded-full animate-bounce [animation-delay:0.4s]"></div>
-                <span class="font-bold pl-1">Grok is thinking...</span>
-            </div>
+        const loader = document.createElement("div");
+        loader.id = loadingId;
+        loader.className = "flex items-center space-x-2 bg-slate-100 dark:bg-slate-800/60 p-4 rounded-2xl max-w-[200px] text-xs leading-relaxed text-slate-400 dark:text-slate-500 animate-pulse border border-slate-200/40 dark:border-slate-800";
+        loader.innerHTML = `
+            <div class="h-2 w-2 bg-blue-600 rounded-full animate-bounce"></div>
+            <div class="h-2 w-2 bg-blue-600 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+            <div class="h-2 w-2 bg-blue-600 rounded-full animate-bounce [animation-delay:0.4s]"></div>
+            <span class="font-bold pl-1"> Stone is thinking...</span>
         `;
+        stream.appendChild(loader);
         stream.scrollTop = stream.scrollHeight;
 
         // Send query to python backend
@@ -97,35 +106,41 @@
         .then(res => res.json())
         .then(data => {
             // Remove the loading indicator
-            const loader = document.getElementById(loadingId);
-            if (loader) loader.remove();
+            const activeLoader = document.getElementById(loadingId);
+            if (activeLoader) activeLoader.remove();
 
             if (data.error) {
-                // Render error banner if Grok API reports a problem
-                stream.innerHTML += `
-                    <div class="p-4 bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-950 text-red-700 dark:text-red-400 text-xs rounded-2xl max-w-lg">
-                        <strong>Error:</strong> ${data.error}
-                    </div>
-                `;
+                // Render error banner safely
+                const errorDiv = document.createElement("div");
+                errorDiv.className = "p-4 bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-950 text-red-700 dark:text-red-400 text-xs rounded-2xl max-w-lg";
+                errorDiv.innerHTML = `<strong>Error:</strong> ${DOMPurify.sanitize(data.error)}`;
+                stream.appendChild(errorDiv);
             } else {
-                // Render beautifully formatted Grok reply
+                // Render beautifully formatted Gemini reply
                 const formattedAnswer = formatAIResponse(data.response);
-                stream.innerHTML += `
-                    <div class="bg-slate-100 dark:bg-slate-800/80 border border-slate-200/40 dark:border-slate-800/80 p-4 rounded-2xl max-w-xl text-xs leading-relaxed text-slate-700 dark:text-slate-300 shadow-sm">
-                        ${formattedAnswer}
-                    </div>
-                `;
+                
+                const answerElement = document.createElement("div");
+                answerElement.className = "bg-slate-100 dark:bg-slate-800/80 border border-slate-200/40 dark:border-slate-800/80 p-4 rounded-2xl max-w-xl text-xs leading-relaxed text-slate-700 dark:text-slate-300 shadow-sm";
+                answerElement.innerHTML = formattedAnswer;
+                stream.appendChild(answerElement);
+
+                // Run MathJax rendering on the newly appended response block
+                if (window.MathJax) {
+                    MathJax.typesetPromise([answerElement]).catch(function(error) {
+                        console.error("MathJax rendering error:", error);
+                    });
+                }
             }
             stream.scrollTop = stream.scrollHeight;
         })
         .catch(err => {
-            const loader = document.getElementById(loadingId);
-            if (loader) loader.remove();
-            stream.innerHTML += `
-                <div class="p-4 bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-950 text-red-700 dark:text-red-400 text-xs rounded-2xl max-w-lg">
-                    <strong>Connection Error:</strong> Could not connect to the EduVault servers.
-                </div>
-            `;
+            const activeLoader = document.getElementById(loadingId);
+            if (activeLoader) activeLoader.remove();
+            
+            const errorDiv = document.createElement("div");
+            errorDiv.className = "p-4 bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-950 text-red-700 dark:text-red-400 text-xs rounded-2xl max-w-lg";
+            errorDiv.innerHTML = `<strong>Connection Error:</strong> Could not connect to the EduVault servers.`;
+            stream.appendChild(errorDiv);
             stream.scrollTop = stream.scrollHeight;
         });
     }
