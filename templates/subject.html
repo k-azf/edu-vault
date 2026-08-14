@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-6xl mx-auto px-6 py-10 space-y-10">
+
+    <!-- Subject Banner Card -->
+    <div class="bg-slate-900 text-white p-8 rounded-3xl shadow-md border border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center">
+        <div>
+            <span class="bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full">Subject Hub</span>
+            <h1 class="text-3xl font-black mt-3 tracking-tight" id="subject-heading">{{ subject_name }}</h1>
+            <p class="text-sm text-slate-400 mt-1">Master chapters, track weaknesses, and solve previous years' exams.</p>
+        </div>
+        <div class="mt-4 md:mt-0 flex space-x-3">
+            <a href="/chapters/{{ subject_name }}" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-5 py-3 rounded-xl shadow-md transition">Chapter Practice</a>
+            <a href="/tutor" class="bg-slate-800 border border-slate-700 text-white font-bold text-xs px-5 py-3 rounded-xl hover:bg-slate-700 transition">AI Tutor Helper</a>
+        </div>
+    </div>
+
+    <!-- Subject Specific Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm text-center">
+            <span class="text-3xl font-black text-blue-600">8</span>
+            <span class="text-xs font-bold text-slate-400 block uppercase mt-1">Total Chapters</span>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm text-center">
+            <span class="text-3xl font-black text-blue-600">324</span>
+            <span class="text-xs font-bold text-slate-400 block uppercase mt-1">Practice Questions</span>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm text-center">
+            <span class="text-3xl font-black text-blue-600">76%</span>
+            <span class="text-xs font-bold text-slate-400 block uppercase mt-1">Completed</span>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm text-center">
+            <span class="text-3xl font-black text-blue-600">12h</span>
+            <span class="text-xs font-bold text-slate-400 block uppercase mt-1">Study Time</span>
+        </div>
+    </div>
+
+    <!-- Subject Exams Section -->
+    <div>
+        <h2 class="text-xl font-bold mb-6 tracking-tight">Active Subject Exam Sheets</h2>
+        <div id="subject-exam-list" class="grid md:grid-cols-2 gap-6">
+            <!-- Dynamically Loaded Subject Exams -->
+        </div>
+    </div>
+</div>
+
+<script>
+    const subName = "{{ subject_name }}";
+    fetch('/api/exams')
+        .then(res => res.json())
+        .then(exams => {
+            const list = document.getElementById('subject-exam-list');
+            const filtered = exams.filter(e => e.category.toLowerCase().trim() === subName.toLowerCase().trim());
+            
+            if (filtered.length === 0) {
+                list.innerHTML = `
+                    <div class="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 text-center col-span-2">
+                        <p class="text-slate-400 text-sm">No exam sheets found for ${subName}. Go to Admin Panel to upload some.</p>
+                    </div>`;
+                return;
+            }
+            filtered.forEach(exam => {
+                list.innerHTML += `
+                    <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 flex justify-between items-center">
+                        <div>
+                            <span class="bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 text-[10px] font-black tracking-widest px-2 py-0.5 rounded uppercase">${exam.category}</span>
+                            <h3 class="text-lg font-bold text-slate-800 dark:text-white mt-1">${exam.title}</h3>
+                            <p class="text-xs text-slate-400">${exam.school_name || "Institution Exam"}</p>
+                        </div>
+                        <a href="/exam/${exam.id}" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl">Start Exam</a>
+                    </div>
+                `;
+            });
+        });
+</script>
+{% endblock %}

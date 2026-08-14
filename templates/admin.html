@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-4xl mx-auto px-6 py-10">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 rounded-3xl shadow-xl space-y-6">
+        
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <a href="/" class="text-blue-600 dark:text-blue-400 hover:underline text-xs font-bold uppercase tracking-wider mb-2 inline-block">← Back to Dashboard</a>
+                <h1 class="text-2xl font-black text-slate-800 dark:text-white">Admin: Import Exam Console</h1>
+                <p class="text-xs text-slate-400 mt-1">Convert PDF exams to JSON via Gemini AI or import existing JSON files directly.</p>
+            </div>
+            <div class="bg-slate-50 dark:bg-slate-950 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
+                <span class="text-[10px] font-black text-slate-400 uppercase block">System Status</span>
+                <span class="text-xs font-bold text-emerald-500 flex items-center gap-1">
+                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping"></span> AI Engine Online
+                </span>
+            </div>
+        </div>
+
+        <!-- Form -->
+        <form id="upload-form" class="space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5">Exam Title</label>
+                    <input type="text" name="title" required placeholder="e.g. Physics Mock Exam 2018" class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-sm dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5">Category / Subject</label>
+                    <input type="text" name="category" required placeholder="e.g. Physics" class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-sm dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition">
+                </div>
+            </div>
+
+            <div class="relative group">
+                <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5">Select Source File (PDF or JSON)</label>
+                <div class="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center group-hover:border-blue-500 transition-colors duration-300">
+                    <input type="file" id="file-input" name="pdf_file" accept=".pdf,.json" required class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                    <div class="space-y-2 pointer-events-none">
+                        <div class="text-3xl">📄</div>
+                        <p id="file-name-display" class="text-sm font-bold text-slate-600 dark:text-slate-300">Click to browse or drag file here</p>
+                        <p class="text-[10px] text-slate-400 uppercase font-bold tracking-tighter">Supported formats: .pdf (AI conversion) or .json (Direct import)</p>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" id="submit-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl transition shadow-lg shadow-blue-500/20 uppercase tracking-widest text-xs flex items-center justify-center gap-2">
+                <span>⚡</span>
+                <span id="btn-text">Process and Import Exam</span>
+            </button>
+        </form>
+
+        <!-- Status Messenger -->
+        <div id="status-msg" class="hidden p-4 rounded-2xl text-center text-xs font-bold animate-pulse"></div>
+        
+        <!-- Helpful Tips -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <div class="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-2xl border border-blue-100/50 dark:border-blue-800/30">
+                <h4 class="text-[10px] font-black text-blue-600 uppercase mb-1">Conversion Note</h4>
+                <p class="text-[11px] text-slate-500 leading-tight">When a PDF is uploaded, Gemini AI will automatically generate a JSON backup on your server for future use.</p>
+            </div>
+            <div class="bg-violet-50/50 dark:bg-violet-900/10 p-4 rounded-2xl border border-violet-100/50 dark:border-violet-800/30">
+                <h4 class="text-[10px] font-black text-violet-600 uppercase mb-1">Direct JSON</h4>
+                <p class="text-[11px] text-slate-500 leading-tight">If you already have a JSON file formatted for EduVault, direct import is instantaneous and skips AI processing.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('file-input');
+    const fileNameDisplay = document.getElementById('file-name-display');
+
+    // Update file name display on select
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            fileNameDisplay.textContent = e.target.files[0].name;
+            fileNameDisplay.classList.add('text-blue-600');
+        }
+    });
+
+    document.getElementById('upload-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('submit-btn');
+        const btnText = document.getElementById('btn-text');
+        const status = document.getElementById('status-msg');
+        const formData = new FormData(this);
+
+        // UI State: Loading
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+        btnText.innerText = "Processing (AI is analyzing)...";
+        status.classList.remove('hidden', 'bg-emerald-100', 'text-emerald-800', 'bg-rose-100', 'text-rose-800');
+        status.classList.add('bg-slate-100', 'text-slate-600', 'block');
+        status.innerText = "Establishing connection to Gemini and aligning data structures...";
+
+        fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                status.classList.replace('bg-slate-100', 'bg-emerald-100');
+                status.classList.replace('text-slate-600', 'text-emerald-800');
+                status.innerText = "🎉 " + data.message;
+                document.getElementById('upload-form').reset();
+                fileNameDisplay.textContent = "Click to browse or drag file here";
+                fileNameDisplay.classList.remove('text-blue-600');
+            } else {
+                status.classList.replace('bg-slate-100', 'bg-rose-100');
+                status.classList.replace('text-slate-600', 'text-rose-800');
+                status.innerText = "❌ Error: " + (data.error || data.details || "Unknown failure");
+            }
+        })
+        .catch(err => {
+            status.classList.replace('bg-slate-100', 'bg-rose-100');
+            status.classList.replace('text-slate-600', 'text-rose-800');
+            status.innerText = "❌ Network Error: Could not reach server.";
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            btnText.innerText = "Process and Import Exam";
+        });
+    });
+</script>
+{% endblock %}

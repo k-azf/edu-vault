@@ -1,0 +1,584 @@
+import os
+import json
+import time
+import re
+import sqlite3
+import urllib.request
+import urllib.error
+from functools import wraps
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
+from pypdf import PdfReader, PdfWriter
+from google import genai
+from google.genai import types
+from dotenv import load_dotenv
+from werkzeug.security import generate_password_hash, check_password_hash
+
+load_dotenv()
+
+app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY", "super-secret-eduvault-key-12345")
+
+# Telegram Configuration
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHANNEL = os.getenv("TELEGRAM_CHANNEL_USERNAME", "@eduvault12")
+
+# Configure Google's GenAI Client
+gemini_key = os.getenv("GEMINI_API_KEY")
+client = genai.Client(api_key=gemini_key) if gemini_key else None
+
+def get_db_connection():
+    conn = sqlite3.connect('exams.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
+# --- Authentication Decorators ---
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session or session.get('role') != 'admin':
+            return jsonify({"error": "Forbidden: Admin access required"}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+def fix_latex_string(text):
+    if not text or not isinstance(text, str):
+        return text
+    
+    text = text.strip()
+    
+    # 1. Restore common stripped LaTeX backslashes from AI/JSON
+    math_symbols = ['sqrt', 'frac', 'text', 'vec', 'theta', 'alpha', 'beta', 'pi', 'infty', 'cdot', 'times', 'pm', 'Delta', 'sum', 'int']
+    for sym in math_symbols:
+        text = re.sub(r'(?<!\\)\b' + sym + r'\{', r'\\' + sym + '{', text)
+
+    # 2. If the text contains mathematical patterns (like \frac or \sqrt) but has NO '$' signs,
+    # wrap it automatically so KaTeX renders it as a real formula symbol!
+    if ('\\' in text or '^' in text or '_' in text) and '$' not in text:
+        text = f"${text}$"
+
+    # 3. Fix unclosed dollar signs
+    if text.count('$') == 1:
+        text = text + '$'
+        
+    return text
+
+# --- PDF Parser Functions ---
+
+def parse_single_chunk_with_ai(chunk_path):
+    if not client:
+        raise ValueError("GEMINI_API_KEY is not configured on the server.")
+
+    print(f"DEBUG: Uploading temporary chunk {chunk_path} to Google File API...")
+    uploaded_file = client.files.upload(file=chunk_path)
+    
+    while uploaded_file.state.name == "PROCESSING":
+        time.sleep(1.5)
+        uploaded_file = client.files.get(name=uploaded_file.name)
+
+    prompt = """
+    Analyze the uploaded exam document segment and convert it strictly into a structured JSON object.
+    CRITICAL: This document may be a scanned exam, containing images of math formulas, chemistry bonds, or reading passages.
+    Read all printed and handwritten content from the images. 
+
+    Format EXACTLY matching this JSON schema:
+    {
+        "school_name": "Institution name (or null)",
+        "department": "Department or subject (or null)",
+        "academic_year": "Academic year (or null)",
+        "instructions": "Exam guidelines (or null)",
+        "questions": [
+            {
+                "question": "The question text itself",
+                "A": "Option A text",
+                "B": "Option B text",
+                "C": "Option C text",
+                "D": "Option D text",
+                "correct": "A, B, C, or D",
+                "explanation": "A detailed explanation",
+                "passage_text": "Reading passage for comprehension (or null)",
+                "diagram_instruction": "Description of figure/diagram if applicable (or null)"
+            }
+        ]
+    }
+    """
+
+    models_to_try = [
+        "gemini-flash-latest",
+        "gemini-3.5-flash",
+        "gemini-3.1-flash-lite"
+    ]
+    last_error = None
+
+    for model_name in models_to_try:
+        max_retries = 3
+        backoff_delay = 10
+        for attempt in range(max_retries):
+            try:
+                print(f"DEBUG: Running model {model_name} on chunk (Attempt {attempt + 1}/{max_retries})")
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=[uploaded_file, prompt],
+                    config=types.GenerateContentConfig(response_mime_type="application/json"),
+                )
+                
+                try:
+                    client.files.delete(name=uploaded_file.name)
+                except Exception as clean_err:
+                    print(f"DEBUG: Storage cleanup warning: {clean_err}")
+
+                if not response or not response.text:
+                    raise ValueError("API returned an empty response.")
+
+                return json.loads(response.text)
+
+            except Exception as e:
+                error_msg = str(e)
+                last_error = e
+                print(f"DEBUG: Model '{model_name}' failed on chunk. Error: {error_msg}")
+                
+                if any(err in error_msg for err in ["429", "RESOURCE_EXHAUSTED", "503", "UNAVAILABLE"]):
+                    match = re.search(r"Please retry in ([0-9.]+)s", error_msg)
+                    wait_time = float(match.group(1)) + 1.5 if match else backoff_delay
+                    print(f"DEBUG: Rate limit reached. Sleeping for {wait_time} seconds...")
+                    time.sleep(wait_time)
+                    backoff_delay *= 2
+                    continue
+                break
+
+    try:
+        client.files.delete(name=uploaded_file.name)
+    except Exception:
+        pass
+    raise Exception(f"Failed to process PDF segment. Detail: {last_error}")
+
+
+def parse_pdf_with_ai(pdf_path):
+    reader = PdfReader(pdf_path)
+    total_pages = len(reader.pages)
+    print(f"DEBUG: Initiating parser. Total pages detected: {total_pages}")
+    
+    chunk_size = 1
+    all_questions = []
+    school_name = None
+    department = None
+    academic_year = None
+    instructions = None
+
+    for start_page in range(0, total_pages, chunk_size):
+        end_page = min(start_page + chunk_size, total_pages)
+        print(f"DEBUG: Slicing PDF page {start_page + 1} of {total_pages}...")
+
+        writer = PdfWriter()
+        for page_num in range(start_page, end_page):
+            writer.add_page(reader.pages[page_num])
+            
+        chunk_filename = f"temp_chunk_{start_page}_{end_page}.pdf"
+        with open(chunk_filename, "wb") as f:
+            writer.write(f)
+
+        try:
+            chunk_data = parse_single_chunk_with_ai(chunk_filename)
+        except Exception as chunk_exc:
+            print(f"DEBUG: Chunk processing failed at page {start_page + 1}: {chunk_exc}")
+            chunk_data = None
+        finally:
+            if os.path.exists(chunk_filename):
+                os.remove(chunk_filename)
+
+        if chunk_data:
+            if not school_name and chunk_data.get("school_name"):
+                school_name = chunk_data.get("school_name")
+            if not department and chunk_data.get("department"):
+                department = chunk_data.get("department")
+            if not academic_year and chunk_data.get("academic_year"):
+                academic_year = chunk_data.get("academic_year")
+            if not instructions and chunk_data.get("instructions"):
+                instructions = chunk_data.get("instructions")
+
+            questions_list = chunk_data.get("questions", [])
+            print(f"DEBUG: Successfully extracted {len(questions_list)} questions from page {start_page + 1}.")
+            all_questions.extend(questions_list)
+
+        if end_page < total_pages:
+            print("DEBUG: Pausing for 10 seconds to allow the rolling minute quota to reset...")
+            time.sleep(10)
+
+    return {
+        "school_name": school_name,
+        "department": department,
+        "academic_year": academic_year,
+        "instructions": instructions,
+        "questions": all_questions
+    }
+
+
+# --- Telegram Membership Checking Helper ---
+def check_telegram_channel_membership(user_id_or_handle):
+    if not TELEGRAM_BOT_TOKEN:
+        return True # Fallback if token not set in environment
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getChatMember?chat_id={TELEGRAM_CHANNEL}&user_id={user_id_or_handle}"
+    try:
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req, timeout=10) as response:
+            res_data = json.loads(response.read().decode('utf-8'))
+            if res_data.get("ok"):
+                status = res_data['result']['status']
+                return status in ['member', 'administrator', 'creator']
+    except Exception as e:
+        print(f"DEBUG: Telegram API Check Warning: {e}")
+    return False
+
+
+# --- Authentication Routes ---
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        username = request.form['username'].strip().lower()
+        password = request.form['password']
+        telegram_id = request.form.get('telegram_id', '').strip()
+
+        if not username or not password:
+            flash("All fields are required", "error")
+            return render_template('signup.html')
+        
+        conn = get_db_connection()
+        try:
+            conn.execute(
+                'INSERT INTO users (username, password_hash, telegram_id, is_verified) VALUES (?, ?, ?, ?)', 
+                (username, generate_password_hash(password), telegram_id, 1)
+            )
+            conn.commit()
+            flash("Signup success! Please login.", "success")
+            return redirect(url_for('login'))
+        except sqlite3.IntegrityError:
+            flash("Username already taken", "error")
+        finally:
+            conn.close()
+    return render_template('signup.html')
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username'].strip().lower()
+        password = request.form['password']
+        
+        conn = get_db_connection()
+        user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+        conn.close()
+        
+        if user and check_password_hash(user['password_hash'], password):
+            session['user_id'] = user['id']
+            session['username'] = user['username']
+            session['role'] = user['role']
+            return redirect(url_for('index'))
+        flash("Invalid credentials", "error")
+    return render_template('login.html')
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+
+# --- Main Web Page Routes ---
+
+@app.route('/')
+@login_required
+def index():
+    return render_template('index.html', username=session.get('username'), role=session.get('role'))
+
+@app.route('/subject/<name>')
+@login_required
+def subject_page(name):
+    return render_template('subject.html', subject_name=name)
+
+@app.route('/chapters/<subject>')
+@login_required
+def chapters_page(subject):
+    return render_template('chapter.html', subject=subject)
+
+@app.route('/exam/<int:exam_id>')
+@login_required
+def exam_page(exam_id):
+    return render_template('exam.html', exam_id=exam_id)
+
+@app.route('/result/<int:result_id>')
+@login_required
+def result_page(result_id):
+    return render_template('result.html', result_id=result_id)
+
+@app.route('/tutor')
+@login_required
+def tutor_page():
+    return render_template('tutor.html')
+
+@app.route('/admin')
+@admin_required
+def admin_page():
+    return render_template('admin.html')
+
+@app.route('/resources')
+@login_required
+def resources_hub():
+    return render_template('resources.html', username=session.get('username'))
+
+@app.route('/study/<int:material_id>')
+@login_required
+def study_material_console(material_id):
+    return render_template('study_material.html', material_id=material_id)
+
+
+# --- API Endpoints ---
+
+@app.route('/api/verify-task', methods=['POST'])
+def verify_social_task():
+    data = request.json or {}
+    telegram_id = data.get("telegram_id")
+    task_type = data.get("task_type")
+
+    if task_type == "channel":
+        if not telegram_id:
+            return jsonify({"success": False, "error": "Telegram User ID/Handle required."}), 400
+        is_member = check_telegram_channel_membership(telegram_id)
+        if is_member:
+            return jsonify({"success": True, "message": "Channel join verified!"})
+        else:
+            return jsonify({"success": True, "message": "Verified (Timer confirmed)"}) # Fallback verification
+
+    elif task_type in ["bot", "youtube", "group_invites"]:
+        return jsonify({"success": True, "message": f"{task_type.capitalize()} task verified!"})
+
+    return jsonify({"success": False, "error": "Invalid task type"}), 400
+
+
+@app.route('/api/exams', methods=['GET'])
+@login_required
+def get_exams():
+    conn = get_db_connection()
+    exams = conn.execute('SELECT * FROM exams').fetchall()
+    conn.close()
+    return jsonify([dict(exam) for exam in exams])
+
+
+@app.route('/api/exams/<int:exam_id>/questions', methods=['GET'])
+@login_required
+def get_questions(exam_id):
+    conn = get_db_connection()
+    questions = conn.execute('SELECT * FROM questions WHERE exam_id = ?', (exam_id,)).fetchall()
+    conn.close()
+    return jsonify([dict(q) for q in questions])
+
+
+@app.route('/api/chapters/<subject>', methods=['GET'])
+@login_required
+def get_chapters(subject):
+    conn = get_db_connection()
+    chaps = conn.execute('SELECT * FROM chapters WHERE LOWER(subject) = LOWER(?)', (subject,)).fetchall()
+    conn.close()
+    return jsonify([dict(c) for c in chaps])
+
+
+@app.route('/api/questions/chapter/<int:chapter_id>', methods=['GET'])
+@login_required
+def get_chapter_questions(chapter_id):
+    conn = get_db_connection()
+    questions = conn.execute('SELECT * FROM questions WHERE chapter_id = ?', (chapter_id,)).fetchall()
+    conn.close()
+    return jsonify([dict(q) for q in questions])
+
+
+@app.route('/api/results/submit', methods=['POST'])
+@login_required
+def submit_exam_results():
+    data = request.json
+    conn = get_db_connection()
+    
+    score = int(data['score'])
+    total = int(data['total_questions'])
+    accuracy = float(data['accuracy'])
+    
+    rec_prompt = f"The student scored {score}/{total} ({accuracy}% accuracy) in an exam. Provide a brief, supportive, 2-sentence study plan."
+    try:
+        response = client.models.generate_content(model="gemini-3.5-flash", contents=rec_prompt)
+        recommendation = response.text
+    except Exception:
+        recommendation = "Focus on weak chapters and review explanations for incorrect attempts."
+
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO user_results (user_id, exam_id, score, total_questions, time_used_seconds, accuracy, date_attempted, ai_recommendation)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (session['user_id'], data['exam_id'], score, total, data['time_used'], accuracy, time.strftime("%Y-%m-%d %H:%M"), recommendation))
+    
+    result_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True, "result_id": result_id})
+
+
+@app.route('/api/results/<int:result_id>', methods=['GET'])
+@login_required
+def get_result_details(result_id):
+    conn = get_db_connection()
+    result = conn.execute('''
+        SELECT r.*, e.title as exam_title, e.category as exam_category
+        FROM user_results r
+        JOIN exams e ON r.exam_id = e.id
+        WHERE r.id = ? AND r.user_id = ?
+    ''', (result_id, session['user_id'])).fetchone()
+    conn.close()
+    if not result:
+        return jsonify({"error": "Result not found"}), 404
+    return jsonify(dict(result))
+
+# --- UPDATED: JSON IMPORT & PARSER ROUTE ---
+
+@app.route('/api/upload', methods=['POST'])
+@admin_required
+def upload_json_or_pdf():
+    title = request.form.get('title', 'Imported Exam')
+    category = request.form.get('category', 'General')
+    chapter_id = request.form.get('chapter_id')
+    
+    if not chapter_id or chapter_id in ["", "null"]:
+        chapter_id = None
+    else:
+        chapter_id = int(chapter_id)
+        
+    file = request.files.get('json_file') or request.files.get('pdf_file')
+    
+    if not file:
+        return jsonify({"error": "No file uploaded"}), 400
+        
+    try:
+        # If JSON file uploaded, load directly
+        if file.filename.endswith('.json') or 'json' in file.mimetype:
+            ai_data = json.load(file)
+        else:
+            # Fallback for PDF
+            filepath = os.path.join('uploads', file.filename)
+            file.save(filepath)
+            try:
+                ai_data = parse_pdf_with_ai(filepath)
+            finally:
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO exams (title, category, school_name, department, academic_year, instructions) 
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (
+            title, 
+            category, 
+            ai_data.get('school_name'), 
+            ai_data.get('department'), 
+            ai_data.get('academic_year'), 
+            ai_data.get('instructions')
+        ))
+        exam_id = cursor.lastrowid
+        
+        questions = ai_data.get('questions', [])
+        for q in questions:
+            cursor.execute('''
+                INSERT INTO questions (
+                    exam_id, chapter_id, question_text, option_a, option_b, option_c, option_d, 
+                    correct_answer, explanation, passage_text, diagram_instruction
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                exam_id, 
+                chapter_id, 
+                q.get('question') or q.get('question_text', ''), 
+                q.get('A') or q.get('option_a', ''), 
+                q.get('B') or q.get('option_b', ''), 
+                q.get('C') or q.get('option_c', ''), 
+                q.get('D') or q.get('option_d', ''), 
+                q.get('correct') or q.get('correct_answer', 'A'), 
+                q.get('explanation', ''), 
+                q.get('passage_text'), 
+                q.get('diagram_instruction')
+            ))
+            
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True, "message": f"Exam '{title}' imported successfully with {len(questions)} questions!"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+@app.route('/api/tutor/chat', methods=['POST'])
+@login_required
+def tutor_chat():
+    data = request.get_json(silent=True) or {}
+    user_message = (data.get("message") or "").strip()
+
+    if not user_message:
+        return jsonify({"error": "Message is required"}), 400
+
+    if not client:
+        return jsonify({"error": "GEMINI_API_KEY is not configured on the server."}), 500
+
+    tutor_prompt = f"""
+You are EduVault's empathetic, world-class academic tutor.
+
+Answer the student's question clearly and accurately:
+- Explain step-by-step when necessary.
+- Use simple, friendly English.
+- For science and mathematics, include formulas or examples.
+- Be supportive and clear.
+
+Student's query:
+{user_message}
+"""
+
+    tutor_models = [
+        "gemini-flash-latest",
+        "gemini-3.5-flash",
+        "gemini-3.1-flash-lite"
+    ]
+
+    last_error = None
+
+    for model_name in tutor_models:
+        try:
+            print(f"DEBUG: AI Tutor query model: {model_name}")
+            response = client.models.generate_content(
+                model=model_name,
+                contents=tutor_prompt
+            )
+
+            if response and response.text:
+                return jsonify({
+                    "response": response.text,
+                    "model": model_name
+                })
+
+            last_error = f"{model_name} returned an empty response."
+
+        except Exception as error:
+            last_error = error
+            print(f"DEBUG: AI Tutor model {model_name} failed: {error}")
+            continue
+
+    return jsonify({
+        "error": "AI Tutor is temporarily unavailable.",
+        "details": str(last_error)
+    }), 503
+
+
+if __name__ == '__main__':
+    if not os.path.exists('uploads'):
+        os.makedirs('uploads')
+    app.run(debug=True, port=5000)
