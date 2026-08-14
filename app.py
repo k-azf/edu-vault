@@ -238,7 +238,9 @@ def check_telegram_channel_membership(user_id_or_handle):
 
 
 # --- Authentication Routes ---
-
+@app.route('/ping')
+def ping():
+    return "OK", 200
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
