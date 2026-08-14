@@ -23,7 +23,29 @@
         <button onclick="sendTutorMessage()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-6 rounded-xl transition shadow-md shadow-blue-500/10">Send Query</button>
     </div>
 </div>
+<div id="offline-ai-banner" class="hidden bg-amber-900/40 border border-amber-500/50 text-amber-300 p-4 rounded-2xl mb-4 text-xs flex items-center justify-between">
+    <span class="flex items-center gap-2">
+        <span>⚠️</span>
+        <span><b>You are Offline:</b> The AI Assistant requires an active Internet Connection. Your Exams, Textbooks, and Worksheets remain 100% accessible offline!</span>
+    </span>
+</div>
 
+<script>
+    function checkAiOnlineStatus() {
+        const banner = document.getElementById('offline-ai-banner');
+        const sendBtn = document.getElementById('send-btn'); // Replace with your chat send button ID
+        if (!navigator.onLine) {
+            if (banner) banner.classList.remove('hidden');
+            if (sendBtn) sendBtn.disabled = true;
+        } else {
+            if (banner) banner.classList.add('hidden');
+            if (sendBtn) sendBtn.disabled = false;
+        }
+    }
+    window.addEventListener('online', checkAiOnlineStatus);
+    window.addEventListener('offline', checkAiOnlineStatus);
+    document.addEventListener('DOMContentLoaded', checkAiOnlineStatus);
+</script>
 <!-- Markdown, mathematical formulas, and safe HTML rendering CDN integrations -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>

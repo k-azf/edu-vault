@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <!-- PWA Manifest & Theme Color -->
+
 <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
 <meta name="theme-color" content="#2563eb">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -94,5 +95,32 @@
             }
         }
     </script>
+    <!-- Register EduVault Offline Engine -->
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('EduVault Offline Mode Ready! Scope:', reg.scope))
+                .catch(err => console.error('Offline Registration Failed:', err));
+        });
+    }
+
+    // Auto-Sync Exam Data to LocalStorage when online
+    async function syncOfflineData() {
+        if (navigator.onLine) {
+            try {
+                const res = await fetch('/api/exams');
+                const exams = await res.json();
+                localStorage.setItem('eduvault_cached_exams', JSON.stringify(exams));
+                console.log('Exams synced for offline use!');
+            } catch (e) {
+                console.log('Offline sync skipped.');
+            }
+        }
+    }
+    window.addEventListener('online', syncOfflineData);
+    document.addEventListener('DOMContentLoaded', syncOfflineData);
+</script>
+
 </body>
 </html>

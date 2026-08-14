@@ -236,7 +236,9 @@ def check_telegram_channel_membership(user_id_or_handle):
         print(f"DEBUG: Telegram API Check Warning: {e}")
     return False
 
-
+@app.route('/sw.js')
+def service_worker():
+    return send_from_directory('static', 'sw.js', mimetype='application/javascript')
 # --- Authentication Routes ---
 @app.route('/ping')
 def ping():
