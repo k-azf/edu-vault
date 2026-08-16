@@ -6,7 +6,7 @@ import sqlite3
 import urllib.request
 import urllib.error
 from functools import wraps
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash, send_from_directory
 from pypdf import PdfReader, PdfWriter
 from google import genai
 from google.genai import types
@@ -22,14 +22,29 @@ app.secret_key = os.getenv("SECRET_KEY", "super-secret-eduvault-key-12345")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHANNEL = os.getenv("TELEGRAM_CHANNEL_USERNAME", "@eduvault12")
 
+# Database Configuration (Supabase PostgreSQL with SQLite fallback)
+DATABASE_URL = os.getenv("DATABASE_URL")
+
 # Configure Google's GenAI Client
 gemini_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=gemini_key) if gemini_key else None
 
 def get_db_connection():
+    if DATABASE_URL:
+        try:
+            import psycopg2
+            from psycopg2.extras import RealDictCursor
+            return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+        except Exception as e:
+            print(f"DEBUG: PostgreSQL Connection Failed ({e}). Falling back to SQLite...")
+    
+    # Local SQLite Fallback
     conn = sqlite3.connect('exams.db')
     conn.row_factory = sqlite3.Row
     return conn
+
+def is_postgres():
+    return bool(DATABASE_URL)
 
 # --- Authentication Decorators ---
 def login_required(f):
@@ -47,6 +62,8 @@ def admin_required(f):
             return jsonify({"error": "Forbidden: Admin access required"}), 403
         return f(*args, **kwargs)
     return decorated_function
+
+# --- LaTeX Formula Sanitizer ---
 def fix_latex_string(text):
     if not text or not isinstance(text, str):
         return text
@@ -58,16 +75,25 @@ def fix_latex_string(text):
     for sym in math_symbols:
         text = re.sub(r'(?<!\\)\b' + sym + r'\{', r'\\' + sym + '{', text)
 
-    # 2. If the text contains mathematical patterns (like \frac or \sqrt) but has NO '$' signs,
-    # wrap it automatically so KaTeX renders it as a real formula symbol!
+    # 2. Convert plain text fractions (e.g. A/(x+2)) into LaTeX \frac{A}{x+2}
+    if '/' in text and '$' not in text and not text.startswith('http'):
+        parts = text.split('/')
+        if len(parts) == 2:
+            num = parts[0].strip()
+            den = parts[1].strip()
+            if re.search(r'[a-zA-Z0-9()+^_-]', num):
+                text = f"\\frac{{{num}}}{{{den}}}"
+
+    # 3. Wrap math expressions with dollar signs if missing
     if ('\\' in text or '^' in text or '_' in text) and '$' not in text:
         text = f"${text}$"
 
-    # 3. Fix unclosed dollar signs
+    # 4. Fix unclosed dollar signs
     if text.count('$') == 1:
         text = text + '$'
         
     return text
+
 
 # --- PDF Parser Functions ---
 
@@ -84,8 +110,7 @@ def parse_single_chunk_with_ai(chunk_path):
 
     prompt = """
     Analyze the uploaded exam document segment and convert it strictly into a structured JSON object.
-    CRITICAL: This document may be a scanned exam, containing images of math formulas, chemistry bonds, or reading passages.
-    Read all printed and handwritten content from the images. 
+    CRITICAL: Convert ALL math formulas, fractions, roots, and physics units into standard LaTeX syntax enclosed in $ ... $.
 
     Format EXACTLY matching this JSON schema:
     {
@@ -224,6 +249,7 @@ def check_telegram_channel_membership(user_id_or_handle):
     if not TELEGRAM_BOT_TOKEN:
         return True # Fallback if token not set in environment
 
+    user_id_or_handle = str(user_id_or_handle).strip().replace("@", "")
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getChatMember?chat_id={TELEGRAM_CHANNEL}&user_id={user_id_or_handle}"
     try:
         req = urllib.request.Request(url)
@@ -236,13 +262,19 @@ def check_telegram_channel_membership(user_id_or_handle):
         print(f"DEBUG: Telegram API Check Warning: {e}")
     return False
 
+
+# --- Static Service Worker Route ---
 @app.route('/sw.js')
 def service_worker():
     return send_from_directory('static', 'sw.js', mimetype='application/javascript')
-# --- Authentication Routes ---
+
 @app.route('/ping')
 def ping():
     return "OK", 200
+
+
+# --- Authentication Routes ---
+
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
@@ -255,17 +287,20 @@ def signup():
             return render_template('signup.html')
         
         conn = get_db_connection()
+        cursor = conn.cursor()
         try:
-            conn.execute(
-                'INSERT INTO users (username, password_hash, telegram_id, is_verified) VALUES (?, ?, ?, ?)', 
+            param = "%s" if is_postgres() else "?"
+            cursor.execute(
+                f'INSERT INTO users (username, password_hash, telegram_id, is_verified) VALUES ({param}, {param}, {param}, {param})', 
                 (username, generate_password_hash(password), telegram_id, 1)
             )
             conn.commit()
             flash("Signup success! Please login.", "success")
             return redirect(url_for('login'))
-        except sqlite3.IntegrityError:
+        except Exception as e:
             flash("Username already taken", "error")
         finally:
+            cursor.close()
             conn.close()
     return render_template('signup.html')
 
@@ -277,7 +312,11 @@ def login():
         password = request.form['password']
         
         conn = get_db_connection()
-        user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+        cursor = conn.cursor()
+        param = "%s" if is_postgres() else "?"
+        cursor.execute(f'SELECT * FROM users WHERE username = {param}', (username,))
+        user = cursor.fetchone()
+        cursor.close()
         conn.close()
         
         if user and check_password_hash(user['password_hash'], password):
@@ -301,6 +340,10 @@ def logout():
 @login_required
 def index():
     return render_template('index.html', username=session.get('username'), role=session.get('role'))
+@app.route('/worksheets')
+@app.route('/resources')
+def worksheets():
+    return render_template('worksheet.html', role=session.get('role', 'student'))
 
 @app.route('/subject/<name>')
 @login_required
@@ -358,7 +401,7 @@ def verify_social_task():
         if is_member:
             return jsonify({"success": True, "message": "Channel join verified!"})
         else:
-            return jsonify({"success": True, "message": "Verified (Timer confirmed)"}) # Fallback verification
+            return jsonify({"success": True, "message": "Verified (Timer confirmed)"})
 
     elif task_type in ["bot", "youtube", "group_invites"]:
         return jsonify({"success": True, "message": f"{task_type.capitalize()} task verified!"})
@@ -370,7 +413,10 @@ def verify_social_task():
 @login_required
 def get_exams():
     conn = get_db_connection()
-    exams = conn.execute('SELECT * FROM exams').fetchall()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM exams ORDER BY id DESC')
+    exams = cursor.fetchall()
+    cursor.close()
     conn.close()
     return jsonify([dict(exam) for exam in exams])
 
@@ -379,7 +425,11 @@ def get_exams():
 @login_required
 def get_questions(exam_id):
     conn = get_db_connection()
-    questions = conn.execute('SELECT * FROM questions WHERE exam_id = ?', (exam_id,)).fetchall()
+    cursor = conn.cursor()
+    param = "%s" if is_postgres() else "?"
+    cursor.execute(f'SELECT * FROM questions WHERE exam_id = {param} ORDER BY id ASC', (exam_id,))
+    questions = cursor.fetchall()
+    cursor.close()
     conn.close()
     return jsonify([dict(q) for q in questions])
 
@@ -388,7 +438,11 @@ def get_questions(exam_id):
 @login_required
 def get_chapters(subject):
     conn = get_db_connection()
-    chaps = conn.execute('SELECT * FROM chapters WHERE LOWER(subject) = LOWER(?)', (subject,)).fetchall()
+    cursor = conn.cursor()
+    param = "%s" if is_postgres() else "?"
+    cursor.execute(f'SELECT * FROM chapters WHERE LOWER(subject) = LOWER({param}) ORDER BY id ASC', (subject,))
+    chaps = cursor.fetchall()
+    cursor.close()
     conn.close()
     return jsonify([dict(c) for c in chaps])
 
@@ -397,7 +451,11 @@ def get_chapters(subject):
 @login_required
 def get_chapter_questions(chapter_id):
     conn = get_db_connection()
-    questions = conn.execute('SELECT * FROM questions WHERE chapter_id = ?', (chapter_id,)).fetchall()
+    cursor = conn.cursor()
+    param = "%s" if is_postgres() else "?"
+    cursor.execute(f'SELECT * FROM questions WHERE chapter_id = {param} ORDER BY id ASC', (chapter_id,))
+    questions = cursor.fetchall()
+    cursor.close()
     conn.close()
     return jsonify([dict(q) for q in questions])
 
@@ -405,8 +463,9 @@ def get_chapter_questions(chapter_id):
 @app.route('/api/results/submit', methods=['POST'])
 @login_required
 def submit_exam_results():
-    data = request.json
+    data = request.json or {}
     conn = get_db_connection()
+    cursor = conn.cursor()
     
     score = int(data['score'])
     total = int(data['total_questions'])
@@ -419,14 +478,21 @@ def submit_exam_results():
     except Exception:
         recommendation = "Focus on weak chapters and review explanations for incorrect attempts."
 
-    cursor = conn.cursor()
-    cursor.execute('''
+    param = "%s" if is_postgres() else "?"
+    sql = f'''
         INSERT INTO user_results (user_id, exam_id, score, total_questions, time_used_seconds, accuracy, date_attempted, ai_recommendation)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (session['user_id'], data['exam_id'], score, total, data['time_used'], accuracy, time.strftime("%Y-%m-%d %H:%M"), recommendation))
-    
-    result_id = cursor.lastrowid
+        VALUES ({param}, {param}, {param}, {param}, {param}, {param}, {param}, {param})
+    '''
+    if is_postgres():
+        sql += " RETURNING id"
+        cursor.execute(sql, (session['user_id'], data['exam_id'], score, total, data['time_used'], accuracy, time.strftime("%Y-%m-%d %H:%M"), recommendation))
+        result_id = cursor.fetchone()['id']
+    else:
+        cursor.execute(sql, (session['user_id'], data['exam_id'], score, total, data['time_used'], accuracy, time.strftime("%Y-%m-%d %H:%M"), recommendation))
+        result_id = cursor.lastrowid
+
     conn.commit()
+    cursor.close()
     conn.close()
     return jsonify({"success": True, "result_id": result_id})
 
@@ -435,42 +501,44 @@ def submit_exam_results():
 @login_required
 def get_result_details(result_id):
     conn = get_db_connection()
-    result = conn.execute('''
+    cursor = conn.cursor()
+    param = "%s" if is_postgres() else "?"
+    cursor.execute(f'''
         SELECT r.*, e.title as exam_title, e.category as exam_category
         FROM user_results r
         JOIN exams e ON r.exam_id = e.id
-        WHERE r.id = ? AND r.user_id = ?
-    ''', (result_id, session['user_id'])).fetchone()
+        WHERE r.id = {param} AND r.user_id = {param}
+    ''', (result_id, session['user_id']))
+    result = cursor.fetchone()
+    cursor.close()
     conn.close()
     if not result:
         return jsonify({"error": "Result not found"}), 404
     return jsonify(dict(result))
 
-# --- UPDATED: JSON IMPORT & PARSER ROUTE ---
+
+# --- SMART UPLOAD ENGINE (Worksheets, Entrance Exams, Subject & Chapter Categorization) ---
 
 @app.route('/api/upload', methods=['POST'])
 @admin_required
-def upload_json_or_pdf():
-    title = request.form.get('title', 'Imported Exam')
-    category = request.form.get('category', 'General')
-    chapter_id = request.form.get('chapter_id')
-    
-    if not chapter_id or chapter_id in ["", "null"]:
-        chapter_id = None
-    else:
-        chapter_id = int(chapter_id)
-        
+def upload_engine():
+    title = request.form.get('title', 'Untitled Resource').strip()
+    resource_type = request.form.get('resource_type', 'Exam').strip() # 'Exam' or 'Worksheet'
+    category = request.form.get('category', 'General').strip() # 'National Entrance (EUEE)', 'Model Exam', 'Chapter Worksheet'
+    subject = request.form.get('subject', 'Mathematics').strip()
+    grade = int(request.form.get('grade', 12))
+    chapter_name = request.form.get('chapter_name', '').strip()
+    academic_year = request.form.get('academic_year', '').strip()
+
     file = request.files.get('json_file') or request.files.get('pdf_file')
-    
     if not file:
-        return jsonify({"error": "No file uploaded"}), 400
-        
+        return jsonify({"success": False, "error": "No file uploaded"}), 400
+
     try:
-        # If JSON file uploaded, load directly
+        # 1. Parse JSON or PDF
         if file.filename.endswith('.json') or 'json' in file.mimetype:
             ai_data = json.load(file)
         else:
-            # Fallback for PDF
             filepath = os.path.join('uploads', file.filename)
             file.save(filepath)
             try:
@@ -478,50 +546,87 @@ def upload_json_or_pdf():
             finally:
                 if os.path.exists(filepath):
                     os.remove(filepath)
-        
+
         conn = get_db_connection()
         cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT INTO exams (title, category, school_name, department, academic_year, instructions) 
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (
-            title, 
-            category, 
-            ai_data.get('school_name'), 
-            ai_data.get('department'), 
-            ai_data.get('academic_year'), 
-            ai_data.get('instructions')
-        ))
-        exam_id = cursor.lastrowid
-        
+        param = "%s" if is_postgres() else "?"
+
+        # 2. Resolve or Create Chapter (Subject -> Chapter linkage)
+        chapter_id = None
+        if chapter_name:
+            cursor.execute(f'''
+                SELECT id FROM chapters WHERE LOWER(subject) = LOWER({param}) AND LOWER(name) = LOWER({param}) AND grade = {param}
+            ''', (subject, chapter_name, grade))
+            row = cursor.fetchone()
+            if row:
+                chapter_id = row['id']
+            else:
+                if is_postgres():
+                    cursor.execute(f'''
+                        INSERT INTO chapters (subject, name, grade) VALUES ({param}, {param}, {param}) RETURNING id
+                    ''', (subject, chapter_name, grade))
+                    chapter_id = cursor.fetchone()['id']
+                else:
+                    cursor.execute(f'''
+                        INSERT INTO chapters (subject, name, grade) VALUES ({param}, {param}, {param})
+                    ''', (subject, chapter_name, grade))
+                    chapter_id = cursor.lastrowid
+
+        # 3. Insert into Exams/Resources Table
+        sql_exam = f'''
+            INSERT INTO exams (title, category, resource_type, subject, grade, academic_year, instructions)
+            VALUES ({param}, {param}, {param}, {param}, {param}, {param}, {param})
+        '''
+        if is_postgres():
+            sql_exam += " RETURNING id"
+            cursor.execute(sql_exam, (title, category, resource_type, subject, grade, academic_year, ai_data.get('instructions')))
+            exam_id = cursor.fetchone()['id']
+        else:
+            cursor.execute(sql_exam, (title, category, resource_type, subject, grade, academic_year, ai_data.get('instructions')))
+            exam_id = cursor.lastrowid
+
+        # 4. Insert Questions and Auto-Fix LaTeX Formulas
         questions = ai_data.get('questions', [])
         for q in questions:
-            cursor.execute('''
+            q_text = fix_latex_string(q.get('question') or q.get('question_text', ''))
+            opt_a  = fix_latex_string(q.get('A') or q.get('option_a', ''))
+            opt_b  = fix_latex_string(q.get('B') or q.get('option_b', ''))
+            opt_c  = fix_latex_string(q.get('C') or q.get('option_c', ''))
+            opt_d  = fix_latex_string(q.get('D') or q.get('option_d', ''))
+            expl   = fix_latex_string(q.get('explanation', ''))
+
+            cursor.execute(f'''
                 INSERT INTO questions (
-                    exam_id, chapter_id, question_text, option_a, option_b, option_c, option_d, 
+                    exam_id, chapter_id, question_text, option_a, option_b, option_c, option_d,
                     correct_answer, explanation, passage_text, diagram_instruction
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES ({param}, {param}, {param}, {param}, {param}, {param}, {param}, {param}, {param}, {param}, {param})
             ''', (
-                exam_id, 
-                chapter_id, 
-                q.get('question') or q.get('question_text', ''), 
-                q.get('A') or q.get('option_a', ''), 
-                q.get('B') or q.get('option_b', ''), 
-                q.get('C') or q.get('option_c', ''), 
-                q.get('D') or q.get('option_d', ''), 
-                q.get('correct') or q.get('correct_answer', 'A'), 
-                q.get('explanation', ''), 
-                q.get('passage_text'), 
-                q.get('diagram_instruction')
+                exam_id, chapter_id, q_text, opt_a, opt_b, opt_c, opt_d,
+                q.get('correct') or q.get('correct_answer', 'A'),
+                expl, q.get('passage_text'), q.get('diagram_instruction')
             ))
-            
+
+        # 5. Update Chapter Question Count
+        if chapter_id:
+            cursor.execute(f'''
+                UPDATE chapters SET question_count = question_count + {param} WHERE id = {param}
+            ''', (len(questions), chapter_id))
+
         conn.commit()
+        cursor.close()
         conn.close()
-        return jsonify({"success": True, "message": f"Exam '{title}' imported successfully with {len(questions)} questions!"})
+
+        target_section = "Worksheets" if resource_type == "Worksheet" else ("Entrance Exams" if "entrance" in category.lower() else "Exams Available")
+        return jsonify({
+            "success": True,
+            "message": f"Successfully placed '{title}' under {subject} Grade {grade} ➔ {target_section} ({len(questions)} questions linked)!"
+        })
+
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/tutor/chat', methods=['POST'])
 @login_required
 def tutor_chat():

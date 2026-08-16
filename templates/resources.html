@@ -1,0 +1,258 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="min-h-screen bg-slate-100 dark:bg-slate-950 pb-24 font-sans">
+
+    <!-- Top Header Bar -->
+    <div class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 px-4 py-3 shadow-sm flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <button onclick="window.history.back()" class="text-slate-600 dark:text-slate-300 hover:text-blue-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            </button>
+            <div class="flex items-center space-x-2">
+                <span class="text-xl">🇪🇹</span>
+                <h1 class="text-base sm:text-lg font-black text-slate-800 dark:text-white tracking-tight" id="header-title">Grade 12 Books : New Curriculum</h1>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button onclick="shareApp()" class="p-2 text-slate-600 dark:text-slate-300 hover:text-blue-600 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="max-w-6xl mx-auto px-4 py-6 space-y-6">
+
+        <!-- Grade Selection Tabs -->
+        <div class="flex space-x-2 overflow-x-auto pb-2 scrollbar-none">
+            <button onclick="filterGrade(12)" id="tab-grade-12" class="grade-tab bg-blue-600 text-white px-5 py-2 rounded-xl text-xs font-bold whitespace-nowrap shadow-md transition">Grade 12</button>
+            <button onclick="filterGrade(11)" id="tab-grade-11" class="grade-tab bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 px-5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition hover:border-blue-500">Grade 11</button>
+            <button onclick="filterGrade(10)" id="tab-grade-10" class="grade-tab bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 px-5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition hover:border-blue-500">Grade 10</button>
+            <button onclick="filterGrade(9)" id="tab-grade-9" class="grade-tab bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 px-5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition hover:border-blue-500">Grade 9</button>
+        </div>
+
+        <!-- Search & Filter Controls -->
+        <div class="flex gap-3">
+            <div class="relative flex-grow">
+                <input type="text" id="search-input" oninput="renderBooks()" placeholder="Search subject or book..." class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl pl-10 pr-4 py-3 text-xs dark:text-white outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
+                <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+            <select id="type-filter" onchange="renderBooks()" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-3 py-3 text-xs font-bold dark:text-white outline-none">
+                <option value="all">All Types</option>
+                <option value="Textbook">Textbooks</option>
+                <option value="Guide Book">Guide Books</option>
+            </select>
+        </div>
+
+        <!-- Books Grid (2 Columns Mobile matching Screenshot) -->
+        <div id="books-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <!-- Dynamically Loaded Book Cards -->
+        </div>
+
+    </div>
+
+    <!-- PDF Viewer Modal -->
+    <div id="pdf-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex flex-col">
+        <div class="bg-slate-900 text-white p-4 flex justify-between items-center border-b border-slate-800">
+            <h3 id="pdf-modal-title" class="text-sm font-extrabold truncate">Book Reader</h3>
+            <button onclick="closePdfModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-xl text-xs font-bold">Close ✕</button>
+        </div>
+        <div class="flex-grow w-full h-full relative">
+            <iframe id="pdf-frame" src="" class="w-full h-full border-none"></iframe>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation Bar (Matching Screenshot) -->
+    <div class="fixed bottom-0 left-0 w-full bg-slate-900 border-t border-slate-800 flex justify-around items-center py-2.5 px-2 z-40 text-slate-400">
+        <a href="/resources" class="flex flex-col items-center text-blue-500 font-extrabold text-[10px]">
+            <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+            Books
+        </a>
+        <a href="/subject/Mathematics" class="flex flex-col items-center hover:text-white font-bold text-[10px] transition">
+            <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+            Notes
+        </a>
+        <a href="/tutor" class="flex flex-col items-center hover:text-white font-bold text-[10px] transition">
+            <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+            Self-test
+        </a>
+        <a href="/" class="flex flex-col items-center hover:text-white font-bold text-[10px] transition">
+            <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            More
+        </a>
+    </div>
+
+</div>
+
+<!-- Book Data Store & Renderer Script -->
+<script>
+    let activeGrade = 12;
+
+    // Ethiopian New Curriculum Book Database
+    const booksDatabase = [
+        // Grade 12
+        { id: 1, grade: 12, subject: "Mathematics", type: "Textbook", icon: "math", pdfUrl: "https://drive.google.com/file/d/1_grade12_math_textbook/preview" },
+        { id: 2, grade: 12, subject: "Mathematics", type: "Guide Book", icon: "math", pdfUrl: "https://drive.google.com/file/d/2_grade12_math_guide/preview" },
+        { id: 3, grade: 12, subject: "Physics", type: "Textbook", icon: "physics", pdfUrl: "https://drive.google.com/file/d/3_grade12_physics_textbook/preview" },
+        { id: 4, grade: 12, subject: "Physics", type: "Guide Book", icon: "physics", pdfUrl: "https://drive.google.com/file/d/4_grade12_physics_guide/preview" },
+        { id: 5, grade: 12, subject: "Chemistry", type: "Textbook", icon: "chemistry", pdfUrl: "https://drive.google.com/file/d/5_grade12_chem_textbook/preview" },
+        { id: 6, grade: 12, subject: "Chemistry", type: "Guide Book", icon: "chemistry", pdfUrl: "https://drive.google.com/file/d/6_grade12_chem_guide/preview" },
+        { id: 7, grade: 12, subject: "Biology", type: "Textbook", icon: "biology", pdfUrl: "https://drive.google.com/file/d/7_grade12_bio_textbook/preview" },
+        { id: 8, grade: 12, subject: "Biology", type: "Guide Book", icon: "biology", pdfUrl: "https://drive.google.com/file/d/8_grade12_bio_guide/preview" },
+        { id: 9, grade: 12, subject: "English", type: "Textbook", icon: "english", pdfUrl: "https://drive.google.com/file/d/9_grade12_eng_textbook/preview" },
+        { id: 10, grade: 12, subject: "ICT", type: "Textbook", icon: "ict", pdfUrl: "https://drive.google.com/file/d/10_grade12_ict_textbook/preview" },
+
+        // Grade 11
+        { id: 11, grade: 11, subject: "Mathematics", type: "Textbook", icon: "math", pdfUrl: "#" },
+        { id: 12, grade: 11, subject: "Physics", type: "Textbook", icon: "physics", pdfUrl: "#" },
+        { id: 13, grade: 11, subject: "Chemistry", type: "Textbook", icon: "chemistry", pdfUrl: "#" },
+        { id: 14, grade: 11, subject: "Biology", type: "Textbook", icon: "biology", pdfUrl: "#" },
+
+        // Grade 10
+        { id: 15, grade: 10, subject: "Mathematics", type: "Textbook", icon: "math", pdfUrl: "#" },
+        { id: 16, grade: 10, subject: "Physics", type: "Textbook", icon: "physics", pdfUrl: "#" },
+
+        // Grade 9
+        { id: 17, grade: 9, subject: "Mathematics", type: "Textbook", icon: "math", pdfUrl: "#" },
+        { id: 18, grade: 9, subject: "Physics", type: "Textbook", icon: "physics", pdfUrl: "#" }
+    ];
+
+    function renderSubjectIllustration(icon) {
+        if (icon === "math") {
+            return `
+                <div class="h-24 flex items-center justify-center font-serif text-2xl font-extrabold text-orange-600 dark:text-orange-400 tracking-wider">
+                    a<sup>2</sup>+b<sup>2</sup>=c<sup>2</sup>
+                </div>
+            `;
+        } else if (icon === "physics") {
+            return `
+                <div class="h-24 flex flex-col items-center justify-center">
+                    <div class="w-12 h-3 bg-red-600 rounded-full shadow-sm"></div>
+                    <div class="w-1 h-8 bg-amber-700"></div>
+                    <div class="w-16 h-4 bg-slate-800 dark:bg-slate-700 rounded-md"></div>
+                </div>
+            `;
+        } else if (icon === "chemistry") {
+            return `
+                <div class="h-24 flex items-center justify-center space-x-1">
+                    <span class="text-3xl">🧪</span>
+                    <span class="text-2xl">🧫</span>
+                </div>
+            `;
+        } else if (icon === "biology") {
+            return `
+                <div class="h-24 flex items-center justify-center text-3xl">
+                    🧬
+                </div>
+            `;
+        } else {
+            return `
+                <div class="h-24 flex items-center justify-center text-3xl">
+                    📖
+                </div>
+            `;
+        }
+    }
+
+    function renderBooks() {
+        const grid = document.getElementById('books-grid');
+        const search = document.getElementById('search-input').value.toLowerCase().trim();
+        const typeFilter = document.getElementById('type-filter').value;
+
+        const filtered = booksDatabase.filter(book => {
+            const matchesGrade = book.grade === activeGrade;
+            const matchesSearch = book.subject.toLowerCase().includes(search) || book.type.toLowerCase().includes(search);
+            const matchesType = typeFilter === "all" || book.type === typeFilter;
+            return matchesGrade && matchesSearch && matchesType;
+        });
+
+        if (filtered.length === 0) {
+            grid.innerHTML = `
+                <div class="col-span-2 md:col-span-3 lg:col-span-4 text-center py-12 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6">
+                    <div class="text-4xl mb-2">📚</div>
+                    <p class="text-xs font-bold text-slate-500 dark:text-slate-400">No books found for Grade ${activeGrade} matching your filter.</p>
+                </div>
+            `;
+            return;
+        }
+
+        grid.innerHTML = filtered.map((book, idx) => `
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 shadow-sm flex flex-col justify-between relative overflow-hidden transition hover:shadow-md">
+                
+                <!-- Badge Number (Top Left) -->
+                <div class="absolute top-3 left-3 bg-blue-600 text-white font-extrabold text-xs w-7 h-7 rounded-lg flex items-center justify-center shadow-sm">
+                    ${idx + 1}
+                </div>
+
+                <!-- Subject Title (Top Center) -->
+                <div class="pt-1 text-center font-black text-slate-800 dark:text-white text-base tracking-tight">
+                    ${book.subject}
+                </div>
+
+                <!-- Graphic Illustration -->
+                <div class="my-2">
+                    ${renderSubjectIllustration(book.icon)}
+                </div>
+
+                <!-- Subtitle / Book Type -->
+                <div class="text-center font-bold text-slate-600 dark:text-slate-400 text-xs mb-3">
+                    ${book.type}
+                </div>
+
+                <!-- Read Book Action Button (Matching Screenshot) -->
+                <button onclick="openPdfModal('${book.subject} ${book.type}', '${book.pdfUrl}')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-3 rounded-2xl flex items-center justify-center space-x-2 transition shadow-md shadow-blue-500/10">
+                    <span class="bg-white text-blue-600 text-[9px] font-black px-1.5 py-0.5 rounded">PDF</span>
+                    <span>Read Book</span>
+                </button>
+            </div>
+        `).join('');
+    }
+
+    function filterGrade(gradeNum) {
+        activeGrade = gradeNum;
+        document.getElementById('header-title').innerText = `Grade ${gradeNum} Books : New Curriculum`;
+        
+        // Update Tab Styles
+        document.querySelectorAll('.grade-tab').forEach(tab => {
+            tab.className = "grade-tab bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 px-5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition hover:border-blue-500";
+        });
+        const activeTab = document.getElementById(`tab-grade-${gradeNum}`);
+        if (activeTab) {
+            activeTab.className = "grade-tab bg-blue-600 text-white px-5 py-2 rounded-xl text-xs font-bold whitespace-nowrap shadow-md transition";
+        }
+
+        renderBooks();
+    }
+
+    function openPdfModal(title, url) {
+        if (!url || url === "#") {
+            alert(`The PDF file for ${title} will be uploaded soon!`);
+            return;
+        }
+        document.getElementById('pdf-modal-title').innerText = title;
+        document.getElementById('pdf-frame').src = url;
+        document.getElementById('pdf-modal').classList.remove('hidden');
+    }
+
+    function closePdfModal() {
+        document.getElementById('pdf-modal').classList.add('hidden');
+        document.getElementById('pdf-frame').src = "";
+    }
+
+    function shareApp() {
+        if (navigator.share) {
+            navigator.share({
+                title: 'EduVault Grade 12 Books',
+                text: 'Access Ethiopian New Curriculum Textbooks and Guidebooks on EduVault!',
+                url: window.location.href,
+            });
+        } else {
+            alert('Sharing link: ' + window.location.href);
+        }
+    }
+
+    // Initial Render
+    document.addEventListener("DOMContentLoaded", () => {
+        renderBooks();
+    });
+</script>
+{% endblock %}

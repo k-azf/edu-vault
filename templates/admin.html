@@ -4,94 +4,121 @@
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 rounded-3xl shadow-xl space-y-6">
         
         <!-- Header -->
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-4">
             <div>
-                <a href="/" class="text-blue-600 dark:text-blue-400 hover:underline text-xs font-bold uppercase tracking-wider mb-2 inline-block">← Back to Dashboard</a>
-                <h1 class="text-2xl font-black text-slate-800 dark:text-white">Admin: Import Exam Console</h1>
-                <p class="text-xs text-slate-400 mt-1">Convert PDF exams to JSON via Gemini AI or import existing JSON files directly.</p>
+                <a href="/" class="text-blue-600 dark:text-blue-400 hover:underline text-xs font-bold uppercase tracking-wider mb-1 inline-block">← Back to Dashboard</a>
+                <h1 class="text-2xl font-black text-slate-800 dark:text-white">Admin: Smart Categorized Upload</h1>
+                <p class="text-xs text-slate-400">Upload PDF/JSON and automatically route to Worksheets, Entrance Exams, or Subject Chapters.</p>
             </div>
-            <div class="bg-slate-50 dark:bg-slate-950 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800">
-                <span class="text-[10px] font-black text-slate-400 uppercase block">System Status</span>
-                <span class="text-xs font-bold text-emerald-500 flex items-center gap-1">
-                    <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping"></span> AI Engine Online
-                </span>
-            </div>
+            <span class="bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 text-xs font-black uppercase px-3 py-1.5 rounded-full">Auto Classifier</span>
         </div>
 
-        <!-- Form -->
         <form id="upload-form" class="space-y-5">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            
+            <!-- Resource Type & Category Selection -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5">Exam Title</label>
-                    <input type="text" name="title" required placeholder="e.g. Physics Mock Exam 2018" class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-sm dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Resource Type</label>
+                    <select name="resource_type" id="resource_type" class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold dark:text-white outline-none">
+                        <option value="Exam">Exam (Model / Entrance / School)</option>
+                        <option value="Worksheet">Worksheet / Practice Paper</option>
+                    </select>
                 </div>
+
                 <div>
-                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5">Category / Subject</label>
-                    <input type="text" name="category" required placeholder="e.g. Physics" class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-sm dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Category Sub-type</label>
+                    <select name="category" id="category" class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold dark:text-white outline-none">
+                        <option value="National Entrance (EUEE)">National Entrance Exam (EUEE)</option>
+                        <option value="Model Exam">National Model Exam</option>
+                        <option value="School Midterm / Final">School Midterm / Final Exam</option>
+                        <option value="Chapter Worksheet">Chapter Worksheet</option>
+                    </select>
                 </div>
             </div>
 
-            <div class="relative group">
-                <label class="block text-xs font-bold text-slate-400 uppercase mb-1.5">Select Source File (PDF or JSON)</label>
-                <div class="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center group-hover:border-blue-500 transition-colors duration-300">
-                    <input type="file" id="file-input" name="pdf_file" accept=".pdf,.json" required class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
-                    <div class="space-y-2 pointer-events-none">
-                        <div class="text-3xl">📄</div>
-                        <p id="file-name-display" class="text-sm font-bold text-slate-600 dark:text-slate-300">Click to browse or drag file here</p>
-                        <p class="text-[10px] text-slate-400 uppercase font-bold tracking-tighter">Supported formats: .pdf (AI conversion) or .json (Direct import)</p>
-                    </div>
+            <!-- Subject & Grade -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Subject</label>
+                    <select name="subject" class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold dark:text-white outline-none">
+                        <option value="Mathematics">Mathematics</option>
+                        <option value="Physics">Physics</option>
+                        <option value="Chemistry">Chemistry</option>
+                        <option value="Biology">Biology</option>
+                        <option value="English">English</option>
+                        <option value="Agriculture">Agriculture</option>
+                        <option value="Economics">Economics</option>
+                        <option value="Geography">Geography</option>
+                        <option value="History">History</option>
+                        <option value="IT">Information Technology (IT)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Grade Level</label>
+                    <select name="grade" class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold dark:text-white outline-none">
+                        <option value="12">Grade 12</option>
+                        <option value="11">Grade 11</option>
+                        <option value="10">Grade 10</option>
+                        <option value="9">Grade 9</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Academic Year / Exam Year</label>
+                    <input type="text" name="academic_year" placeholder="e.g. 2016 E.C / 2024" class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs dark:text-white outline-none">
                 </div>
             </div>
 
-            <button type="submit" id="submit-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl transition shadow-lg shadow-blue-500/20 uppercase tracking-widest text-xs flex items-center justify-center gap-2">
-                <span>⚡</span>
-                <span id="btn-text">Process and Import Exam</span>
+            <!-- Title & Chapter Mapping -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Exam / Worksheet Title</label>
+                    <input type="text" name="title" required placeholder="e.g. Grade 12 Physics Entrance Exam 2016" class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs dark:text-white outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Chapter Name (Optional)</label>
+                    <input type="text" name="chapter_name" placeholder="e.g. Chapter 1: Electrostatics" class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs dark:text-white outline-none">
+                </div>
+            </div>
+
+            <!-- File Drag and Drop -->
+            <div class="p-6 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-center">
+                <input type="file" id="file-input" name="pdf_file" accept=".pdf,.json" required class="hidden">
+                <label for="file-input" class="cursor-pointer space-y-2 block">
+                    <div class="text-3xl">📄</div>
+                    <span id="file-name" class="text-xs font-bold text-blue-600 block">Click to select PDF or JSON Exam File</span>
+                    <span class="text-[10px] text-slate-400 uppercase block font-bold">Supports PDF (ChatGPT AI Auto-Parse) or Standard JSON</span>
+                </label>
+            </div>
+
+            <button type="submit" id="submit-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl transition shadow-lg shadow-blue-500/20 uppercase tracking-wider text-xs">
+                Classify & Upload Resource
             </button>
         </form>
 
-        <!-- Status Messenger -->
-        <div id="status-msg" class="hidden p-4 rounded-2xl text-center text-xs font-bold animate-pulse"></div>
-        
-        <!-- Helpful Tips -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-            <div class="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-2xl border border-blue-100/50 dark:border-blue-800/30">
-                <h4 class="text-[10px] font-black text-blue-600 uppercase mb-1">Conversion Note</h4>
-                <p class="text-[11px] text-slate-500 leading-tight">When a PDF is uploaded, Gemini AI will automatically generate a JSON backup on your server for future use.</p>
-            </div>
-            <div class="bg-violet-50/50 dark:bg-violet-900/10 p-4 rounded-2xl border border-violet-100/50 dark:border-violet-800/30">
-                <h4 class="text-[10px] font-black text-violet-600 uppercase mb-1">Direct JSON</h4>
-                <p class="text-[11px] text-slate-500 leading-tight">If you already have a JSON file formatted for EduVault, direct import is instantaneous and skips AI processing.</p>
-            </div>
-        </div>
+        <div id="status-msg" class="hidden p-4 rounded-2xl text-center text-xs font-bold"></div>
     </div>
 </div>
 
 <script>
-    const fileInput = document.getElementById('file-input');
-    const fileNameDisplay = document.getElementById('file-name-display');
-
-    // Update file name display on select
-    fileInput.addEventListener('change', (e) => {
+    document.getElementById('file-input').addEventListener('change', function(e) {
         if (e.target.files.length > 0) {
-            fileNameDisplay.textContent = e.target.files[0].name;
-            fileNameDisplay.classList.add('text-blue-600');
+            document.getElementById('file-name').innerText = "Selected: " + e.target.files[0].name;
         }
     });
 
     document.getElementById('upload-form').addEventListener('submit', function(e) {
         e.preventDefault();
         const btn = document.getElementById('submit-btn');
-        const btnText = document.getElementById('btn-text');
         const status = document.getElementById('status-msg');
         const formData = new FormData(this);
 
-        // UI State: Loading
         btn.disabled = true;
-        btn.classList.add('opacity-50', 'cursor-not-allowed');
-        btnText.innerText = "Processing (AI is analyzing)...";
-        status.classList.remove('hidden', 'bg-emerald-100', 'text-emerald-800', 'bg-rose-100', 'text-rose-800');
-        status.classList.add('bg-slate-100', 'text-slate-600', 'block');
-        status.innerText = "Establishing connection to Gemini and aligning data structures...";
+        btn.innerText = "Processing & Categorizing File...";
+        status.className = "p-4 rounded-2xl text-center text-xs font-bold bg-slate-100 text-slate-600 block animate-pulse";
+        status.innerText = "Analyzing content and routing to correct Subject ➔ Chapter section...";
 
         fetch('/api/upload', {
             method: 'POST',
@@ -100,27 +127,22 @@
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                status.classList.replace('bg-slate-100', 'bg-emerald-100');
-                status.classList.replace('text-slate-600', 'text-emerald-800');
+                status.className = "p-4 rounded-2xl text-center text-xs font-bold bg-emerald-100 text-emerald-800 block";
                 status.innerText = "🎉 " + data.message;
                 document.getElementById('upload-form').reset();
-                fileNameDisplay.textContent = "Click to browse or drag file here";
-                fileNameDisplay.classList.remove('text-blue-600');
+                document.getElementById('file-name').innerText = "Click to select PDF or JSON Exam File";
             } else {
-                status.classList.replace('bg-slate-100', 'bg-rose-100');
-                status.classList.replace('text-slate-600', 'text-rose-800');
-                status.innerText = "❌ Error: " + (data.error || data.details || "Unknown failure");
+                status.className = "p-4 rounded-2xl text-center text-xs font-bold bg-rose-100 text-rose-800 block";
+                status.innerText = "❌ Error: " + data.error;
             }
         })
         .catch(err => {
-            status.classList.replace('bg-slate-100', 'bg-rose-100');
-            status.classList.replace('text-slate-600', 'text-rose-800');
-            status.innerText = "❌ Network Error: Could not reach server.";
+            status.className = "p-4 rounded-2xl text-center text-xs font-bold bg-rose-100 text-rose-800 block";
+            status.innerText = "❌ Upload Failed. Check server connection.";
         })
         .finally(() => {
             btn.disabled = false;
-            btn.classList.remove('opacity-50', 'cursor-not-allowed');
-            btnText.innerText = "Process and Import Exam";
+            btn.innerText = "Classify & Upload Resource";
         });
     });
 </script>

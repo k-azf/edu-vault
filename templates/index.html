@@ -20,7 +20,7 @@
                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                             <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
                         </span>
-                        <span class="text-[11px] font-black text-blue-400 uppercase tracking-[0.25em]">ETHIOPIA'S NEXT-GEN SMART HUB</span>
+                        <span class="text-[11px] font-black text-blue-400 uppercase tracking-[0.25em]">EDUCATION VAULT SMART HUB</span>
                     </div>
                     
                     <!-- Main Welcome Heading -->
@@ -32,7 +32,7 @@
                             </span>
                         </h1>
                         <p class="text-slate-300 text-base sm:text-lg max-w-2xl font-normal leading-relaxed pt-2">
-                            EduVault is designed to empower Grade 9-12 Ethiopian students to bridge the gap between curriculum textbooks and academic success. Master your subjects with localized contents, past national entrance exams, and our state-of-the-art AI Tutor.
+                            EduVault is designed by Kayo Alemu to empower Grade 9-12 Ethiopian students to bridge the gap between curriculum textbooks and academic success. Master your subjects with localized contents, past national entrance exams, and our state-of-the-art AI Tutor.
                         </p>
                     </div>
 
@@ -62,53 +62,11 @@
                         {% if role == 'admin' %}
                             <a href="/admin" class="group inline-flex items-center justify-center px-6 py-4 text-sm font-extrabold text-purple-300 transition-all duration-300 bg-purple-950/40 border border-purple-500/30 hover:border-purple-400 rounded-2xl shadow-lg hover:bg-purple-900/50 hover:text-white hover:scale-[1.02] active:scale-95 backdrop-blur-md">
                                 <span class="flex items-center gap-2">
-                                    <span class="text-lg"></span>
+                                    <span class="text-lg">⚡</span>
                                     <span>Admin Console</span>
                                 </span>
                             </a>
                         {% endif %}
-                    </div>
-                </div>
-
-                <!-- Right Column: Brand Banner Asset Showcase (edu1.jpg) -->
-                <div class="lg:col-span-5 relative">
-                    <div class="relative mx-auto max-w-md lg:max-w-none rounded-[2.5rem] p-2 bg-gradient-to-b from-blue-500/20 via-slate-800/50 to-indigo-500/20 backdrop-blur-2xl border border-white/10 shadow-2xl group">
-                        <div class="relative overflow-hidden rounded-[2.2rem] bg-slate-900 aspect-[4/3] sm:aspect-[16/10] lg:aspect-[4/3]">
-                            <!-- Local Brand Asset 1: edu1.jpg -->
-                            <img src="{{ url_for('static', filename='edu1.jpg') }}" 
-                                 alt="EduVault Smart Platform" 
-                                 onerror="this.style.display='none'; document.getElementById('edu1-fallback').style.display='flex';"
-                                 class="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out">
-                            
-                            <!-- Fallback Container if edu1.jpg is loading or missing -->
-                            <div id="edu1-fallback" class="hidden absolute inset-0 bg-gradient-to-br from-blue-900 via-indigo-950 to-slate-950 p-8 flex-col justify-between">
-                                <div class="flex justify-between items-center">
-                                    <span class="bg-blue-600/30 text-blue-300 border border-blue-500/30 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">EDUAULT SMART ENGINE</span>
-                                    <span class="text-2xl">EV</span>
-                                </div>
-                                <div>
-                                    <h3 class="text-2xl font-black text-white">Interactive CBT Platform</h3>
-                                    <p class="text-xs text-slate-300 mt-2">Empowering Grade 9-12 students across all Ethiopian regional states.</p>
-                                </div>
-                            </div>
-
-                            <!-- Overlay Gradient Shader -->
-                            <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent"></div>
-
-                            <!-- Floating Glass Badge on Graphic -->
-                            <div class="absolute bottom-4 left-4 right-4 p-4 bg-slate-900/80 backdrop-blur-md border border-white/10 rounded-2xl flex items-center justify-between">
-                                <div class="flex items-center space-x-3">
-                                    <div class="w-10 h-10 rounded-xl bg-blue-600/30 border border-blue-400/30 flex items-center justify-center font-black text-blue-400 text-xs">
-                                        EV
-                                    </div>
-                                    <div>
-                                        <span class="text-xs font-bold text-white block">Curriculum AI Engine</span>
-                                        <span class="text-[10px] text-slate-400 font-semibold">Real-time Step Guidance</span>
-                                    </div>
-                                </div>
-                                <span class="text-xs font-black text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-1 rounded-lg">ONLINE</span>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
@@ -122,11 +80,11 @@
             
             <!-- Card 1: Entrance Portal -->
             <div class="group relative overflow-hidden bg-slate-900/90 border border-amber-500/30 hover:border-amber-400 p-8 rounded-[2.2rem] shadow-xl hover:shadow-2xl hover:shadow-amber-500/10 transition-all duration-300 hover:-translate-y-2 flex flex-col justify-between backdrop-blur-xl">
-                <!-- Background Brand Asset Cover: edu2.jpg -->
+                <!-- Background Brand Asset Cover -->
                 <div class="absolute inset-0 opacity-15 group-hover:opacity-25 transition-opacity duration-500 pointer-events-none">
-                    <img src="{{ url_for('static', filename='templates/edu2.jpg') }}" 
+                    <img src="{{ url_for('static', filename='edu1.jpg') }}" 
                          alt="Entrance Asset Cover" 
-                         onerror="this.style.display='none'"
+                         onerror="this.src='{{ url_for('static', filename='edu1.png.jpg') }}'"
                          class="w-full h-full object-cover">
                 </div>
                 <div class="relative z-10">
@@ -163,7 +121,7 @@
                         📚
                     </div>
                     <span class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full inline-block mb-3">
-                        TEXTBOOKS & NOTES
+                        TEXTBOOKS &amp; NOTES
                     </span>
                     <h3 class="text-2xl font-black text-white tracking-tight">Resource Hub</h3>
                     <p class="text-sm text-slate-300 mt-2 leading-relaxed">
@@ -210,7 +168,7 @@
         </div>
     </section>
 
-    <!-- 7. INTERACTIVE "DIGITAL BOOK COVERS" FOR SUBJECTS -->
+    <!-- 7. INTERACTIVE "DIGITAL BOOK COVERS" FOR SUBJECTS (EXPANDED FOR ALL CORE SUBJECTS) -->
     <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 border-b border-slate-800 pb-6 gap-4">
             <div>
@@ -218,11 +176,11 @@
                 <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tight">Core Subjects</h2>
             </div>
             <p class="text-slate-400 text-xs sm:text-sm max-w-md">
-                Interactive chapter breakdown for Grade 9, 10, 11, and 12 Ethiopian STEM and Social Science streams.
+                Interactive chapter breakdown for Grade 9, 10, 11, and 12 Ethiopian STEM, Social Science, Aptitude, and Language streams.
             </p>
         </div>
 
-        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-8">
             
             <!-- Book Cover 1: Mathematics -->
             <div class="group relative bg-gradient-to-br from-blue-700 via-indigo-800 to-slate-900 border border-blue-400/30 rounded-[2rem] p-7 shadow-xl hover:shadow-blue-500/20 hover:scale-[1.03] transition-all duration-300 flex flex-col justify-between min-h-[320px]">
@@ -328,6 +286,136 @@
                 </div>
             </div>
 
+            <!-- Book Cover 5: English -->
+            <div class="group relative bg-gradient-to-br from-indigo-700 via-blue-800 to-slate-900 border border-indigo-400/30 rounded-[2rem] p-7 shadow-xl hover:shadow-indigo-500/20 hover:scale-[1.03] transition-all duration-300 flex flex-col justify-between min-h-[320px]">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-bl-full pointer-events-none"></div>
+                <div>
+                    <div class="flex justify-between items-start mb-6">
+                        <div class="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center text-3xl font-black text-indigo-200 border border-white/20 shadow-md">
+                            📖
+                        </div>
+                        <span class="bg-indigo-400/20 text-indigo-200 border border-indigo-300/30 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md">
+                            LANGUAGE MODULE
+                        </span>
+                    </div>
+                    <h3 class="text-2xl font-black text-white tracking-tight group-hover:text-indigo-300 transition-colors">English</h3>
+                    <p class="text-xs text-indigo-100/80 mt-2 font-medium leading-relaxed">
+                        Grammar, Vocabulary, Comprehension, Communication Skills, and Exam Strategies.
+                    </p>
+                </div>
+                <div class="pt-6 border-t border-white/10 flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-indigo-200/70 uppercase tracking-wider">4 GRADES LOADED</span>
+                    <a href="/subject/English" class="text-xs font-black text-yellow-300 hover:text-yellow-200 uppercase tracking-widest inline-flex items-center gap-1">
+                        <span>Open Book</span>
+                        <span>→</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Book Cover 6: Scholastic Aptitude -->
+            <div class="group relative bg-gradient-to-br from-teal-700 via-cyan-800 to-slate-900 border border-teal-400/30 rounded-[2rem] p-7 shadow-xl hover:shadow-teal-500/20 hover:scale-[1.03] transition-all duration-300 flex flex-col justify-between min-h-[320px]">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-bl-full pointer-events-none"></div>
+                <div>
+                    <div class="flex justify-between items-start mb-6">
+                        <div class="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center text-3xl font-black text-teal-200 border border-white/20 shadow-md">
+                            🧠
+                        </div>
+                        <span class="bg-teal-400/20 text-teal-200 border border-teal-300/30 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md">
+                            GENERAL MODULE
+                        </span>
+                    </div>
+                    <h3 class="text-2xl font-black text-white tracking-tight group-hover:text-teal-300 transition-colors">Scholastic Aptitude</h3>
+                    <p class="text-xs text-teal-100/80 mt-2 font-medium leading-relaxed">
+                        Verbal Reasoning, Quantitative Logic, Analytical Reasoning, and Problem Solving.
+                    </p>
+                </div>
+                <div class="pt-6 border-t border-white/10 flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-teal-200/70 uppercase tracking-wider">NATIONAL EXAM FOCUS</span>
+                    <a href="/subject/Aptitude" class="text-xs font-black text-yellow-300 hover:text-yellow-200 uppercase tracking-widest inline-flex items-center gap-1">
+                        <span>Open Book</span>
+                        <span>→</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Book Cover 7: Geography -->
+            <div class="group relative bg-gradient-to-br from-green-700 via-emerald-800 to-slate-900 border border-green-400/30 rounded-[2rem] p-7 shadow-xl hover:shadow-green-500/20 hover:scale-[1.03] transition-all duration-300 flex flex-col justify-between min-h-[320px]">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-bl-full pointer-events-none"></div>
+                <div>
+                    <div class="flex justify-between items-start mb-6">
+                        <div class="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center text-3xl font-black text-green-200 border border-white/20 shadow-md">
+                            🌍
+                        </div>
+                        <span class="bg-green-400/20 text-green-200 border border-green-300/30 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md">
+                            SOCIAL SCIENCE
+                        </span>
+                    </div>
+                    <h3 class="text-2xl font-black text-white tracking-tight group-hover:text-green-300 transition-colors">Geography</h3>
+                    <p class="text-xs text-green-100/80 mt-2 font-medium leading-relaxed">
+                        Physical Geography, Human Geography, Maps & Spatial Analysis, and Ethiopian Resource Studies.
+                    </p>
+                </div>
+                <div class="pt-6 border-t border-white/10 flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-green-200/70 uppercase tracking-wider">4 GRADES LOADED</span>
+                    <a href="/subject/Geography" class="text-xs font-black text-yellow-300 hover:text-yellow-200 uppercase tracking-widest inline-flex items-center gap-1">
+                        <span>Open Book</span>
+                        <span>→</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Book Cover 8: History -->
+            <div class="group relative bg-gradient-to-br from-rose-800 via-red-900 to-slate-900 border border-rose-400/30 rounded-[2rem] p-7 shadow-xl hover:shadow-rose-500/20 hover:scale-[1.03] transition-all duration-300 flex flex-col justify-between min-h-[320px]">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-bl-full pointer-events-none"></div>
+                <div>
+                    <div class="flex justify-between items-start mb-6">
+                        <div class="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center text-3xl font-black text-rose-200 border border-white/20 shadow-md">
+                            🏛️
+                        </div>
+                        <span class="bg-rose-400/20 text-rose-200 border border-rose-300/30 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md">
+                            SOCIAL SCIENCE
+                        </span>
+                    </div>
+                    <h3 class="text-2xl font-black text-white tracking-tight group-hover:text-rose-300 transition-colors">History</h3>
+                    <p class="text-xs text-rose-100/80 mt-2 font-medium leading-relaxed">
+                        Ethiopian & World Civilizations, Modern Historical Dynamics, and Horn of Africa Studies.
+                    </p>
+                </div>
+                <div class="pt-6 border-t border-white/10 flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-rose-200/70 uppercase tracking-wider">4 GRADES LOADED</span>
+                    <a href="/subject/History" class="text-xs font-black text-yellow-300 hover:text-yellow-200 uppercase tracking-widest inline-flex items-center gap-1">
+                        <span>Open Book</span>
+                        <span>→</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Book Cover 9: Economics -->
+            <div class="group relative bg-gradient-to-br from-sky-700 via-blue-800 to-slate-900 border border-sky-400/30 rounded-[2rem] p-7 shadow-xl hover:shadow-sky-500/20 hover:scale-[1.03] transition-all duration-300 flex flex-col justify-between min-h-[320px]">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-bl-full pointer-events-none"></div>
+                <div>
+                    <div class="flex justify-between items-start mb-6">
+                        <div class="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center text-3xl font-black text-sky-200 border border-white/20 shadow-md">
+                            📊
+                        </div>
+                        <span class="bg-sky-400/20 text-sky-200 border border-sky-300/30 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md">
+                            SOCIAL SCIENCE
+                        </span>
+                    </div>
+                    <h3 class="text-2xl font-black text-white tracking-tight group-hover:text-sky-300 transition-colors">Economics</h3>
+                    <p class="text-xs text-sky-100/80 mt-2 font-medium leading-relaxed">
+                        Microeconomics, Macroeconomics, Market Structures, Supply & Demand, and Ethiopian Economy.
+                    </p>
+                </div>
+                <div class="pt-6 border-t border-white/10 flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-sky-200/70 uppercase tracking-wider">4 GRADES LOADED</span>
+                    <a href="/subject/Economics" class="text-xs font-black text-yellow-300 hover:text-yellow-200 uppercase tracking-widest inline-flex items-center gap-1">
+                        <span>Open Book</span>
+                        <span>→</span>
+                    </a>
+                </div>
+            </div>
+
         </div>
     </section>
 
@@ -335,7 +423,7 @@
     <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div class="bg-slate-900/80 border border-slate-800 rounded-[2.5rem] p-8 sm:p-10 shadow-2xl backdrop-blur-xl relative overflow-hidden">
             
-            <!-- Asset Graphic Integration (edu5.jpg background accent) -->
+            <!-- Asset Graphic Integration -->
             <div class="absolute inset-0 opacity-10 pointer-events-none">
                 <img src="{{ url_for('static', filename='edu5.jpg') }}" 
                      alt="Recent Exams Accent" 
@@ -373,13 +461,14 @@
             <div class="flex flex-col lg:flex-row items-center gap-10 lg:gap-14 relative z-10 text-center lg:text-left">
                 
                 <!-- Founder Avatar / Image Frame -->
-                <div class="relative group flex-shrink-0">
-                    <div class="absolute -inset-1.5 bg-gradient-to-r from-blue-600 via-indigo-500 to-amber-500 rounded-full blur-md opacity-75 group-hover:opacity-100 transition duration-500"></div>
-                    <img src="{{ url_for('static', filename='founder.jpg') }}" 
-                         alt="Founder Kayo Alemu" 
-                         onerror="this.src='https://ui-avatars.com/api/?name=Kayo+Alemu&background=2563eb&color=fff&size=250&font-size=0.33'"
-                         class="w-44 h-44 sm:w-52 sm:h-52 rounded-full object-cover object-top border-4 border-slate-950 shadow-2xl relative">
-                </div>
+<div class="relative group flex-shrink-0">
+    <div class="absolute -inset-1.5 bg-gradient-to-r from-blue-600 via-indigo-500 to-amber-500 rounded-full blur-md opacity-75 group-hover:opacity-100 transition duration-500"></div>
+    <img src="{{ url_for('static', filename='founder.jpg') }}" 
+         alt="Founder Kayo Alemu" 
+         onerror="this.src='/static/founder.jpg'; this.onerror=function(){this.src='https://ui-avatars.com/api/?name=Kayo+Alemu&background=2563eb&color=fff&size=250&font-size=0.33';}"
+         class="w-44 h-44 sm:w-52 sm:h-52 rounded-full object-cover object-top border-4 border-slate-950 shadow-2xl relative">
+</div>
+
 
                 <!-- Founder Narrative Content -->
                 <div class="flex-grow space-y-4">
@@ -394,11 +483,11 @@
                     </p>
 
                     <div class="pt-2 flex flex-wrap items-center justify-center lg:justify-start gap-4 text-xs text-slate-400 font-semibold">
-                        <span class="text-amber-400"> EduVault Project Lead</span>
+                        <span class="text-amber-400">⚡ EduVault Project Lead</span>
                         <span>•</span>
                         <span>Innovator of Ambo University</span>
                         <span>•</span>
-                        <span>Grade 12th student and Digital creater Vision</span>
+                        <span>Grade 12th student and Digital creator</span>
                     </div>
                 </div>
 
@@ -444,7 +533,7 @@
                             Py
                         </div>
                         <div>
-                            <span class="font-bold text-white block">Python & Flask Engine</span>
+                            <span class="font-bold text-white block">Python &amp; Flask</span>
                             <span class="text-slate-400 leading-normal">High-efficiency backend handling user authentication, session security, and exam data streaming.</span>
                         </div>
                     </div>
@@ -454,7 +543,7 @@
                             AI
                         </div>
                         <div>
-                            <span class="font-bold text-white block">OpenRouter & Multimodal LLMs</span>
+                            <span class="font-bold text-white block">OpenRouter &amp; Multimodal LLMs</span>
                             <span class="text-slate-400 leading-normal">Unblocked intelligence routing providing LaTeX formula parsing, step explanations, and image guidance.</span>
                         </div>
                     </div>
@@ -518,7 +607,7 @@
                     <li><a href="/subject/Entrance" class="hover:text-amber-400 transition-colors">Entrance Exam Portal</a></li>
                     <li><a href="/resources" class="hover:text-emerald-400 transition-colors">Textbook Resource Hub</a></li>
                     <li><a href="/tutor" class="hover:text-blue-400 transition-colors">Ask AI Assistant</a></li>
-                    <li><a href="/subject/Mathematics" class="hover:text-blue-400 transition-colors">Mathematics Modules</a></li>
+                    <li><a href="/subject/Mathematics" class="hover:text-blue-400 transition-colors">Mathematics practice</a></li>
                     <li><a href="/subject/Physics" class="hover:text-purple-400 transition-colors">Physics Practice</a></li>
                 </ul>
             </div>
@@ -529,19 +618,19 @@
                 <div class="space-y-2 text-xs">
                     <p class="flex items-center gap-2">
                         <span class="text-blue-400">📧</span>
-                        <a href="mailto:info@eduvault.com" class="hover:text-white transition-colors">kayoalemu94@gmail.com</a>
+                        <a href="mailto:kayoalemu94@gmail.com" class="hover:text-white transition-colors">kayoalemu94@gmail.com</a>
                     </p>
                     <p class="flex items-center gap-2">
                         <span class="text-emerald-400">📞</span>
-                        <a href="tel:+251911234567" class="hover:text-white transition-colors">+251 946379294</a>
+                        <a href="tel:+251946379294" class="hover:text-white transition-colors">+251 946379294</a>
                     </p>
                     <p class="flex items-center gap-2">
                         <span class="text-amber-400">📍</span>
-                        <span>Ambo,Oromia, Ethiopia</span>
+                        <span>Ambo, Oromia, Ethiopia</span>
                     </p>
                     <p class="flex items-center gap-2">
                         <span class="text-purple-400">💬</span>
-                        <a href="https://t.me/kayoalemu" target="_blank" class="hover:text-white transition-colors">Telegram </a>
+                        <a href="https://t.me/kayoalemu" target="_blank" class="hover:text-white transition-colors">Telegram (Kayo_Alemu)</a>
                     </p>
                 </div>
             </div>
@@ -549,9 +638,9 @@
         </div>
 
         <div class="max-w-7xl mx-auto pt-8 flex flex-col sm:flex-row items-center justify-between text-[11px] font-bold text-slate-500 gap-4">
-            <p>© 2026 EduVault LMS. Built for Ethiopian Academic Excellence.</p>
+            <p>© 2026 Edu Vault Smart Hub. Built for Ethiopian Academic Excellence.</p>
             <p class="flex items-center gap-1">
-                <span>Crafted with</span>
+                <span>Created By</span>
                 <span class="text-red-500">❤️</span>
                 <span>by <b class="text-slate-300">Kayo Alemu</b></span>
             </p>
