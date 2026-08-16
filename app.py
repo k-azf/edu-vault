@@ -397,21 +397,73 @@ def study_material_console(material_id):
 
 @app.route('/api/verify-task', methods=['POST'])
 def verify_social_task():
-    data = request.json or {}
-    telegram_id = data.get("telegram_id")
-    task_type = data.get("task_type")
+    data = request.get_json(silent=True) or {}
+    telegram_id = (data.get("telegram_id") or "").strip()
+    task_type = (data.get("task_type") or "").strip()
+    if not telegram_id:
+        return jsonify({
+            "success": False,
+            "error": "Telegram User ID/Handle required."
+        }), 400
+    allowed_tasks = ["channel", "bot", "youtube", "group_invites"]
+    if task_type not in allowed_tasks:
+        return jsonify({
+            "success": False,
+            "error": "Invalid task type"
+        }), 400
+    # Server-side 10 second verification timer
+    now = time.time()
+    session_key = f"verify_started_{task_type}"
+    started_at = session.get(session_key)
+    # First verification request starts the timer
+    if started_at is None:
+        session[session_key] = now
+        session.modified = True
+        return jsonify({
+            "success": False,
+            "waiting": True,
+            "remaining": 10,
+            "error": "Please wait 10 seconds before verification."
+        }), 202
+    elapsed = now - float(started_at)
+    # Do not verify before 10 seconds
+    if elapsed < 10:
+        remaining = max(1, int(10 - elapsed + 0.999))
+        return jsonify({
+            "success": False,
+            "waiting": True,
+            "remaining": remaining,
+            "error": f"Please wait {remaining} more seconds."
+        }), 202
 
+    # Task 1: Telegram Channel
     if task_type == "channel":
-        if not telegram_id:
-            return jsonify({"success": False, "error": "Telegram User ID/Handle required."}), 400
         is_member = check_telegram_channel_membership(telegram_id)
-        if is_member:
-            return jsonify({"success": True, "message": "Channel join verified!"})
-        else:
-            return jsonify({"success": True, "message": "Verified (Timer confirmed)"})
 
-    elif task_type in ["bot", "youtube", "group_invites"]:
-        return jsonify({"success": True, "message": f"{task_type.capitalize()} task verified!"})
+        if not is_member:
+            session.pop(session_key, None)
+            session.modified = True
+            return jsonify({
+                "success": False,
+                "error": "Telegram channel membership could not be verified yet."
+            }), 400
+        message = "Channel join verified!"
+    # Task 2: Telegram Bot
+    elif task_type == "bot":
+        message = "Bot task verified!"
+    # Task 3 YouTube
+    elif task_type == "youtube":
+        message = "YouTube task verified!"
+    # Task 4: Group Invites
+    elif task_type == "group_invites":
+        message = "Group invite task verified!"
+    # Clear timer after successful verification
+    session.pop(session_key, None)
+    session.modified = True
+    return jsonify({
+        "success": True,
+        "message": message
+    })
 
     return jsonify({"success": False, "error": "Invalid task type"}), 400
 
