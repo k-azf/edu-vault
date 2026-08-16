@@ -35,31 +35,7 @@ try:
     init_db()
 except Exception as e:
     print(f"Database init error: {e}")
-import os
-import traceback
-from flask import Flask, request, jsonify
 
-# 1. Automatically create required upload folders
-os.makedirs('uploads', exist_ok=True)
-os.makedirs('data', exist_ok=True)
-
-# 2. Database initialization & schema fix
-try:
-    init_db()
-except Exception as e:
-    print(f"Database Init Warning: {e}")
-
-# 3. Safe upload route with detailed error logging
-@app.route('/api/upload', methods=['POST'])
-def upload_file():
-    try:
-        # Your existing upload processing logic...
-        pass
-    except Exception as e:
-        # Print full Python error traceback to Render logs
-        print("❌ UPLOAD ERROR:")
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
 def get_db_connection():
     if DATABASE_URL:
         try:
