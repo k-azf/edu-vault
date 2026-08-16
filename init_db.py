@@ -6,26 +6,40 @@ from werkzeug.security import generate_password_hash
 DATABASE_URL = os.getenv("DATABASE_URL")
 import sqlite3
 
+import os
+import sqlite3
+
 def fix_database_schema():
-    conn = sqlite3.connect('data/exams.db')  # Ykn 'exams.db' yoo local ta'e
-    cursor = conn.cursor()
+    # 1. Folderni 'data' yoo hin jirre otomaatikiin uumuu
+    os.makedirs('data', exist_ok=True)
     
-    # 1. Column 'grade' table exams keessatti jiraachuu mirkaneessuu / dabaluu
-    try:
-        cursor.execute("ALTER TABLE exams ADD COLUMN grade TEXT;")
-        print("✅ Column 'grade' successfully added to 'exams' table!")
-    except sqlite3.OperationalError:
-        # Yoo duraan jiree jiraate error akka hin kaafneef
-        pass
+    # 2. Path database lamaanuu check gochuu ('data/exams.db' fi 'exams.db')
+    db_paths = ['data/exams.db', 'exams.db']
+    
+    for db_path in db_paths:
+        if os.path.exists(db_path) or db_path == 'data/exams.db':
+            try:
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                
+                # Column 'grade' table-oota hunda irratti check/add gochuu
+                tables = ['exams', 'worksheets', 'questions', 'resources']
+                
+                for table in tables:
+                    try:
+                        cursor.execute(f"ALTER TABLE {table} ADD COLUMN grade TEXT;")
+                        print(f"✅ Column 'grade' successfully added to '{table}' in {db_path}!")
+                    except sqlite3.OperationalError:
+                        # Column'n duraan jira ta'a
+                        pass
+                
+                conn.commit()
+                conn.close()
+            except Exception as e:
+                print(f"Error updating {db_path}: {e}")
 
-    # 2. Table 'worksheets' yoo qabaattes yoo barbaachise:
-    try:
-        cursor.execute("ALTER TABLE worksheets ADD COLUMN grade TEXT;")
-    except sqlite3.OperationalError:
-        pass
-
-    conn.commit()
-    conn.close()
+if __name__ == "__main__":
+    fix_database_schema()
 
 # System jalqabutti waamuuf:
 if __name__ == "__main__":
