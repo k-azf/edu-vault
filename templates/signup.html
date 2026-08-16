@@ -441,17 +441,186 @@ function checkAllTasksCompleted() {
  * pageshow is important for Android Chrome.
  * It runs when the signup page becomes visible again after Back.
  */
-window.addEventListener("pageshow", function () {
-    loadTasks();
+window.addEventListener("pageshow", async function () {
 
-    setTimeout(() => {
-        verifyPendingTask();
-    }, 150);
+    const saved = sessionStorage.getItem("pendingVerification");
+
+    if (!saved) {
+        return;
+    }
+
+    let pending;
+
+    try {
+        pending = JSON.parse(saved);
+    } catch (e) {
+        sessionStorage.removeItem("pendingVerification");
+        return;
+    }
+
+    const taskType = pending.taskType;
+    const telegramId = pending.telegramId;
+    const btn = document.getElementById(btn-${taskType});
+
+    if (!btn || tasks[taskType]) {
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerText = "Starting verification...";
+
+    try {
+
+        /*
+         * FIRST REQUEST:
+         * Backend starts its 10-second timer immediately.
+         */
+        const firstResponse = await fetch('/api/verify-task', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                telegram_id: telegramId,
+                task_type: taskType
+            })
+        });
+
+        const firstData = await firstResponse.json();
+
+        /*
+         * Backend says: wait 10 seconds.
+         */
+        if (firstData.waiting) {
+
+            let seconds = Number(firstData.remaining || 10);
+
+            btn.innerText = Wait ${seconds}s...;
+
+            const timer = setInterval(() => {
+
+                seconds--;
+
+                if (seconds > 0) {
+                    btn.innerText = Wait ${seconds}s...;
+                    return;
+                }
+
+                clearInterval(timer);
+
+                btn.innerText = "Checking...";
+
+                /*
+                 * SECOND REQUEST:
+                 * Now the backend should allow verification.
+                 */
+                verifyAfterTimer(taskType, telegramId, btn);
+
+            }, 1000);
+
+            return;
+        }
+
+        /*
+         * In case backend immediately verifies.
+         */
+        if (firstData.success) {
+            markVerified(taskType, btn);
+            return;
+        }
+
+        btn.disabled = false;
+        btn.innerText = "Verify";
+
+        alert(firstData.error || "Verification failed.");
+
+    } catch (error) {
+
+        console.error("Verification error:", error);
+
+        btn.disabled = false;
+        btn.innerText = "Verify";
+
+        alert("Verification server error. Try again!");
+    }
 });
 
-/*
- * Also restore the state when the page is loaded normally.
- */
+
+async function verifyAfterTimer(taskType, telegramId, btn) {
+
+    try {
+
+        const response = await fetch('/api/verify-task', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                telegram_id: telegramId,
+                task_type: taskType
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+
+            markVerified(taskType, btn);
+
+            return;
+        }
+
+        /*
+         * Backend may still require a few seconds.
+         */
+        if (data.waiting) {
+
+            const remaining = Number(data.remaining || 1);
+
+            btn.innerText = Wait ${remaining}s...;
+
+            setTimeout(() => {
+                btn.innerText = "Checking...";
+                verifyAfterTimer(taskType, telegramId, btn);
+            }, remaining * 1000);
+
+            return;
+        }
+
+        btn.disabled = false;
+        btn.innerText = "Verify";
+
+        alert(data.error || "Verification failed.");
+
+    } catch (error) {
+
+        console.error(error);
+
+        btn.disabled = false;
+        btn.innerText = "Verify";
+
+        alert("Verification server error. Try again!");
+    }
+}
+
+
+function markVerified(taskType, btn) {
+
+    tasks[taskType] = true;
+
+    btn.disabled = true;
+
+    btn.className =
+        "bg-emerald-600 text-white text-xs font-bold px-3.5 py-2 rounded-xl";
+
+    btn.innerText = "✓ Verified";
+
+    sessionStorage.removeItem("pendingVerification");
+
+    checkAllTasksCompleted();
+}
 document.addEventListener("DOMContentLoaded", function () {
     loadTasks();
 });
