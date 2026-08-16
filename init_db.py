@@ -4,7 +4,32 @@ from werkzeug.security import generate_password_hash
 
 # Detect if running on Render / Supabase PostgreSQL or local SQLite
 DATABASE_URL = os.getenv("DATABASE_URL")
+import sqlite3
 
+def fix_database_schema():
+    conn = sqlite3.connect('data/exams.db')  # Ykn 'exams.db' yoo local ta'e
+    cursor = conn.cursor()
+    
+    # 1. Column 'grade' table exams keessatti jiraachuu mirkaneessuu / dabaluu
+    try:
+        cursor.execute("ALTER TABLE exams ADD COLUMN grade TEXT;")
+        print("✅ Column 'grade' successfully added to 'exams' table!")
+    except sqlite3.OperationalError:
+        # Yoo duraan jiree jiraate error akka hin kaafneef
+        pass
+
+    # 2. Table 'worksheets' yoo qabaattes yoo barbaachise:
+    try:
+        cursor.execute("ALTER TABLE worksheets ADD COLUMN grade TEXT;")
+    except sqlite3.OperationalError:
+        pass
+
+    conn.commit()
+    conn.close()
+
+# System jalqabutti waamuuf:
+if __name__ == "__main__":
+    fix_database_schema()
 def init_db():
     if DATABASE_URL:
         # --- SUPABASE / POSTGRESQL MIGRATION ---
