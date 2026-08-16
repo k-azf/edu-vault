@@ -12,8 +12,6 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
-import traceback
-from flask import jsonify, request
 
 load_dotenv()
 
@@ -37,7 +35,9 @@ try:
     init_db()
 except Exception as e:
     print(f"Database init error: {e}")
-
+import os
+import traceback
+from flask import Flask, request, jsonify
 
 # 1. Automatically create required upload folders
 os.makedirs('uploads', exist_ok=True)
@@ -49,53 +49,17 @@ try:
 except Exception as e:
     print(f"Database Init Warning: {e}")
 
+# 3. Safe upload route with detailed error logging
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
     try:
-        # 1. Check if a file was uploaded in the request
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file part in request'}), 400
-
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
-
-        # 2. Extract request form data
-        resource_type = request.form.get('resource_type', 'Worksheet')
-        category = request.form.get('category', 'General')
-        subject = request.form.get('subject', 'General')
-        grade = request.form.get('grade', 12)
-        title = request.form.get('title', file.filename)
-        chapter_name = request.form.get('chapter_name', '')
-
-        # 3. Ensure uploads folder exists and save file
-        os.makedirs('uploads', exist_ok=True)
-        filepath = os.path.join('uploads', file.filename)
-        file.save(filepath)
-
-        # ---------------------------------------------------------
-        # YOUR PDF / JSON PARSING & DATABASE INSERTION LOGIC HERE
-        # ---------------------------------------------------------
-
-        # 4. Cleanup temporary file if needed
-        if os.path.exists(filepath):
-            os.remove(filepath)
-
-        # 5. CRITICAL: MUST RETURN A VALID JSON RESPONSE!
-        return jsonify({
-            'success': True,
-            'message': 'File uploaded and processed successfully!',
-            'title': title
-        }), 200
-
+        # Your existing upload processing logic...
+        pass
     except Exception as e:
-        print("❌ UPLOAD ERROR TRACEBACK:")
+        # Print full Python error traceback to Render logs
+        print("❌ UPLOAD ERROR:")
         traceback.print_exc()
-        # MUST RETURN RESPONSE IN EXCEPT BLOCK AS WELL
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        return jsonify({'error': str(e)}), 500
 def get_db_connection():
     if DATABASE_URL:
         try:
