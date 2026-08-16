@@ -28,7 +28,13 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 # Configure Google's GenAI Client
 gemini_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=gemini_key) if gemini_key else None
+from init_db import init_db
 
+# Server Render irratti yeroo boot ta'u hunda Supabase database fix akka godhuuf:
+try:
+    init_db()
+except Exception as e:
+    print(f"Database init error: {e}")
 def get_db_connection():
     if DATABASE_URL:
         try:
