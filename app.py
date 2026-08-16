@@ -12,7 +12,7 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
-
+import traceback
 load_dotenv()
 
 app = Flask(__name__)
@@ -35,6 +35,29 @@ try:
     init_db()
 except Exception as e:
     print(f"Database init error: {e}")
+
+
+# 1. Automatically create required upload folders
+os.makedirs('uploads', exist_ok=True)
+os.makedirs('data', exist_ok=True)
+
+# 2. Database initialization & schema fix
+try:
+    init_db()
+except Exception as e:
+    print(f"Database Init Warning: {e}")
+
+# 3. Safe upload route with detailed error logging
+@app.route('/api/upload', methods=['POST'])
+def upload_file():
+    try:
+        # Your existing upload processing logic...
+        pass
+    except Exception as e:
+        # Print full Python error traceback to Render logs
+        print("❌ UPLOAD ERROR:")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 def get_db_connection():
     if DATABASE_URL:
         try:
