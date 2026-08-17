@@ -1,455 +1,474 @@
 {% extends 'base.html' %}
 {% block content %}
+
 <div class="max-w-4xl mx-auto px-6 py-10 flex flex-col h-[85vh] relative">
+    <!-- Offline Banner -->  
+    <div id="offline-ai-banner" class="hidden bg-amber-900/40 border border-amber-500/50 text-amber-300 p-4 rounded-2xl mb-4 text-xs flex items-center justify-between">  
+        <span class="flex items-center gap-2">  
+            <span>⚠️</span>  
+            <span><b>You are Offline:</b> The AI Assistant requires an active Internet Connection. Your Exams, Textbooks, and Worksheets remain 100% accessible offline!</span>  
+        </span>  
+    </div>  
 
-    <!-- Offline Banner -->
-    <div id="offline-ai-banner" class="hidden bg-amber-900/40 border border-amber-500/50 text-amber-300 p-4 rounded-2xl mb-4 text-xs flex items-center justify-between">
-        <span class="flex items-center gap-2">
-            <span>⚠️</span>
-            <span><b>You are Offline:</b> The AI Assistant requires an active Internet Connection. Your Exams, Textbooks, and Worksheets remain 100% accessible offline!</span>
-        </span>
-    </div>
+    <!-- Header with Action Buttons -->  
+    <div class="mb-6 flex flex-wrap justify-between items-center gap-4">  
+        <div>  
+            <h1 class="text-2xl font-black text-slate-800 dark:text-white flex items-center gap-2">  
+                <span>👨‍💻 Stone AI Assistant</span>  
+            </h1>  
+            <p class="text-xs text-slate-400">Ask any academic question and receive step-by-step guidance.</p>  
+        </div>  
 
-    <!-- Header with Action Buttons -->
-    <div class="mb-6 flex flex-wrap justify-between items-center gap-4">
-        <div>
-            <h1 class="text-2xl font-black text-slate-800 dark:text-white flex items-center gap-2">
-                <span>👨‍💻 Stone AI Assistant</span>
-            </h1>
-            <p class="text-xs text-slate-400">Ask any academic question and receive step-by-step guidance.</p>
-        </div>
+        <!-- ChatGPT-style History & Action Buttons -->  
+        <div class="flex items-center gap-2">  
+            <!-- New Chat Button -->  
+            <button onclick="startNewChatThread()" class="text-xs font-bold text-blue-400 hover:text-white bg-blue-600/20 hover:bg-blue-600 border border-blue-500/30 px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm">  
+                <span>➕</span>  
+                <span>New Chat</span>  
+            </button>  
 
-        <!-- ChatGPT-style History & Action Buttons -->
-        <div class="flex items-center gap-2">
-            <!-- New Chat Button -->
-            <button onclick="startNewChatThread()" class="text-xs font-bold text-blue-400 hover:text-white bg-blue-600/20 hover:bg-blue-600 border border-blue-500/30 px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm">
-                <span>➕</span>
-                <span>New Chat</span>
-            </button>
+            <!-- Saved Chats Drawer Button -->  
+            <button onclick="toggleSavedChatsModal()" class="text-xs font-bold text-emerald-400 hover:text-white bg-emerald-600/20 hover:bg-emerald-600 border border-emerald-500/30 px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm relative">  
+                <span>📜</span>  
+                <span>Saved Chats</span>  
+                <span id="saved-chats-badge" class="bg-emerald-500 text-slate-950 text-[9px] font-black rounded-full px-1.5 py-0.2">0</span>  
+            </button>  
 
-            <!-- Saved Chats Drawer Button -->
-            <button onclick="toggleSavedChatsModal()" class="text-xs font-bold text-emerald-400 hover:text-white bg-emerald-600/20 hover:bg-emerald-600 border border-emerald-500/30 px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm relative">
-                <span>📜</span>
-                <span>Saved Chats</span>
-                <span id="saved-chats-badge" class="bg-emerald-500 text-slate-950 text-[9px] font-black rounded-full px-1.5 py-0.2">0</span>
-            </button>
+            <!-- Clear Logs Button -->  
+            <button onclick="clearTutorLogs()" class="text-xs font-bold text-red-400 hover:text-white bg-red-600/20 hover:bg-red-600 border border-red-500/30 px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm">  
+                <span>🗑️</span>  
+                <span>Clear Logs</span>  
+            </button>  
+        </div>  
+    </div>  
 
-            <!-- Clear Logs Button -->
-            <button onclick="clearTutorLogs()" class="text-xs font-bold text-red-400 hover:text-white bg-red-600/20 hover:bg-red-600 border border-red-500/30 px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm">
-                <span>🗑️</span>
-                <span>Clear Logs</span>
-            </button>
-        </div>
-    </div>
+    <!-- Chat Stream Pane -->  
+    <div id="tutor-chat-stream" class="flex-grow bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 overflow-y-auto space-y-4 custom-scrollbar shadow-sm">  
+        <div id="default-welcome-msg" class="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100/50 dark:border-blue-900/30 p-4 rounded-2xl max-w-lg text-xs leading-relaxed text-slate-700 dark:text-slate-300">  
+            Hi, I am your EduVault AI Tutor. Paste a question, topic, or ask me to explain a concept step-by-step! Your chats are automatically saved like ChatGPT.  
+        </div>  
+    </div>  
 
-    <!-- Chat Stream Pane -->
-    <div id="tutor-chat-stream" class="flex-grow bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 overflow-y-auto space-y-4 custom-scrollbar shadow-sm">
-        <div id="default-welcome-msg" class="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100/50 dark:border-blue-900/30 p-4 rounded-2xl max-w-lg text-xs leading-relaxed text-slate-700 dark:text-slate-300">
-            Hi, I am your EduVault AI Tutor. Paste a question, topic, or ask me to explain a concept step-by-step! Your chats are automatically saved like ChatGPT.
-        </div>
-    </div>
-
-    <!-- Message Inputs -->
-    <div class="mt-4 flex gap-3">
+    <!-- Message Inputs -->  
+    <div class="mt-4 flex gap-3">  
         <input type="text" id="tutor-msg-field" onkeypress="handleKeyPress(event)" placeholder="Ask about calculus, anatomy, or paste a question..." class="flex-grow bg-white dark:bg-slate-900 p-3.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition dark:text-white">
-        <button id="send-btn" onclick="sendTutorMessage()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-6 rounded-xl transition shadow-md shadow-blue-500/10 flex items-center gap-1">
-            <span>Send</span>
-            <span>➔</span>
-        </button>
-    </div>
 
-    <!-- SAVED CHATS MODAL / DRAWER (ChatGPT-style history list) -->
-    <div id="saved-chats-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl space-y-4 max-h-[80vh] flex flex-col">
-            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-                <div class="flex items-center gap-2">
-                    <span class="text-xl">📜</span>
-                    <h3 class="text-base font-black text-white">Saved Chat History</h3>
-                </div>
-                <button onclick="toggleSavedChatsModal()" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
-            </div>
+        <button id="send-btn" onclick="sendTutorMessage()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-6 rounded-xl transition shadow-md shadow-blue-500/10 flex items-center gap-1">  
+            <span>Send</span>  
+            <span>➔</span>  
+        </button>  
+    </div>  
 
-            <p class="text-xs text-slate-400">Select any previous conversation thread to restore it into your chat stream.</p>
+    <!-- SAVED CHATS MODAL / DRAWER (ChatGPT-style history list) -->  
+    <div id="saved-chats-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">  
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl space-y-4 max-h-[80vh] flex flex-col">  
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">  
+                <div class="flex items-center gap-2">  
+                    <span class="text-xl">📜</span>  
+                    <h3 class="text-base font-black text-white">Saved Chat History</h3>  
+                </div>  
+                <button onclick="toggleSavedChatsModal()" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>  
+            </div>  
 
-            <!-- List of Saved Threads -->
-            <div id="saved-threads-list" class="flex-grow overflow-y-auto space-y-2 pr-1">
-                <!-- Dynamically populated -->
-            </div>
+            <p class="text-xs text-slate-400">Select any previous conversation thread to restore it into your chat stream.</p>  
 
-            <div class="pt-3 border-t border-slate-800 flex justify-between items-center">
-                <button onclick="clearAllSavedThreads()" class="text-xs font-bold text-red-400 hover:underline">Clear All Saved History</button>
-                <button onclick="toggleSavedChatsModal()" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold px-4 py-2 rounded-xl">Close</button>
-            </div>
-        </div>
+            <!-- List of Saved Threads -->  
+            <div id="saved-threads-list" class="flex-grow overflow-y-auto space-y-2 pr-1">  
+                <!-- Dynamically populated -->  
+            </div>  
+
+            <div class="pt-3 border-t border-slate-800 flex justify-between items-center">  
+                <button onclick="clearAllSavedThreads()" class="text-xs font-bold text-red-400 hover:underline">Clear All Saved History</button>  
+                <button onclick="toggleSavedChatsModal()" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold px-4 py-2 rounded-xl">Close</button>  
+            </div>  
+        </div>  
     </div>
 
 </div>
 
 <!-- Markdown, mathematical formulas, and safe HTML rendering CDN integrations -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script>
-    window.MathJax = {
-        tex: {
-            inlineMath: [['$', '$'], ['\\(', '\\)']],
-            displayMath: [['$$', '$$'], ['\\[', '\\]']]
-        },
-        options: {
-            skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
-        }
-    };
+<script>  
+    window.MathJax = {  
+        tex: {  
+            inlineMath: [['$', '$'], ['\\(', '\\)']],  
+            displayMath: [['$$', '$$'], ['\\[', '\\]']]  
+        },  
+        options: {  
+            skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']  
+        }  
+    };  
 </script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
 
-<script>
-    const THREADS_KEY = 'eduvault_saved_chat_threads';
-    const ACTIVE_THREAD_ID_KEY = 'eduvault_active_thread_id';
-
-    let currentThreadId = null;
-
-    // Check Online/Offline status
-    function checkAiOnlineStatus() {
-        const banner = document.getElementById('offline-ai-banner');
-        const sendBtn = document.getElementById('send-btn');
-        if (!navigator.onLine) {
-            if (banner) banner.classList.remove('hidden');
-            if (sendBtn) sendBtn.disabled = true;
-        } else {
-            if (banner) banner.classList.add('hidden');
-            if (sendBtn) sendBtn.disabled = false;
-        }
-    }
-    window.addEventListener('online', checkAiOnlineStatus);
-    window.addEventListener('offline', checkAiOnlineStatus);
-
-    // Initialize Page
-    document.addEventListener('DOMContentLoaded', function() {
-        checkAiOnlineStatus();
-        initChatSystem();
-    });
-
-    // Load or initialize ChatGPT-style chat threads
-    function getAllThreads() {
-        try {
-            return JSON.parse(localStorage.getItem(THREADS_KEY)) || [];
-        } catch (e) {
-            return [];
-        }
-    }
-
-    function saveAllThreads(threads) {
-        localStorage.setItem(THREADS_KEY, JSON.stringify(threads));
-        updateSavedBadgeCount();
-    }
-
-    function initChatSystem() {
-        const threads = getAllThreads();
-        const activeId = localStorage.getItem(ACTIVE_THREAD_ID_KEY);
-
-        if (activeId && threads.some(t => t.id === activeId)) {
-            currentThreadId = activeId;
-            loadThreadMessages(currentThreadId);
-        } else if (threads.length > 0) {
-            currentThreadId = threads[0].id;
-            localStorage.setItem(ACTIVE_THREAD_ID_KEY, currentThreadId);
-            loadThreadMessages(currentThreadId);
-        } else {
-            startNewChatThread(false);
-        }
-
-        updateSavedBadgeCount();
-    }
-
-    // Start a brand new chat thread
-    function startNewChatThread(renderWelcome = true) {
-        currentThreadId = 'thread_' + Date.now();
-        localStorage.setItem(ACTIVE_THREAD_ID_KEY, currentThreadId);
-
-        if (renderWelcome) {
-            const stream = document.getElementById('tutor-chat-stream');
-            stream.innerHTML = `
-                <div id="default-welcome-msg" class="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100/50 dark:border-blue-900/30 p-4 rounded-2xl max-w-lg text-xs leading-relaxed text-slate-700 dark:text-slate-300">
-                    New Chat Started! Paste a question, topic, or ask me to explain a concept step-by-step.
-                </div>
-            `;
-        }
-    }
-
-    // Save a message into the current active thread
-    function saveMessageToCurrentThread(type, content) {
-        let threads = getAllThreads();
-        let threadIndex = threads.findIndex(t => t.id === currentThreadId);
-
-        const newMsg = { type: type, content: content, timestamp: new Date().toISOString() };
-
-        if (threadIndex === -1) {
-            // Create title from first user query (max 30 chars)
-            const title = type === 'user' ? (content.length > 30 ? content.substring(0, 30) + '...' : content) : 'Academic Query';
-            const newThread = {
-                id: currentThreadId,
-                title: title,
-                updatedAt: new Date().toISOString(),
-                messages: [newMsg]
-            };
-            threads.unshift(newThread);
-        } else {
-            threads[threadIndex].messages.push(newMsg);
-            threads[threadIndex].updatedAt = new Date().toISOString();
-
-            // Update title if it was a default title
-            if (type === 'user' && threads[threadIndex].messages.filter(m => m.type === 'user').length === 1) {
-                threads[threadIndex].title = content.length > 30 ? content.substring(0, 30) + '...' : content;
-            }
-
-            // Move updated thread to top of list
-            const updatedThread = threads.splice(threadIndex, 1)[0];
-            threads.unshift(updatedThread);
-        }
-
-        saveAllThreads(threads);
-    }
-
-    // Render messages of selected thread
-    function loadThreadMessages(threadId) {
-        currentThreadId = threadId;
-        localStorage.setItem(ACTIVE_THREAD_ID_KEY, currentThreadId);
-
-        const threads = getAllThreads();
-        const thread = threads.find(t => t.id === threadId);
+<script>  
+    const THREADS_KEY = 'eduvault_saved_chat_threads';  
+    const ACTIVE_THREAD_ID_KEY = 'eduvault_active_thread_id';  
+  
+    let currentThreadId = null;  
+  
+    // Smart Scroll Helper: Always scrolls down unless the user manually scrolled up to read history
+    function scrollChatToBottom() {
         const stream = document.getElementById('tutor-chat-stream');
-
-        if (!thread || !thread.messages || thread.messages.length === 0) {
-            stream.innerHTML = `
-                <div id="default-welcome-msg" class="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100/50 dark:border-blue-900/30 p-4 rounded-2xl max-w-lg text-xs leading-relaxed text-slate-700 dark:text-slate-300">
-                    Hi, I am your EduVault AI Tutor. Paste a question, topic, or ask me to explain a concept step-by-step!
-                </div>
-            `;
-            return;
-        }
-
-        stream.innerHTML = "";
-
-        thread.messages.forEach(msg => {
-            if (msg.type === 'user') {
-                const userBubble = document.createElement("div");
-                userBubble.className = "flex justify-end";
-
-                const userMessageElement = document.createElement("div");
-                userMessageElement.className = "bg-blue-600 text-white p-4 rounded-2xl max-w-lg text-xs leading-relaxed font-semibold shadow-sm";
-                userMessageElement.textContent = msg.content;
-
-                userBubble.appendChild(userMessageElement);
-                stream.appendChild(userBubble);
-            } else if (msg.type === 'ai') {
-                const formattedAnswer = formatAIResponse(msg.content);
-                const answerElement = document.createElement("div");
-                answerElement.className = "bg-slate-100 dark:bg-slate-800/80 border border-slate-200/40 dark:border-slate-800/80 p-4 rounded-2xl max-w-xl text-xs leading-relaxed text-slate-700 dark:text-slate-300 shadow-sm";
-                answerElement.innerHTML = formattedAnswer;
-                stream.appendChild(answerElement);
-            } else if (msg.type === 'error') {
-                const errorDiv = document.createElement("div");
-                errorDiv.className = "p-4 bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-950 text-red-700 dark:text-red-400 text-xs rounded-2xl max-w-lg";
-                errorDiv.innerHTML = `<strong>Error:</strong> ${DOMPurify.sanitize(msg.content)}`;
-                stream.appendChild(errorDiv);
-            }
-        });
-
-        if (window.MathJax && window.MathJax.typesetPromise) {
-            MathJax.typesetPromise([stream]).catch(err => console.error("MathJax error:", err));
-        }
-
-        stream.scrollTop = stream.scrollHeight;
-    }
-
-    // Toggle Saved Chats Modal
-    function toggleSavedChatsModal() {
-        const modal = document.getElementById('saved-chats-modal');
-        if (modal.classList.contains('hidden')) {
-            renderSavedThreadsList();
-            modal.classList.remove('hidden');
-        } else {
-            modal.classList.add('hidden');
+        if (stream) {
+            stream.scrollTop = stream.scrollHeight;
         }
     }
 
-    function updateSavedBadgeCount() {
-        const threads = getAllThreads();
-        const badge = document.getElementById('saved-chats-badge');
-        if (badge) badge.innerText = threads.length;
-    }
-
-    function renderSavedThreadsList() {
-        const container = document.getElementById('saved-threads-list');
-        const threads = getAllThreads();
-
-        if (threads.length === 0) {
-            container.innerHTML = `
-                <div class="bg-slate-950/60 p-6 rounded-2xl border border-dashed border-slate-800 text-center text-slate-400 text-xs">
-                    No saved chat threads yet. Start asking questions and your threads will automatically appear here!
-                </div>
-            `;
-            return;
-        }
-
-        container.innerHTML = "";
-        threads.forEach(t => {
-            const isActive = t.id === currentThreadId;
-            const dateStr = new Date(t.updatedAt).toLocaleDateString() + ' ' + new Date(t.updatedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-
-            container.innerHTML += `
-                <div class="p-3.5 rounded-2xl border transition flex items-center justify-between cursor-pointer ${isActive ? 'bg-blue-600/20 border-blue-500 text-white' : 'bg-slate-950/80 border-slate-800 text-slate-300 hover:border-slate-700'}"
-                     onclick="selectSavedThread('${t.id}')">
-                    <div class="space-y-1 overflow-hidden pr-2">
-                        <div class="font-bold text-xs truncate flex items-center gap-1.5">
-                            <span>💬</span>
-                            <span>${t.title || 'Academic Query'}</span>
-                        </div>
-                        <div class="text-[10px] text-slate-500 font-semibold">
-                            ${t.messages ? t.messages.length : 0} messages • ${dateStr}
-                        </div>
-                    </div>
-                    <button onclick="deleteSingleThread(event, '${t.id}')" class="text-xs text-slate-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/10 transition" title="Delete Thread">
-                        🗑️
-                    </button>
-                </div>
-            `;
-        });
-    }
-
-    function selectSavedThread(threadId) {
-        loadThreadMessages(threadId);
-        toggleSavedChatsModal();
-    }
-
-    function deleteSingleThread(event, threadId) {
-        event.stopPropagation();
-        let threads = getAllThreads();
-        threads = threads.filter(t => t.id !== threadId);
-        saveAllThreads(threads);
-
-        if (currentThreadId === threadId) {
-            if (threads.length > 0) {
-                loadThreadMessages(threads[0].id);
-            } else {
-                startNewChatThread();
-            }
-        }
-        renderSavedThreadsList();
-    }
-
-    function clearAllSavedThreads() {
-        if (confirm("Are you sure you want to delete ALL saved chat threads?")) {
-            localStorage.removeItem(THREADS_KEY);
-            localStorage.removeItem(ACTIVE_THREAD_ID_KEY);
-            startNewChatThread();
-            toggleSavedChatsModal();
-        }
-    }
-
-    // Keyboard "Enter" handler
-    function handleKeyPress(e) {
-        if (e.key === 'Enter') {
-            sendTutorMessage();
-        }
-    }
-
-    function formatAIResponse(text) {
-        if (!text) return "";
-        const markdownHtml = marked.parse(text, { breaks: true, gfm: true });
-        return DOMPurify.sanitize(markdownHtml);
-    }
-
-    function sendTutorMessage() {
-        const input = document.getElementById('tutor-msg-field');
-        const msg = input.value.trim();
-        if (!msg) return;
-
+    function scrollChatIfNearBottom() {
         const stream = document.getElementById('tutor-chat-stream');
-        
-        // Remove welcome message if visible
-        const welcomeMsg = document.getElementById('default-welcome-msg');
-        if (welcomeMsg) welcomeMsg.remove();
+        if (!stream) return;
+        const threshold = 120; // distance from bottom in px
+        const isNearBottom = stream.scrollHeight - stream.scrollTop - stream.clientHeight <= threshold;
+        if (isNearBottom) {
+            stream.scrollTop = stream.scrollHeight;
+        }
+    }
 
-        // Safely append user message
-        const userBubble = document.createElement("div");
-        userBubble.className = "flex justify-end";
-
-        const userMessageElement = document.createElement("div");
-        userMessageElement.className = "bg-blue-600 text-white p-4 rounded-2xl max-w-lg text-xs leading-relaxed font-semibold shadow-sm";
-        userMessageElement.textContent = msg;
-
-        userBubble.appendChild(userMessageElement);
-        stream.appendChild(userBubble);
-
-        // Auto Save User Message to Current Thread
-        saveMessageToCurrentThread('user', msg);
-
-        input.value = "";
-        stream.scrollTop = stream.scrollHeight;
-
-        // Append pulsing loading indicator
-        const loadingId = "loader-" + Date.now();
-        const loader = document.createElement("div");
-        loader.id = loadingId;
-        loader.className = "flex items-center space-x-2 bg-slate-100 dark:bg-slate-800/60 p-4 rounded-2xl max-w-[200px] text-xs leading-relaxed text-slate-400 dark:text-slate-500 animate-pulse border border-slate-200/40 dark:border-slate-800";
+    // Check Online/Offline status  
+    function checkAiOnlineStatus() {  
+        const banner = document.getElementById('offline-ai-banner');  
+        const sendBtn = document.getElementById('send-btn');  
+        if (!navigator.onLine) {  
+            if (banner) banner.classList.remove('hidden');  
+            if (sendBtn) sendBtn.disabled = true;  
+        } else {  
+            if (banner) banner.classList.add('hidden');  
+            if (sendBtn) sendBtn.disabled = false;  
+        }  
+    }  
+    window.addEventListener('online', checkAiOnlineStatus);  
+    window.addEventListener('offline', checkAiOnlineStatus);  
+  
+    // Initialize Page  
+    document.addEventListener('DOMContentLoaded', function() {  
+        checkAiOnlineStatus();  
+        initChatSystem();  
+    });  
+  
+    // Load or initialize ChatGPT-style chat threads  
+    function getAllThreads() {  
+        try {  
+            return JSON.parse(localStorage.getItem(THREADS_KEY)) || [];  
+        } catch (e) {  
+            return [];  
+        }  
+    }  
+  
+    function saveAllThreads(threads) {  
+        localStorage.setItem(THREADS_KEY, JSON.stringify(threads));  
+        updateSavedBadgeCount();
+    }  
+  
+    function initChatSystem() {  
+        const threads = getAllThreads();  
+        const activeId = localStorage.getItem(ACTIVE_THREAD_ID_KEY);  
+  
+        if (activeId && threads.some(t => t.id === activeId)) {  
+            currentThreadId = activeId;  
+            loadThreadMessages(currentThreadId);  
+        } else if (threads.length > 0) {  
+            currentThreadId = threads[0].id;  
+            localStorage.setItem(ACTIVE_THREAD_ID_KEY, currentThreadId);  
+            loadThreadMessages(currentThreadId);  
+        } else {  
+            startNewChatThread(false);  
+        }  
+  
+        updateSavedBadgeCount();  
+    }  
+  
+    // Start a brand new chat thread  
+    function startNewChatThread(renderWelcome = true) {  
+        currentThreadId = 'thread_' + Date.now();  
+        localStorage.setItem(ACTIVE_THREAD_ID_KEY, currentThreadId);  
+  
+        if (renderWelcome) {  
+            const stream = document.getElementById('tutor-chat-stream');  
+            stream.innerHTML = `
+                <div id="default-welcome-msg" class="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100/50 dark:border-blue-900/30 p-4 rounded-2xl max-w-lg text-xs leading-relaxed text-slate-700 dark:text-slate-300">  
+                    New Chat Started! Paste a question, topic, or ask me to explain a concept step-by-step.  
+                </div>  
+            `;  
+            scrollChatToBottom();
+        }  
+    }  
+  
+    // Save a message into the current active thread  
+    function saveMessageToCurrentThread(type, content) {  
+        let threads = getAllThreads();  
+        let threadIndex = threads.findIndex(t => t.id === currentThreadId);  
+  
+        const newMsg = { type: type, content: content, timestamp: new Date().toISOString() };  
+  
+        if (threadIndex === -1) {  
+            const title = type === 'user' ? (content.length > 30 ? content.substring(0, 30) + '...' : content) : 'Academic Query';  
+            const newThread = {  
+                id: currentThreadId,  
+                title: title,  
+                updatedAt: new Date().toISOString(),  
+                messages: [newMsg]  
+            };  
+            threads.unshift(newThread);  
+        } else {  
+            threads[threadIndex].messages.push(newMsg);  
+            threads[threadIndex].updatedAt = new Date().toISOString();  
+  
+            if (type === 'user' && threads[threadIndex].messages.filter(m => m.type === 'user').length === 1) {  
+                threads[threadIndex].title = content.length > 30 ? content.substring(0, 30) + '...' : content;  
+            }  
+  
+            const updatedThread = threads.splice(threadIndex, 1)[0];  
+            threads.unshift(updatedThread);  
+        }  
+  
+        saveAllThreads(threads);  
+    }  
+  
+    // Render messages of selected thread  
+    function loadThreadMessages(threadId) {  
+        currentThreadId = threadId;  
+        localStorage.setItem(ACTIVE_THREAD_ID_KEY, currentThreadId);  
+  
+        const threads = getAllThreads();  
+        const thread = threads.find(t => t.id === threadId);  
+        const stream = document.getElementById('tutor-chat-stream');  
+  
+        if (!thread || !thread.messages || thread.messages.length === 0) {  
+            stream.innerHTML = `  
+                <div id="default-welcome-msg" class="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100/50 dark:border-blue-900/30 p-4 rounded-2xl max-w-lg text-xs leading-relaxed text-slate-700 dark:text-slate-300">  
+                    Hi, I am your EduVault AI Tutor. Paste a question, topic, or ask me to explain a concept step-by-step!  
+                </div>
+            `;  
+            scrollChatToBottom();
+            return;  
+        }  
+  
+        stream.innerHTML = "";  
+  
+        thread.messages.forEach(msg => {  
+            if (msg.type === 'user') {  
+                const userBubble = document.createElement("div");  
+                userBubble.className = "flex justify-end";  
+  
+                const userMessageElement = document.createElement("div");  
+                userMessageElement.className = "bg-blue-600 text-white p-4 rounded-2xl max-w-lg text-xs leading-relaxed font-semibold shadow-sm";  
+                userMessageElement.textContent = msg.content;  
+  
+                userBubble.appendChild(userMessageElement);  
+                stream.appendChild(userBubble);  
+            } else if (msg.type === 'ai') {  
+                const formattedAnswer = formatAIResponse(msg.content);  
+                const answerElement = document.createElement("div");  
+                answerElement.className = "bg-slate-100 dark:bg-slate-800/80 border border-slate-200/40 dark:border-slate-800/80 p-4 rounded-2xl max-w-xl text-xs leading-relaxed text-slate-700 dark:text-slate-300 shadow-sm";  
+                answerElement.innerHTML = formattedAnswer;  
+                stream.appendChild(answerElement);  
+            } else if (msg.type === 'error') {  
+                const errorDiv = document.createElement("div");  
+                errorDiv.className = "p-4 bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-950 text-red-700 dark:text-red-400 text-xs rounded-2xl max-w-lg";  
+                errorDiv.innerHTML = `<strong>Error:</strong> ${DOMPurify.sanitize(msg.content)}`;  
+                stream.appendChild(errorDiv);  
+            }  
+        });  
+  
+        if (window.MathJax && window.MathJax.typesetPromise) {  
+            MathJax.typesetPromise([stream]).catch(err => console.error("MathJax error:", err));  
+        }  
+  
+        scrollChatToBottom();  
+    }  
+  
+    // Toggle Saved Chats Modal  
+    function toggleSavedChatsModal() {  
+        const modal = document.getElementById('saved-chats-modal');  
+        if (modal.classList.contains('hidden')) {  
+            renderSavedThreadsList();  
+            modal.classList.remove('hidden');  
+        } else {  
+            modal.classList.add('hidden');  
+        }  
+    }  
+  
+    function updateSavedBadgeCount() {  
+        const threads = getAllThreads();  
+        const badge = document.getElementById('saved-chats-badge');  
+        if (badge) badge.innerText = threads.length;  
+    }  
+  
+    function renderSavedThreadsList() {  
+        const container = document.getElementById('saved-threads-list');  
+        const threads = getAllThreads();  
+  
+        if (threads.length === 0) {  
+            container.innerHTML = `  
+                <div class="bg-slate-950/60 p-6 rounded-2xl border border-dashed border-slate-800 text-center text-slate-400 text-xs">  
+                    No saved chat threads yet. Start asking questions and your threads will automatically appear here!  
+                </div>  
+            `;  
+            return;  
+        }  
+  
+        container.innerHTML = "";  
+        threads.forEach(t => {  
+            const isActive = t.id === currentThreadId;  
+            const dateStr = new Date(t.updatedAt).toLocaleDateString() + ' ' + new Date(t.updatedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});  
+  
+            const div = document.createElement('div');
+            div.className = `p-3.5 rounded-2xl border transition flex items-center justify-between cursor-pointer ${isActive ? 'bg-blue-600/20 border-blue-500 text-white' : 'bg-slate-950/80 border-slate-800 text-slate-300 hover:border-slate-700'}`;
+            div.onclick = () => selectSavedThread(t.id);
+            div.innerHTML = `
+                <div class="space-y-1 overflow-hidden pr-2">
+                    <div class="font-bold text-xs truncate flex items-center gap-1.5">  
+                        <span>💬</span>  
+                        <span>${DOMPurify.sanitize(t.title || 'Academic Query')}</span>  
+                    </div>  
+                    <div class="text-[10px] text-slate-500 font-semibold">  
+                        ${t.messages ? t.messages.length : 0} messages • ${dateStr}  
+                    </div>  
+                </div>  
+                <button onclick="deleteSingleThread(event, '${t.id}')" class="text-xs text-slate-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/10 transition" title="Delete Thread">  
+                    🗑️  
+                </button>  
+            `;
+            container.appendChild(div);
+        });  
+    }  
+  
+    function selectSavedThread(threadId) {  
+        loadThreadMessages(threadId);  
+        toggleSavedChatsModal();  
+    }  
+  
+    function deleteSingleThread(event, threadId) {  
+        event.stopPropagation();  
+        let threads = getAllThreads();  
+        threads = threads.filter(t => t.id !== threadId);  
+        saveAllThreads(threads);  
+  
+        if (currentThreadId === threadId) {  
+            if (threads.length > 0) {  
+                loadThreadMessages(threads[0].id);  
+            } else {  
+                startNewChatThread();  
+            }  
+        }  
+        renderSavedThreadsList();  
+    }  
+  
+    function clearAllSavedThreads() {  
+        if (confirm("Are you sure you want to delete ALL saved chat threads?")) {  
+            localStorage.removeItem(THREADS_KEY);  
+            localStorage.removeItem(ACTIVE_THREAD_ID_KEY);  
+            startNewChatThread();  
+            toggleSavedChatsModal();  
+        }  
+    }  
+  
+    // Keyboard "Enter" handler  
+    function handleKeyPress(e) {  
+        if (e.key === 'Enter') {  
+            sendTutorMessage();  
+        }  
+    }  
+  
+    function formatAIResponse(text) {  
+        if (!text) return "";  
+        const markdownHtml = marked.parse(text, { breaks: true, gfm: true });  
+        return DOMPurify.sanitize(markdownHtml);  
+    }  
+  
+    function sendTutorMessage() {  
+        const input = document.getElementById('tutor-msg-field');  
+        const msg = input.value.trim();  
+        if (!msg) return;  
+  
+        const stream = document.getElementById('tutor-chat-stream');  
+          
+        // Remove welcome message if visible  
+        const welcomeMsg = document.getElementById('default-welcome-msg');  
+        if (welcomeMsg) welcomeMsg.remove();  
+  
+        // Safely append user message  
+        const userBubble = document.createElement("div");  
+        userBubble.className = "flex justify-end";  
+  
+        const userMessageElement = document.createElement("div");  
+        userMessageElement.className = "bg-blue-600 text-white p-4 rounded-2xl max-w-lg text-xs leading-relaxed font-semibold shadow-sm";  
+        userMessageElement.textContent = msg;  
+  
+        userBubble.appendChild(userMessageElement);  
+        stream.appendChild(userBubble);  
+  
+        // Auto Save User Message to Current Thread  
+        saveMessageToCurrentThread('user', msg);  
+  
+        input.value = "";  
+        scrollChatToBottom();  
+  
+        // Append pulsing loading indicator  
+        const loadingId = "loader-" + Date.now();  
+        const loader = document.createElement("div");  
+        loader.id = loadingId;  
+        loader.className = "flex items-center space-x-2 bg-slate-100 dark:bg-slate-800/60 p-4 rounded-2xl max-w-[200px] text-xs leading-relaxed text-slate-400 dark:text-slate-500 animate-pulse border border-slate-200/40 dark:border-slate-800";  
         loader.innerHTML = `
             <div class="h-2 w-2 bg-blue-600 rounded-full animate-bounce"></div>
-            <div class="h-2 w-2 bg-blue-600 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-            <div class="h-2 w-2 bg-blue-600 rounded-full animate-bounce [animation-delay:0.4s]"></div>
-            <span class="font-bold pl-1">Kayo is thinking...</span>
-        `;
-        stream.appendChild(loader);
-        stream.scrollTop = stream.scrollHeight;
-
-        // Send query to python backend
-        fetch('/api/tutor/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: msg })
-        })
-        .then(res => res.json())
-        .then(data => {
-            const activeLoader = document.getElementById(loadingId);
-            if (activeLoader) activeLoader.remove();
-
-            if (data.error) {
-                const errorDiv = document.createElement("div");
-                errorDiv.className = "p-4 bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-950 text-red-700 dark:text-red-400 text-xs rounded-2xl max-w-lg";
-                errorDiv.innerHTML = `<strong>Error:</strong> ${DOMPurify.sanitize(data.error)}`;
-                stream.appendChild(errorDiv);
-
-                saveMessageToCurrentThread('error', data.error);
-            } else {
-                saveMessageToCurrentThread('ai', data.response);
-
-                const formattedAnswer = formatAIResponse(data.response);
-                const answerElement = document.createElement("div");
-                answerElement.className = "bg-slate-100 dark:bg-slate-800/80 border border-slate-200/40 dark:border-slate-800/80 p-4 rounded-2xl max-w-xl text-xs leading-relaxed text-slate-700 dark:text-slate-300 shadow-sm";
-                answerElement.innerHTML = formattedAnswer;
-                stream.appendChild(answerElement);
-
-                if (window.MathJax && window.MathJax.typesetPromise) {
-                    MathJax.typesetPromise([answerElement]).catch(err => console.error("MathJax error:", err));
-                }
-            }
-            stream.scrollTop = stream.scrollHeight;
-        })
-        .catch(err => {
-            const activeLoader = document.getElementById(loadingId);
-            if (activeLoader) activeLoader.remove();
-            
-            const errorDiv = document.createElement("div");
-            errorDiv.className = "p-4 bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-950 text-red-700 dark:text-red-400 text-xs rounded-2xl max-w-lg";
-            errorDiv.innerHTML = `<strong>Connection Error:</strong> Could not connect to the EduVault servers.`;
-            stream.appendChild(errorDiv);
-            stream.scrollTop = stream.scrollHeight;
-        });
-    }
-
-    function clearTutorLogs() {
-        if (confirm("Are you sure you want to clear current chat thread logs?")) {
-            startNewChatThread();
-        }
-    }
+            <div class="h-2 w-2 bg-blue-600 rounded-full animate-bounce [animation-delay:0.2s]"></div>  
+            <div class="h-2 w-2 bg-blue-600 rounded-full animate-bounce [animation-delay:0.4s]"></div>  
+            <span class="font-bold pl-1">Kayo is thinking...</span>  
+        `;  
+        stream.appendChild(loader);  
+        scrollChatToBottom();  
+  
+        // Send query to python backend  
+        fetch('/api/tutor/chat', {  
+            method: 'POST',  
+            headers: { 'Content-Type': 'application/json' },  
+            body: JSON.stringify({ message: msg })  
+        })  
+        .then(res => res.json())  
+        .then(data => {  
+            const activeLoader = document.getElementById(loadingId);  
+            if (activeLoader) activeLoader.remove();  
+  
+            if (data.error) {  
+                const errorDiv = document.createElement("div");  
+                errorDiv.className = "p-4 bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-950 text-red-700 dark:text-red-400 text-xs rounded-2xl max-w-lg";  
+                errorDiv.innerHTML = `<strong>Error:</strong> ${DOMPurify.sanitize(data.error)}`;  
+                stream.appendChild(errorDiv);  
+  
+                saveMessageToCurrentThread('error', data.error);  
+            } else {  
+                saveMessageToCurrentThread('ai', data.response);  
+  
+                const formattedAnswer = formatAIResponse(data.response);  
+                const answerElement = document.createElement("div");  
+                answerElement.className = "bg-slate-100 dark:bg-slate-800/80 border border-slate-200/40 dark:border-slate-800/80 p-4 rounded-2xl max-w-xl text-xs leading-relaxed text-slate-700 dark:text-slate-300 shadow-sm";  
+                answerElement.innerHTML = formattedAnswer;  
+                stream.appendChild(answerElement);  
+  
+                if (window.MathJax && window.MathJax.typesetPromise) {  
+                    MathJax.typesetPromise([answerElement]).catch(err => console.error("MathJax error:", err));  
+                }  
+            }  
+            scrollChatIfNearBottom();  
+        })  
+        .catch(err => {  
+            const activeLoader = document.getElementById(loadingId);  
+            if (activeLoader) activeLoader.remove();  
+              
+            const errorDiv = document.createElement("div");  
+            errorDiv.className = "p-4 bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-950 text-red-700 dark:text-red-400 text-xs rounded-2xl max-w-lg";  
+            errorDiv.innerHTML = `<strong>Connection Error:</strong> Could not connect to the EduVault servers.`;  
+            stream.appendChild(errorDiv);  
+            scrollChatIfNearBottom();  
+        });  
+    }  
+  
+    function clearTutorLogs() {  
+        if (confirm("Are you sure you want to clear current chat thread logs?")) {  
+            startNewChatThread();  
+        }  
+    }  
 </script>
 {% endblock %}
