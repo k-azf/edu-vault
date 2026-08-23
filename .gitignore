@@ -1,29 +1,54 @@
-# .gitignore file for EduVault Web App
-
-# Ignore Environment Variables (API Keys)
-.env
-edu.env
-*.env
-
-# Ignore Local SQLite Databases
-*.db
-*.sqlite3
-
-# Ignore Uploaded PDF Files and Temporary Chunks
-uploads/
-temp_chunk_*.pdf
-*.pdf
-
-# Ignore Python Cache Files
+# .gitignore
+# Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Ignore Local Virtual Environments
-venv/
-.venv/
+*.py[cod]
+*$py.class
+*.so
+.Python
 env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Ignore Visual Studio Code Configs
+# Database
+*.db
+*.sqlite
+*.sqlite3
+data/
+*.db-journal
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Uploads
+uploads/
+temp_*
+temp_chunk_*
+
+# IDE
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/

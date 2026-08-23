@@ -1,474 +1,943 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<div class="max-w-4xl mx-auto px-6 py-10 flex flex-col h-[85vh] relative">
-    <!-- Offline Banner -->  
-    <div id="offline-ai-banner" class="hidden bg-amber-900/40 border border-amber-500/50 text-amber-300 p-4 rounded-2xl mb-4 text-xs flex items-center justify-between">  
-        <span class="flex items-center gap-2">  
-            <span>⚠️</span>  
-            <span><b>You are Offline:</b> The AI Assistant requires an active Internet Connection. Your Exams, Textbooks, and Worksheets remain 100% accessible offline!</span>  
-        </span>  
-    </div>  
+<div class="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex flex-col h-[88vh] relative">
+    
+    <!-- Offline Banner -->
+    <div id="offline-ai-banner" class="hidden bg-amber-900/40 border border-amber-500/50 text-amber-300 p-3 rounded-2xl mb-3 text-xs flex items-center justify-between">
+        <span class="flex items-center gap-2">
+            <span>⚠️</span>
+            <span><b>You are Offline:</b> The AI Assistant requires an active Internet Connection. Your Exams, Textbooks, and Worksheets remain 100% accessible offline!</span>
+        </span>
+    </div>
 
-    <!-- Header with Action Buttons -->  
-    <div class="mb-6 flex flex-wrap justify-between items-center gap-4">  
-        <div>  
-            <h1 class="text-2xl font-black text-slate-800 dark:text-white flex items-center gap-2">  
-                <span>👨‍💻 Stone AI Assistant</span>  
-            </h1>  
-            <p class="text-xs text-slate-400">Ask any academic question and receive step-by-step guidance.</p>  
-        </div>  
+    <!-- Header with Action Buttons -->
+    <div class="mb-4 flex flex-wrap justify-between items-center gap-3">
+        <div>
+            <h1 class="text-2xl font-black text-slate-800 dark:text-white flex items-center gap-2">
+                <span>👨🏻‍💻 Stone Assistant</span>
+            </h1>
+            <p class="text-xs text-slate-400">Ask questions, upload images, PDFs, or send voice messages.</p>
+        </div>
 
-        <!-- ChatGPT-style History & Action Buttons -->  
-        <div class="flex items-center gap-2">  
-            <!-- New Chat Button -->  
-            <button onclick="startNewChatThread()" class="text-xs font-bold text-blue-400 hover:text-white bg-blue-600/20 hover:bg-blue-600 border border-blue-500/30 px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm">  
-                <span>➕</span>  
-                <span>New Chat</span>  
-            </button>  
+        <!-- Action Buttons -->
+        <div class="flex items-center gap-2 flex-wrap">
+            <button onclick="startNewChat()" class="text-xs font-bold text-blue-400 hover:text-white bg-blue-600/20 hover:bg-blue-600 border border-blue-500/30 px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm">
+                <span>➕</span>
+                <span>New Chat</span>
+            </button>
+            <button onclick="toggleSavedChatsModal()" class="text-xs font-bold text-emerald-400 hover:text-white bg-emerald-600/20 hover:bg-emerald-600 border border-emerald-500/30 px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm relative">
+                <span>📜</span>
+                <span>Saved Chats</span>
+                <span id="saved-chats-badge" class="bg-emerald-500 text-slate-950 text-[9px] font-black rounded-full px-1.5 py-0.2 min-w-[18px] text-center">0</span>
+            </button>
+            <button onclick="clearCurrentChat()" class="text-xs font-bold text-red-400 hover:text-white bg-red-600/20 hover:bg-red-600 border border-red-500/30 px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm">
+                <span>🗑️</span>
+                <span>Clear</span>
+            </button>
+        </div>
+    </div>
 
-            <!-- Saved Chats Drawer Button -->  
-            <button onclick="toggleSavedChatsModal()" class="text-xs font-bold text-emerald-400 hover:text-white bg-emerald-600/20 hover:bg-emerald-600 border border-emerald-500/30 px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm relative">  
-                <span>📜</span>  
-                <span>Saved Chats</span>  
-                <span id="saved-chats-badge" class="bg-emerald-500 text-slate-950 text-[9px] font-black rounded-full px-1.5 py-0.2">0</span>  
-            </button>  
+    <!-- Chat Stream Pane -->
+    <div id="tutor-chat-stream" class="flex-grow bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 overflow-y-auto space-y-3 custom-scrollbar shadow-sm relative">
+        <div id="default-welcome-msg" class="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100/50 dark:border-blue-900/30 p-4 rounded-2xl max-w-lg text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+            <div class="flex items-start gap-3">
+                <span class="text-2xl">👋</span>
+                <div>
+                    <p class="font-bold text-blue-600 dark:text-blue-400">Welcome to Stone Assistant!</p>
+                    <p class="mt-1 text-slate-600 dark:text-slate-400">Ask me anything about your studies. I'm here to help!</p>
+                    <ul class="list-disc list-inside mt-2 space-y-0.5 text-slate-600 dark:text-slate-400">
+                        <li>📝 Ask any academic question</li>
+                        <li>📎 Upload images, PDFs, or documents</li>
+                        <li>🎤 Send voice messages (speech-to-text)</li>
+                        <li>📚 Get step-by-step explanations</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <button id="jump-to-latest" onclick="scrollChatToBottom()" class="hidden fixed bottom-24 right-6 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 rounded-full shadow-lg shadow-blue-500/30 transition-all z-10 flex items-center gap-1.5">
+            <span>⬇️</span>
+            <span>Jump to Latest</span>
+        </button>
+    </div>
 
-            <!-- Clear Logs Button -->  
-            <button onclick="clearTutorLogs()" class="text-xs font-bold text-red-400 hover:text-white bg-red-600/20 hover:bg-red-600 border border-red-500/30 px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm">  
-                <span>🗑️</span>  
-                <span>Clear Logs</span>  
-            </button>  
-        </div>  
-    </div>  
+    <!-- Message Input Area -->
+    <div class="mt-3 space-y-2">
+        <div class="flex items-center gap-2 flex-wrap">
+            <label for="file-upload" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 p-2 rounded-xl cursor-pointer transition text-xs font-bold flex items-center gap-1 border border-slate-200 dark:border-slate-700">
+                <span>📎</span>
+                <span class="hidden sm:inline">Attach</span>
+            </label>
+            <input type="file" id="file-upload" accept=".png,.jpg,.jpeg,.gif,.webp,.pdf,.txt,.docx,.mp3,.wav,.ogg,.m4a" class="hidden" multiple>
 
-    <!-- Chat Stream Pane -->  
-    <div id="tutor-chat-stream" class="flex-grow bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 overflow-y-auto space-y-4 custom-scrollbar shadow-sm">  
-        <div id="default-welcome-msg" class="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100/50 dark:border-blue-900/30 p-4 rounded-2xl max-w-lg text-xs leading-relaxed text-slate-700 dark:text-slate-300">  
-            Hi, I am your EduVault AI Tutor. Paste a question, topic, or ask me to explain a concept step-by-step! Your chats are automatically saved like ChatGPT.  
-        </div>  
-    </div>  
+            <button id="voice-record-btn" onclick="toggleVoiceRecording()" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 p-2 rounded-xl transition text-xs font-bold flex items-center gap-1 border border-slate-200 dark:border-slate-700">
+                <span>🎤</span>
+                <span class="hidden sm:inline">Voice</span>
+            </button>
 
-    <!-- Message Inputs -->  
-    <div class="mt-4 flex gap-3">  
-        <input type="text" id="tutor-msg-field" onkeypress="handleKeyPress(event)" placeholder="Ask about calculus, anatomy, or paste a question..." class="flex-grow bg-white dark:bg-slate-900 p-3.5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition dark:text-white">
+            <div id="voice-status" class="hidden text-emerald-500 text-xs font-bold flex items-center gap-2">
+                <span class="animate-pulse">🔴</span>
+                <span>Recording...</span>
+                <span class="text-slate-400 font-normal">(click Voice to stop)</span>
+            </div>
 
-        <button id="send-btn" onclick="sendTutorMessage()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-6 rounded-xl transition shadow-md shadow-blue-500/10 flex items-center gap-1">  
-            <span>Send</span>  
-            <span>➔</span>  
-        </button>  
-    </div>  
+            <div id="file-info" class="hidden text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full flex items-center gap-2">
+                <span id="file-name-display">file.pdf</span>
+                <button onclick="clearFileAttachment()" class="text-red-400 hover:text-red-500 font-bold">✕</button>
+            </div>
 
-    <!-- SAVED CHATS MODAL / DRAWER (ChatGPT-style history list) -->  
-    <div id="saved-chats-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">  
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl space-y-4 max-h-[80vh] flex flex-col">  
-            <div class="flex justify-between items-center border-b border-slate-800 pb-3">  
-                <div class="flex items-center gap-2">  
-                    <span class="text-xl">📜</span>  
-                    <h3 class="text-base font-black text-white">Saved Chat History</h3>  
-                </div>  
-                <button onclick="toggleSavedChatsModal()" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>  
-            </div>  
+            <span id="char-counter" class="text-[10px] text-slate-400 ml-auto hidden sm:block">0 characters</span>
+        </div>
 
-            <p class="text-xs text-slate-400">Select any previous conversation thread to restore it into your chat stream.</p>  
+        <div class="flex gap-2">
+            <input type="text" id="tutor-msg-field" 
+                   onkeypress="handleKeyPress(event)" 
+                   oninput="updateCharCounter()"
+                   placeholder="Ask a question, upload a file, or send a voice message..." 
+                   class="flex-grow bg-white dark:bg-slate-900 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition dark:text-white placeholder-slate-400">
 
-            <!-- List of Saved Threads -->  
-            <div id="saved-threads-list" class="flex-grow overflow-y-auto space-y-2 pr-1">  
-                <!-- Dynamically populated -->  
-            </div>  
+            <button id="send-btn" onclick="sendTutorMessage()" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-5 rounded-xl transition shadow-md shadow-blue-500/10 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
+                <span>Send</span>
+                <span>➔</span>
+            </button>
+        </div>
+    </div>
 
-            <div class="pt-3 border-t border-slate-800 flex justify-between items-center">  
-                <button onclick="clearAllSavedThreads()" class="text-xs font-bold text-red-400 hover:underline">Clear All Saved History</button>  
-                <button onclick="toggleSavedChatsModal()" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold px-4 py-2 rounded-xl">Close</button>  
-            </div>  
-        </div>  
+    <!-- SAVED CHATS MODAL -->
+    <div id="saved-chats-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-lg max-h-[80vh] flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 p-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">📜</span>
+                    <h3 class="text-base font-black text-slate-800 dark:text-white">Saved Chat History</h3>
+                </div>
+                <button onclick="toggleSavedChatsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-lg font-bold p-1">✕</button>
+            </div>
+            <div class="flex-grow overflow-y-auto p-4 space-y-2">
+                <p class="text-xs text-slate-400 mb-3">Select any conversation to restore it.</p>
+                <div id="saved-threads-list" class="space-y-2">
+                    <div class="text-center text-xs text-slate-400 py-8">Loading saved chats...</div>
+                </div>
+            </div>
+            <div class="border-t border-slate-200 dark:border-slate-800 p-4 flex justify-between items-center">
+                <button onclick="clearAllSavedThreads()" class="text-xs font-bold text-red-400 hover:text-red-500 transition">Clear All History</button>
+                <button onclick="toggleSavedChatsModal()" class="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-white text-xs font-bold px-4 py-2 rounded-xl transition">Close</button>
+            </div>
+        </div>
     </div>
 
 </div>
 
-<!-- Markdown, mathematical formulas, and safe HTML rendering CDN integrations -->
+<!-- External Libraries -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script>  
-    window.MathJax = {  
-        tex: {  
-            inlineMath: [['$', '$'], ['\\(', '\\)']],  
-            displayMath: [['$$', '$$'], ['\\[', '\\]']]  
-        },  
-        options: {  
-            skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']  
-        }  
-    };  
-</script>
-<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
 
-<script>  
-    const THREADS_KEY = 'eduvault_saved_chat_threads';  
-    const ACTIVE_THREAD_ID_KEY = 'eduvault_active_thread_id';  
-  
-    let currentThreadId = null;  
-  
-    // Smart Scroll Helper: Always scrolls down unless the user manually scrolled up to read history
-    function scrollChatToBottom() {
+<!-- MathJax Configuration -->
+<script>
+    window.MathJax = {
+        tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']],
+            displayMath: [['$$', '$$'], ['\\[', '\\]']]
+        },
+        options: {
+            skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+        }
+    };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+<script>
+    // ============================================
+    // STATE MANAGEMENT
+    // ============================================
+    const THREADS_KEY = 'eduvault_saved_chat_threads';
+    const ACTIVE_THREAD_ID_KEY = 'eduvault_active_thread_id';
+    
+    let currentThreadId = null;
+    let attachedFiles = [];
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+    let isProcessing = false;
+    let userScrolledUp = false;
+    let conversationHistory = [];
+
+    const chatStream = document.getElementById('tutor-chat-stream');
+    const msgField = document.getElementById('tutor-msg-field');
+    const sendBtn = document.getElementById('send-btn');
+    const fileInput = document.getElementById('file-upload');
+    const fileInfo = document.getElementById('file-info');
+    const fileNameDisplay = document.getElementById('file-name-display');
+    const charCounter = document.getElementById('char-counter');
+    const jumpToLatestBtn = document.getElementById('jump-to-latest');
+    const voiceStatus = document.getElementById('voice-status');
+    const voiceRecordBtn = document.getElementById('voice-record-btn');
+
+    // ============================================
+    // THREAD STORAGE FUNCTIONS
+    // ============================================
+    function getAllThreads() {
+        try {
+            const data = localStorage.getItem(THREADS_KEY);
+            return data ? JSON.parse(data) : [];
+        } catch (e) {
+            console.error('Error loading threads:', e);
+            return [];
+        }
+    }
+
+    function saveAllThreads(threads) {
+        try {
+            localStorage.setItem(THREADS_KEY, JSON.stringify(threads));
+            updateSavedBadgeCount();
+        } catch (e) {
+            console.error('Error saving threads:', e);
+        }
+    }
+
+    function getThread(threadId) {
+        const threads = getAllThreads();
+        return threads.find(t => t.id === threadId);
+    }
+
+    function saveMessageToThread(threadId, type, content, attachmentName = null, attachmentType = null) {
+        if (!threadId) {
+            console.error('Cannot save message: No thread ID');
+            return;
+        }
+        
+        let threads = getAllThreads();
+        let threadIndex = threads.findIndex(t => t.id === threadId);
+        
+        const newMsg = {
+            type: type,
+            content: content,
+            timestamp: new Date().toISOString(),
+            attachmentName: attachmentName,
+            attachmentType: attachmentType
+        };
+
+        if (threadIndex === -1) {
+            const title = type === 'user' ? (content.length > 30 ? content.substring(0, 30) + '...' : content) : 'New Chat';
+            const newThread = {
+                id: threadId,
+                title: title,
+                updatedAt: new Date().toISOString(),
+                messages: [newMsg]
+            };
+            threads.unshift(newThread);
+        } else {
+            threads[threadIndex].messages.push(newMsg);
+            threads[threadIndex].updatedAt = new Date().toISOString();
+            
+            if (type === 'user' && threads[threadIndex].messages.filter(m => m.type === 'user').length === 1) {
+                threads[threadIndex].title = content.length > 30 ? content.substring(0, 30) + '...' : content;
+            }
+            
+            const updatedThread = threads.splice(threadIndex, 1)[0];
+            threads.unshift(updatedThread);
+        }
+
+        saveAllThreads(threads);
+        
+        // Update conversation history for context
+        updateConversationHistory();
+    }
+
+    // ============================================
+    // CONVERSATION HISTORY FOR CONTEXT
+    // ============================================
+    function updateConversationHistory() {
+        const thread = getThread(currentThreadId);
+        if (thread && thread.messages) {
+            // Build conversation history for AI context
+            conversationHistory = thread.messages.map(msg => ({
+                role: msg.type === 'user' ? 'user' : 'assistant',
+                content: msg.content
+            }));
+            console.log('Conversation history updated:', conversationHistory.length, 'messages');
+        }
+    }
+
+    function getConversationContext() {
+        // Get last 10 messages for context (to avoid token limits)
+        const history = conversationHistory.slice(-10);
+        let context = '';
+        history.forEach(msg => {
+            if (msg.role === 'user') {
+                context += `Student: ${msg.content}\n`;
+            } else if (msg.role === 'assistant') {
+                context += `Assistant: ${msg.content}\n`;
+            }
+        });
+        return context;
+    }
+
+    function loadThreadMessages(threadId) {
+        if (!threadId) {
+            console.error('Cannot load messages: No thread ID');
+            startNewChat();
+            return;
+        }
+        
+        currentThreadId = threadId;
+        localStorage.setItem(ACTIVE_THREAD_ID_KEY, threadId);
+        
+        const thread = getThread(threadId);
         const stream = document.getElementById('tutor-chat-stream');
-        if (stream) {
-            stream.scrollTop = stream.scrollHeight;
+        stream.innerHTML = '';
+        
+        if (!thread || !thread.messages || thread.messages.length === 0) {
+            stream.innerHTML = `
+                <div id="default-welcome-msg" class="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100/50 dark:border-blue-900/30 p-4 rounded-2xl max-w-lg text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+                    <div class="flex items-start gap-3">
+                        <span class="text-2xl">👋</span>
+                        <div>
+                            <p class="font-bold text-blue-600 dark:text-blue-400">Welcome back!</p>
+                            <p class="mt-1 text-slate-600 dark:text-slate-400">Continue where you left off or ask a new question.</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            scrollChatToBottom();
+            updateConversationHistory();
+            return;
+        }
+
+        thread.messages.forEach(msg => {
+            if (msg.type === 'user') {
+                renderUserMessage(msg.content, msg.attachmentName, msg.attachmentType);
+            } else if (msg.type === 'ai') {
+                renderAIMessage(msg.content);
+            } else if (msg.type === 'error') {
+                renderErrorMessage(msg.content);
+            }
+        });
+
+        if (window.MathJax && window.MathJax.typesetPromise) {
+            MathJax.typesetPromise([stream]).catch(err => console.error("MathJax error:", err));
+        }
+
+        scrollChatToBottom();
+        updateSavedBadgeCount();
+        updateConversationHistory();
+    }
+
+    // ============================================
+    // MESSAGE RENDERERS
+    // ============================================
+    function renderUserMessage(content, attachmentName = null, attachmentType = null) {
+        const stream = document.getElementById('tutor-chat-stream');
+        const welcomeMsg = document.getElementById('default-welcome-msg');
+        if (welcomeMsg) welcomeMsg.remove();
+
+        const bubble = document.createElement('div');
+        bubble.className = 'flex justify-end';
+        
+        let messageHtml = `<div class="bg-blue-600 text-white p-4 rounded-2xl max-w-lg text-xs leading-relaxed font-semibold shadow-sm">`;
+        
+        if (attachmentName) {
+            const icon = getFileIcon(attachmentName);
+            messageHtml += `<div class="flex items-center gap-2 mb-1 text-blue-200"><span>${icon}</span><span class="text-[10px]">${escapeHtml(attachmentName)}</span></div>`;
+        }
+        
+        messageHtml += `<div>${escapeHtml(content)}</div>`;
+        messageHtml += `</div>`;
+        
+        bubble.innerHTML = messageHtml;
+        stream.appendChild(bubble);
+        scrollChatIfNearBottom();
+    }
+
+    function renderAIMessage(content) {
+        const stream = document.getElementById('tutor-chat-stream');
+        const welcomeMsg = document.getElementById('default-welcome-msg');
+        if (welcomeMsg) welcomeMsg.remove();
+
+        const bubble = document.createElement('div');
+        bubble.className = 'flex justify-start';
+        
+        const formattedContent = formatAIResponse(content);
+        bubble.innerHTML = `
+            <div class="bg-slate-100 dark:bg-slate-800/80 border border-slate-200/40 dark:border-slate-800/80 p-4 rounded-2xl max-w-xl text-xs leading-relaxed text-slate-700 dark:text-slate-300 shadow-sm">
+                ${formattedContent}
+            </div>
+        `;
+        stream.appendChild(bubble);
+        
+        if (window.MathJax && window.MathJax.typesetPromise) {
+            MathJax.typesetPromise([bubble]).catch(err => console.error("MathJax error:", err));
+        }
+        
+        scrollChatIfNearBottom();
+    }
+
+    function renderErrorMessage(content) {
+        const stream = document.getElementById('tutor-chat-stream');
+        const welcomeMsg = document.getElementById('default-welcome-msg');
+        if (welcomeMsg) welcomeMsg.remove();
+
+        const bubble = document.createElement('div');
+        bubble.className = 'flex justify-start';
+        bubble.innerHTML = `
+            <div class="p-4 bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-950 text-red-700 dark:text-red-400 text-xs rounded-2xl max-w-lg">
+                <strong>⚠️ Error:</strong> ${escapeHtml(content)}
+            </div>
+        `;
+        stream.appendChild(bubble);
+        scrollChatIfNearBottom();
+    }
+
+    function renderTypingIndicator() {
+        const stream = document.getElementById('tutor-chat-stream');
+        const indicator = document.createElement('div');
+        indicator.id = 'typing-indicator';
+        indicator.className = 'flex justify-start';
+        indicator.innerHTML = `
+            <div class="bg-slate-100 dark:bg-slate-800/80 border border-slate-200/40 dark:border-slate-800/80 p-4 rounded-2xl flex items-center gap-3">
+                <div class="flex gap-1">
+                    <div class="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
+                    <div class="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                    <div class="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
+                </div>
+                <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Kayo is thinking...</span>
+            </div>
+        `;
+        stream.appendChild(indicator);
+        scrollChatToBottom();
+    }
+
+    function removeTypingIndicator() {
+        const indicator = document.getElementById('typing-indicator');
+        if (indicator) indicator.remove();
+    }
+
+    // ============================================
+    // AUTO-SCROLL LOGIC
+    // ============================================
+    function isChatNearBottom() {
+        const threshold = 150;
+        return chatStream.scrollHeight - chatStream.scrollTop - chatStream.clientHeight <= threshold;
+    }
+
+    function scrollChatToBottom() {
+        if (!userScrolledUp) {
+            chatStream.scrollTop = chatStream.scrollHeight;
+            jumpToLatestBtn.classList.add('hidden');
         }
     }
 
     function scrollChatIfNearBottom() {
-        const stream = document.getElementById('tutor-chat-stream');
-        if (!stream) return;
-        const threshold = 120; // distance from bottom in px
-        const isNearBottom = stream.scrollHeight - stream.scrollTop - stream.clientHeight <= threshold;
-        if (isNearBottom) {
-            stream.scrollTop = stream.scrollHeight;
+        if (isChatNearBottom()) {
+            chatStream.scrollTop = chatStream.scrollHeight;
+            jumpToLatestBtn.classList.add('hidden');
+        } else if (!userScrolledUp) {
+            chatStream.scrollTop = chatStream.scrollHeight;
+            jumpToLatestBtn.classList.add('hidden');
         }
     }
 
-    // Check Online/Offline status  
-    function checkAiOnlineStatus() {  
-        const banner = document.getElementById('offline-ai-banner');  
-        const sendBtn = document.getElementById('send-btn');  
-        if (!navigator.onLine) {  
-            if (banner) banner.classList.remove('hidden');  
-            if (sendBtn) sendBtn.disabled = true;  
-        } else {  
-            if (banner) banner.classList.add('hidden');  
-            if (sendBtn) sendBtn.disabled = false;  
-        }  
-    }  
-    window.addEventListener('online', checkAiOnlineStatus);  
-    window.addEventListener('offline', checkAiOnlineStatus);  
-  
-    // Initialize Page  
-    document.addEventListener('DOMContentLoaded', function() {  
-        checkAiOnlineStatus();  
-        initChatSystem();  
-    });  
-  
-    // Load or initialize ChatGPT-style chat threads  
-    function getAllThreads() {  
-        try {  
-            return JSON.parse(localStorage.getItem(THREADS_KEY)) || [];  
-        } catch (e) {  
-            return [];  
-        }  
-    }  
-  
-    function saveAllThreads(threads) {  
-        localStorage.setItem(THREADS_KEY, JSON.stringify(threads));  
-        updateSavedBadgeCount();
-    }  
-  
-    function initChatSystem() {  
-        const threads = getAllThreads();  
-        const activeId = localStorage.getItem(ACTIVE_THREAD_ID_KEY);  
-  
-        if (activeId && threads.some(t => t.id === activeId)) {  
-            currentThreadId = activeId;  
-            loadThreadMessages(currentThreadId);  
-        } else if (threads.length > 0) {  
-            currentThreadId = threads[0].id;  
-            localStorage.setItem(ACTIVE_THREAD_ID_KEY, currentThreadId);  
-            loadThreadMessages(currentThreadId);  
-        } else {  
-            startNewChatThread(false);  
-        }  
-  
-        updateSavedBadgeCount();  
-    }  
-  
-    // Start a brand new chat thread  
-    function startNewChatThread(renderWelcome = true) {  
-        currentThreadId = 'thread_' + Date.now();  
-        localStorage.setItem(ACTIVE_THREAD_ID_KEY, currentThreadId);  
-  
-        if (renderWelcome) {  
-            const stream = document.getElementById('tutor-chat-stream');  
-            stream.innerHTML = `
-                <div id="default-welcome-msg" class="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100/50 dark:border-blue-900/30 p-4 rounded-2xl max-w-lg text-xs leading-relaxed text-slate-700 dark:text-slate-300">  
-                    New Chat Started! Paste a question, topic, or ask me to explain a concept step-by-step.  
-                </div>  
-            `;  
-            scrollChatToBottom();
-        }  
-    }  
-  
-    // Save a message into the current active thread  
-    function saveMessageToCurrentThread(type, content) {  
-        let threads = getAllThreads();  
-        let threadIndex = threads.findIndex(t => t.id === currentThreadId);  
-  
-        const newMsg = { type: type, content: content, timestamp: new Date().toISOString() };  
-  
-        if (threadIndex === -1) {  
-            const title = type === 'user' ? (content.length > 30 ? content.substring(0, 30) + '...' : content) : 'Academic Query';  
-            const newThread = {  
-                id: currentThreadId,  
-                title: title,  
-                updatedAt: new Date().toISOString(),  
-                messages: [newMsg]  
-            };  
-            threads.unshift(newThread);  
-        } else {  
-            threads[threadIndex].messages.push(newMsg);  
-            threads[threadIndex].updatedAt = new Date().toISOString();  
-  
-            if (type === 'user' && threads[threadIndex].messages.filter(m => m.type === 'user').length === 1) {  
-                threads[threadIndex].title = content.length > 30 ? content.substring(0, 30) + '...' : content;  
-            }  
-  
-            const updatedThread = threads.splice(threadIndex, 1)[0];  
-            threads.unshift(updatedThread);  
-        }  
-  
-        saveAllThreads(threads);  
-    }  
-  
-    // Render messages of selected thread  
-    function loadThreadMessages(threadId) {  
-        currentThreadId = threadId;  
-        localStorage.setItem(ACTIVE_THREAD_ID_KEY, currentThreadId);  
-  
-        const threads = getAllThreads();  
-        const thread = threads.find(t => t.id === threadId);  
-        const stream = document.getElementById('tutor-chat-stream');  
-  
-        if (!thread || !thread.messages || thread.messages.length === 0) {  
-            stream.innerHTML = `  
-                <div id="default-welcome-msg" class="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100/50 dark:border-blue-900/30 p-4 rounded-2xl max-w-lg text-xs leading-relaxed text-slate-700 dark:text-slate-300">  
-                    Hi, I am your EduVault AI Tutor. Paste a question, topic, or ask me to explain a concept step-by-step!  
+    chatStream.addEventListener('scroll', function() {
+        const isNearBottom = isChatNearBottom();
+        userScrolledUp = !isNearBottom;
+        
+        if (userScrolledUp && chatStream.scrollHeight - chatStream.scrollTop - chatStream.clientHeight > 200) {
+            jumpToLatestBtn.classList.remove('hidden');
+        } else {
+            jumpToLatestBtn.classList.add('hidden');
+        }
+    });
+
+    // ============================================
+    // FILE HANDLING
+    // ============================================
+    function getFileIcon(filename) {
+        const ext = filename.split('.').pop().toLowerCase();
+        const icons = {
+            'png': '🖼️', 'jpg': '🖼️', 'jpeg': '🖼️', 'gif': '🖼️', 'webp': '🖼️',
+            'pdf': '📄', 'txt': '📝', 'docx': '📘',
+            'mp3': '🎵', 'wav': '🎵', 'ogg': '🎵', 'm4a': '🎵'
+        };
+        return icons[ext] || '📎';
+    }
+
+    function handleFileSelect(event) {
+        const files = event.target.files;
+        if (files.length === 0) return;
+        
+        attachedFiles = Array.from(files);
+        const names = attachedFiles.map(f => f.name).join(', ');
+        fileNameDisplay.textContent = names;
+        fileInfo.classList.remove('hidden');
+        msgField.placeholder = `📎 ${attachedFiles.length} file(s) attached. Type your question or send.`;
+    }
+
+    function clearFileAttachment() {
+        attachedFiles = [];
+        fileInput.value = '';
+        fileInfo.classList.add('hidden');
+        msgField.placeholder = 'Ask a question, upload a file, or send a voice message...';
+    }
+
+    fileInput.addEventListener('change', handleFileSelect);
+
+    // ============================================
+    // VOICE RECORDING
+    // ============================================
+    async function toggleVoiceRecording() {
+        if (isRecording) {
+            stopVoiceRecording();
+        } else {
+            startVoiceRecording();
+        }
+    }
+
+    async function startVoiceRecording() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const file = new File([audioBlob], 'voice_message.wav', { type: 'audio/wav' });
+                
+                attachedFiles.push(file);
+                const names = attachedFiles.map(f => f.name).join(', ');
+                fileNameDisplay.textContent = names;
+                fileInfo.classList.remove('hidden');
+                
+                voiceStatus.classList.add('hidden');
+                voiceRecordBtn.innerHTML = '<span>🎤</span> <span class="hidden sm:inline">Voice</span>';
+                isRecording = false;
+                msgField.placeholder = '🎤 Voice message recorded. Type or send!';
+            };
+
+            mediaRecorder.start();
+            isRecording = true;
+            voiceStatus.classList.remove('hidden');
+            voiceRecordBtn.innerHTML = '<span>⏹️</span> <span class="hidden sm:inline">Stop</span>';
+            msgField.placeholder = '🔴 Recording... Click Stop when done.';
+
+        } catch (err) {
+            alert('Could not access microphone. Please allow microphone access.');
+            console.error('Microphone error:', err);
+        }
+    }
+
+    function stopVoiceRecording() {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        }
+    }
+
+    // ============================================
+    // SEND MESSAGE - WITH CONVERSATION CONTEXT
+    // ============================================
+    async function sendTutorMessage() {
+        if (isProcessing) return;
+        
+        const message = msgField.value.trim();
+        if (!message && attachedFiles.length === 0) {
+            msgField.focus();
+            return;
+        }
+
+        isProcessing = true;
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<span class="animate-spin">⏳</span> Sending...';
+
+        try {
+            if (!currentThreadId) {
+                const storedId = localStorage.getItem(ACTIVE_THREAD_ID_KEY);
+                if (storedId) {
+                    currentThreadId = storedId;
+                } else {
+                    currentThreadId = 'thread_' + Date.now();
+                    localStorage.setItem(ACTIVE_THREAD_ID_KEY, currentThreadId);
+                }
+            }
+
+            // Get conversation context (last 10 messages)
+            const context = getConversationContext();
+            
+            // Save user message locally
+            if (message) {
+                saveMessageToThread(currentThreadId, 'user', message);
+                renderUserMessage(message);
+            }
+
+            let file = null;
+            if (attachedFiles.length > 0) {
+                file = attachedFiles[0];
+                saveMessageToThread(currentThreadId, 'user', `[File: ${file.name}]`, file.name, file.type);
+                renderUserMessage(`📎 ${file.name}`, file.name, file.type);
+            }
+
+            msgField.value = '';
+            clearFileAttachment();
+            updateCharCounter();
+            renderTypingIndicator();
+
+            const formData = new FormData();
+            formData.append('message', message || '');
+            formData.append('thread_id', currentThreadId);
+            formData.append('context', context); // Send conversation context
+            if (file) {
+                formData.append('file', file);
+            }
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+            const response = await fetch('/api/tutor/chat', {
+                method: 'POST',
+                body: formData,
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+            removeTypingIndicator();
+
+            if (!response.ok) {
+                let errorMsg = 'Server error';
+                try {
+                    const errorData = await response.json();
+                    errorMsg = errorData.error || errorData.message || 'Server error';
+                } catch (e) {
+                    errorMsg = `HTTP ${response.status}: ${response.statusText}`;
+                }
+                throw new Error(errorMsg);
+            }
+
+            const data = await response.json();
+            
+            if (data.thread_id && data.thread_id !== currentThreadId) {
+                currentThreadId = data.thread_id;
+                localStorage.setItem(ACTIVE_THREAD_ID_KEY, currentThreadId);
+            }
+
+            if (data.response) {
+                saveMessageToThread(currentThreadId, 'ai', data.response);
+                renderAIMessage(data.response);
+            } else {
+                throw new Error('No response from AI');
+            }
+
+        } catch (error) {
+            removeTypingIndicator();
+            console.error('Send error:', error);
+            
+            let errorMsg = error.message || 'Failed to get response. Please try again.';
+            
+            if (error.name === 'AbortError') {
+                errorMsg = 'Request timed out. Please try again.';
+            } else if (error.message.includes('Thread not found')) {
+                errorMsg = 'Session expired. Starting new conversation...';
+                startNewChat();
+                setTimeout(() => {
+                    if (message || attachedFiles.length > 0) {
+                        sendTutorMessage();
+                    }
+                }, 500);
+                return;
+            }
+            
+            renderErrorMessage(errorMsg);
+            if (currentThreadId) {
+                saveMessageToThread(currentThreadId, 'error', errorMsg);
+            }
+        } finally {
+            isProcessing = false;
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '<span>Send</span> <span>➔</span>';
+            msgField.focus();
+            updateSavedBadgeCount();
+        }
+    }
+
+    // ============================================
+    // CHAT MANAGEMENT
+    // ============================================
+    function startNewChat() {
+        if (isProcessing) return;
+        
+        currentThreadId = 'thread_' + Date.now();
+        localStorage.setItem(ACTIVE_THREAD_ID_KEY, currentThreadId);
+        conversationHistory = [];
+        
+        const stream = document.getElementById('tutor-chat-stream');
+        stream.innerHTML = `
+            <div id="default-welcome-msg" class="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100/50 dark:border-blue-900/30 p-4 rounded-2xl max-w-lg text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+                <div class="flex items-start gap-3">
+                    <span class="text-2xl">✨</span>
+                    <div>
+                        <p class="font-bold text-blue-600 dark:text-blue-400">New Chat Started!</p>
+                        <p class="mt-1 text-slate-600 dark:text-slate-400">Ask me anything about your studies. I'm here to help!</p>
+                    </div>
                 </div>
-            `;  
-            scrollChatToBottom();
-            return;  
-        }  
-  
-        stream.innerHTML = "";  
-  
-        thread.messages.forEach(msg => {  
-            if (msg.type === 'user') {  
-                const userBubble = document.createElement("div");  
-                userBubble.className = "flex justify-end";  
-  
-                const userMessageElement = document.createElement("div");  
-                userMessageElement.className = "bg-blue-600 text-white p-4 rounded-2xl max-w-lg text-xs leading-relaxed font-semibold shadow-sm";  
-                userMessageElement.textContent = msg.content;  
-  
-                userBubble.appendChild(userMessageElement);  
-                stream.appendChild(userBubble);  
-            } else if (msg.type === 'ai') {  
-                const formattedAnswer = formatAIResponse(msg.content);  
-                const answerElement = document.createElement("div");  
-                answerElement.className = "bg-slate-100 dark:bg-slate-800/80 border border-slate-200/40 dark:border-slate-800/80 p-4 rounded-2xl max-w-xl text-xs leading-relaxed text-slate-700 dark:text-slate-300 shadow-sm";  
-                answerElement.innerHTML = formattedAnswer;  
-                stream.appendChild(answerElement);  
-            } else if (msg.type === 'error') {  
-                const errorDiv = document.createElement("div");  
-                errorDiv.className = "p-4 bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-950 text-red-700 dark:text-red-400 text-xs rounded-2xl max-w-lg";  
-                errorDiv.innerHTML = `<strong>Error:</strong> ${DOMPurify.sanitize(msg.content)}`;  
-                stream.appendChild(errorDiv);  
-            }  
-        });  
-  
-        if (window.MathJax && window.MathJax.typesetPromise) {  
-            MathJax.typesetPromise([stream]).catch(err => console.error("MathJax error:", err));  
-        }  
-  
-        scrollChatToBottom();  
-    }  
-  
-    // Toggle Saved Chats Modal  
-    function toggleSavedChatsModal() {  
-        const modal = document.getElementById('saved-chats-modal');  
-        if (modal.classList.contains('hidden')) {  
-            renderSavedThreadsList();  
-            modal.classList.remove('hidden');  
-        } else {  
-            modal.classList.add('hidden');  
-        }  
-    }  
-  
-    function updateSavedBadgeCount() {  
-        const threads = getAllThreads();  
-        const badge = document.getElementById('saved-chats-badge');  
-        if (badge) badge.innerText = threads.length;  
-    }  
-  
-    function renderSavedThreadsList() {  
-        const container = document.getElementById('saved-threads-list');  
-        const threads = getAllThreads();  
-  
-        if (threads.length === 0) {  
-            container.innerHTML = `  
-                <div class="bg-slate-950/60 p-6 rounded-2xl border border-dashed border-slate-800 text-center text-slate-400 text-xs">  
-                    No saved chat threads yet. Start asking questions and your threads will automatically appear here!  
-                </div>  
-            `;  
-            return;  
-        }  
-  
-        container.innerHTML = "";  
-        threads.forEach(t => {  
-            const isActive = t.id === currentThreadId;  
-            const dateStr = new Date(t.updatedAt).toLocaleDateString() + ' ' + new Date(t.updatedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});  
-  
+            </div>
+        `;
+        clearFileAttachment();
+        msgField.value = '';
+        msgField.focus();
+        scrollChatToBottom();
+        updateSavedBadgeCount();
+    }
+
+    function clearCurrentChat() {
+        if (isProcessing) return;
+        if (!confirm('Clear all messages in this chat?')) return;
+        
+        const thread = getThread(currentThreadId);
+        if (thread) {
+            thread.messages = [];
+            thread.updatedAt = new Date().toISOString();
+            const threads = getAllThreads();
+            const idx = threads.findIndex(t => t.id === currentThreadId);
+            if (idx !== -1) {
+                threads[idx] = thread;
+                saveAllThreads(threads);
+            }
+        }
+        
+        conversationHistory = [];
+        loadThreadMessages(currentThreadId);
+        updateSavedBadgeCount();
+    }
+
+    // ============================================
+    // SAVED CHATS MODAL
+    // ============================================
+    function toggleSavedChatsModal() {
+        const modal = document.getElementById('saved-chats-modal');
+        if (modal.classList.contains('hidden')) {
+            renderSavedThreadsList();
+            modal.classList.remove('hidden');
+        } else {
+            modal.classList.add('hidden');
+        }
+    }
+
+    function updateSavedBadgeCount() {
+        const threads = getAllThreads();
+        const badge = document.getElementById('saved-chats-badge');
+        if (badge) {
+            const count = threads.length;
+            badge.textContent = count;
+            badge.style.display = count > 0 ? 'inline-block' : 'none';
+        }
+    }
+
+    function renderSavedThreadsList() {
+        const container = document.getElementById('saved-threads-list');
+        const threads = getAllThreads();
+
+        if (threads.length === 0) {
+            container.innerHTML = `
+                <div class="bg-slate-50 dark:bg-slate-950/60 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 text-center text-slate-400 text-xs">
+                    <div class="text-2xl mb-2">💬</div>
+                    <p>No saved chats yet.</p>
+                    <p class="text-[10px] mt-1">Start a conversation and it will appear here!</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = '';
+        threads.forEach(t => {
+            const isActive = t.id === currentThreadId;
+            const dateStr = new Date(t.updatedAt).toLocaleDateString() + ' ' + 
+                          new Date(t.updatedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            const messageCount = t.messages ? t.messages.length : 0;
+
             const div = document.createElement('div');
-            div.className = `p-3.5 rounded-2xl border transition flex items-center justify-between cursor-pointer ${isActive ? 'bg-blue-600/20 border-blue-500 text-white' : 'bg-slate-950/80 border-slate-800 text-slate-300 hover:border-slate-700'}`;
+            div.className = `p-3 rounded-xl border transition cursor-pointer flex items-center justify-between gap-2 ${
+                isActive 
+                ? 'bg-blue-600/20 border-blue-500 text-white' 
+                : 'bg-slate-50 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300'
+            }`;
             div.onclick = () => selectSavedThread(t.id);
+            
             div.innerHTML = `
-                <div class="space-y-1 overflow-hidden pr-2">
-                    <div class="font-bold text-xs truncate flex items-center gap-1.5">  
-                        <span>💬</span>  
-                        <span>${DOMPurify.sanitize(t.title || 'Academic Query')}</span>  
-                    </div>  
-                    <div class="text-[10px] text-slate-500 font-semibold">  
-                        ${t.messages ? t.messages.length : 0} messages • ${dateStr}  
-                    </div>  
-                </div>  
-                <button onclick="deleteSingleThread(event, '${t.id}')" class="text-xs text-slate-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/10 transition" title="Delete Thread">  
-                    🗑️  
-                </button>  
+                <div class="flex-grow min-w-0">
+                    <div class="font-bold text-xs truncate flex items-center gap-1.5">
+                        <span>💬</span>
+                        <span>${escapeHtml(t.title || 'Untitled Chat')}</span>
+                        ${isActive ? '<span class="text-[9px] bg-blue-500 text-white px-1.5 py-0.5 rounded">Active</span>' : ''}
+                    </div>
+                    <div class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        ${messageCount} messages • ${dateStr}
+                    </div>
+                </div>
+                <button onclick="deleteSingleThread(event, '${t.id}')" 
+                        class="text-slate-400 hover:text-red-500 dark:hover:text-red-400 p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition text-sm" 
+                        title="Delete Thread">
+                    🗑️
+                </button>
             `;
             container.appendChild(div);
-        });  
-    }  
-  
-    function selectSavedThread(threadId) {  
-        loadThreadMessages(threadId);  
-        toggleSavedChatsModal();  
-    }  
-  
-    function deleteSingleThread(event, threadId) {  
-        event.stopPropagation();  
-        let threads = getAllThreads();  
-        threads = threads.filter(t => t.id !== threadId);  
-        saveAllThreads(threads);  
-  
-        if (currentThreadId === threadId) {  
-            if (threads.length > 0) {  
-                loadThreadMessages(threads[0].id);  
-            } else {  
-                startNewChatThread();  
-            }  
-        }  
-        renderSavedThreadsList();  
-    }  
-  
-    function clearAllSavedThreads() {  
-        if (confirm("Are you sure you want to delete ALL saved chat threads?")) {  
-            localStorage.removeItem(THREADS_KEY);  
-            localStorage.removeItem(ACTIVE_THREAD_ID_KEY);  
-            startNewChatThread();  
-            toggleSavedChatsModal();  
-        }  
-    }  
-  
-    // Keyboard "Enter" handler  
-    function handleKeyPress(e) {  
-        if (e.key === 'Enter') {  
-            sendTutorMessage();  
-        }  
-    }  
-  
-    function formatAIResponse(text) {  
-        if (!text) return "";  
-        const markdownHtml = marked.parse(text, { breaks: true, gfm: true });  
-        return DOMPurify.sanitize(markdownHtml);  
-    }  
-  
-    function sendTutorMessage() {  
-        const input = document.getElementById('tutor-msg-field');  
-        const msg = input.value.trim();  
-        if (!msg) return;  
-  
-        const stream = document.getElementById('tutor-chat-stream');  
-          
-        // Remove welcome message if visible  
-        const welcomeMsg = document.getElementById('default-welcome-msg');  
-        if (welcomeMsg) welcomeMsg.remove();  
-  
-        // Safely append user message  
-        const userBubble = document.createElement("div");  
-        userBubble.className = "flex justify-end";  
-  
-        const userMessageElement = document.createElement("div");  
-        userMessageElement.className = "bg-blue-600 text-white p-4 rounded-2xl max-w-lg text-xs leading-relaxed font-semibold shadow-sm";  
-        userMessageElement.textContent = msg;  
-  
-        userBubble.appendChild(userMessageElement);  
-        stream.appendChild(userBubble);  
-  
-        // Auto Save User Message to Current Thread  
-        saveMessageToCurrentThread('user', msg);  
-  
-        input.value = "";  
-        scrollChatToBottom();  
-  
-        // Append pulsing loading indicator  
-        const loadingId = "loader-" + Date.now();  
-        const loader = document.createElement("div");  
-        loader.id = loadingId;  
-        loader.className = "flex items-center space-x-2 bg-slate-100 dark:bg-slate-800/60 p-4 rounded-2xl max-w-[200px] text-xs leading-relaxed text-slate-400 dark:text-slate-500 animate-pulse border border-slate-200/40 dark:border-slate-800";  
-        loader.innerHTML = `
-            <div class="h-2 w-2 bg-blue-600 rounded-full animate-bounce"></div>
-            <div class="h-2 w-2 bg-blue-600 rounded-full animate-bounce [animation-delay:0.2s]"></div>  
-            <div class="h-2 w-2 bg-blue-600 rounded-full animate-bounce [animation-delay:0.4s]"></div>  
-            <span class="font-bold pl-1">Kayo is thinking...</span>  
-        `;  
-        stream.appendChild(loader);  
-        scrollChatToBottom();  
-  
-        // Send query to python backend  
-        fetch('/api/tutor/chat', {  
-            method: 'POST',  
-            headers: { 'Content-Type': 'application/json' },  
-            body: JSON.stringify({ message: msg })  
-        })  
-        .then(res => res.json())  
-        .then(data => {  
-            const activeLoader = document.getElementById(loadingId);  
-            if (activeLoader) activeLoader.remove();  
-  
-            if (data.error) {  
-                const errorDiv = document.createElement("div");  
-                errorDiv.className = "p-4 bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-950 text-red-700 dark:text-red-400 text-xs rounded-2xl max-w-lg";  
-                errorDiv.innerHTML = `<strong>Error:</strong> ${DOMPurify.sanitize(data.error)}`;  
-                stream.appendChild(errorDiv);  
-  
-                saveMessageToCurrentThread('error', data.error);  
-            } else {  
-                saveMessageToCurrentThread('ai', data.response);  
-  
-                const formattedAnswer = formatAIResponse(data.response);  
-                const answerElement = document.createElement("div");  
-                answerElement.className = "bg-slate-100 dark:bg-slate-800/80 border border-slate-200/40 dark:border-slate-800/80 p-4 rounded-2xl max-w-xl text-xs leading-relaxed text-slate-700 dark:text-slate-300 shadow-sm";  
-                answerElement.innerHTML = formattedAnswer;  
-                stream.appendChild(answerElement);  
-  
-                if (window.MathJax && window.MathJax.typesetPromise) {  
-                    MathJax.typesetPromise([answerElement]).catch(err => console.error("MathJax error:", err));  
-                }  
-            }  
-            scrollChatIfNearBottom();  
-        })  
-        .catch(err => {  
-            const activeLoader = document.getElementById(loadingId);  
-            if (activeLoader) activeLoader.remove();  
-              
-            const errorDiv = document.createElement("div");  
-            errorDiv.className = "p-4 bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-950 text-red-700 dark:text-red-400 text-xs rounded-2xl max-w-lg";  
-            errorDiv.innerHTML = `<strong>Connection Error:</strong> Could not connect to the EduVault servers.`;  
-            stream.appendChild(errorDiv);  
-            scrollChatIfNearBottom();  
-        });  
-    }  
-  
-    function clearTutorLogs() {  
-        if (confirm("Are you sure you want to clear current chat thread logs?")) {  
-            startNewChatThread();  
-        }  
-    }  
+        });
+    }
+
+    function selectSavedThread(threadId) {
+        loadThreadMessages(threadId);
+        toggleSavedChatsModal();
+        updateSavedBadgeCount();
+        updateConversationHistory();
+    }
+
+    function deleteSingleThread(event, threadId) {
+        event.stopPropagation();
+        if (!confirm('Delete this chat thread?')) return;
+        
+        let threads = getAllThreads();
+        threads = threads.filter(t => t.id !== threadId);
+        saveAllThreads(threads);
+
+        if (currentThreadId === threadId) {
+            if (threads.length > 0) {
+                loadThreadMessages(threads[0].id);
+            } else {
+                startNewChat();
+            }
+        }
+        renderSavedThreadsList();
+        updateSavedBadgeCount();
+    }
+
+    function clearAllSavedThreads() {
+        if (!confirm('Delete ALL saved chat threads? This cannot be undone.')) return;
+        localStorage.removeItem(THREADS_KEY);
+        localStorage.removeItem(ACTIVE_THREAD_ID_KEY);
+        conversationHistory = [];
+        startNewChat();
+        toggleSavedChatsModal();
+        updateSavedBadgeCount();
+    }
+
+    // ============================================
+    // UTILITY FUNCTIONS
+    // ============================================
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function formatAIResponse(text) {
+        if (!text) return '';
+        try {
+            const markdownHtml = marked.parse(text, { breaks: true, gfm: true });
+            return DOMPurify.sanitize(markdownHtml);
+        } catch (e) {
+            return escapeHtml(text);
+        }
+    }
+
+    function updateCharCounter() {
+        const count = msgField.value.length;
+        charCounter.textContent = count + ' characters';
+        if (count > 0) {
+            charCounter.classList.remove('text-slate-400');
+            charCounter.classList.add('text-blue-500');
+        } else {
+            charCounter.classList.add('text-slate-400');
+            charCounter.classList.remove('text-blue-500');
+        }
+    }
+
+    function handleKeyPress(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendTutorMessage();
+        }
+    }
+
+    // ============================================
+    // ONLINE/OFFLINE STATUS
+    // ============================================
+    function checkAiOnlineStatus() {
+        const banner = document.getElementById('offline-ai-banner');
+        if (!navigator.onLine) {
+            if (banner) banner.classList.remove('hidden');
+            sendBtn.disabled = true;
+            sendBtn.title = 'AI requires internet connection';
+        } else {
+            if (banner) banner.classList.add('hidden');
+            sendBtn.disabled = false;
+            sendBtn.title = '';
+        }
+    }
+
+    window.addEventListener('online', checkAiOnlineStatus);
+    window.addEventListener('offline', checkAiOnlineStatus);
+
+    // ============================================
+    // INITIALIZATION
+    // ============================================
+    function initChatSystem() {
+        checkAiOnlineStatus();
+        
+        const activeId = localStorage.getItem(ACTIVE_THREAD_ID_KEY);
+        const threads = getAllThreads();
+        
+        let validThreadId = null;
+        if (activeId && threads.some(t => t.id === activeId)) {
+            validThreadId = activeId;
+        } else if (threads.length > 0) {
+            validThreadId = threads[0].id;
+        }
+        
+        if (validThreadId) {
+            currentThreadId = validThreadId;
+            localStorage.setItem(ACTIVE_THREAD_ID_KEY, currentThreadId);
+            loadThreadMessages(currentThreadId);
+        } else {
+            startNewChat();
+        }
+
+        updateSavedBadgeCount();
+        msgField.focus();
+        console.log('🤖 Stone Assistant initialized with thread:', currentThreadId);
+        console.log('💡 Conversation history will be maintained for context.');
+    }
+
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            updateSavedBadgeCount();
+            const threads = getAllThreads();
+            if (currentThreadId && !threads.some(t => t.id === currentThreadId)) {
+                initChatSystem();
+            }
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', initChatSystem);
+
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            msgField.focus();
+        }
+        if (e.key === 'Escape') {
+            const modal = document.getElementById('saved-chats-modal');
+            if (!modal.classList.contains('hidden')) {
+                toggleSavedChatsModal();
+            }
+        }
+    });
+
+    console.log('🤖 Stone Assistant initialized!');
+    console.log('💡 Tip: Use Ctrl+K to focus the input field.');
+    console.log('💡 The AI remembers the last 10 messages for context.');
 </script>
+
 {% endblock %}

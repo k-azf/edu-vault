@@ -1,3 +1,4 @@
+# app.py - Complete Updated Version with AI Tutor Memory
 import os
 import json
 import time
@@ -5,6 +6,9 @@ import re
 import sqlite3
 import urllib.request
 import urllib.error
+import tempfile
+import uuid
+import shutil
 from functools import wraps
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash, send_from_directory
 from pypdf import PdfReader, PdfWriter
@@ -12,29 +16,48 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
+from PIL import Image
+import speech_recognition as sr
+from io import BytesIO
+import base64
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "super-secret-eduvault-key-12345")
 
+# --- Configuration ---
+UPLOAD_FOLDER = 'uploads'
+MAX_FILE_SIZE = 16 * 1024 * 1024  # 16 MB
+ALLOWED_EXTENSIONS = {'pdf', 'json', 'png', 'jpg', 'jpeg', 'gif', 'txt', 'docx', 'mp3', 'wav', 'ogg', 'm4a'}
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 # Telegram Configuration
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHANNEL = os.getenv("TELEGRAM_CHANNEL_USERNAME", "@eduvault12")
 
-# Database Configuration (Supabase PostgreSQL with SQLite fallback)
+# Database Configuration
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Configure Google's GenAI Client
+# Gemini Client
 gemini_key = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=gemini_key) if gemini_key else None
+
 from init_db import init_db
 
-# Server Render irratti yeroo boot ta'u hunda Supabase database fix akka godhuuf:
 try:
     init_db()
 except Exception as e:
     print(f"Database init error: {e}")
+
+# ============================================
+# HELPER FUNCTIONS
+# ============================================
 
 def get_db_connection():
     if DATABASE_URL:
@@ -45,15 +68,26 @@ def get_db_connection():
         except Exception as e:
             print(f"DEBUG: PostgreSQL Connection Failed ({e}). Falling back to SQLite...")
     
-    # Local SQLite Fallback
-    conn = sqlite3.connect('exams.db')
+    conn = sqlite3.connect('data/exams.db')
     conn.row_factory = sqlite3.Row
     return conn
 
 def is_postgres():
     return bool(DATABASE_URL)
 
-# --- Authentication Decorators ---
+def get_param_style():
+    return "%s" if is_postgres() else "?"
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def get_secure_filename(filename):
+    return secure_filename(filename)
+
+# ============================================
+# AUTHENTICATION DECORATORS
+# ============================================
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -70,39 +104,42 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# --- LaTeX Formula Sanitizer ---
+# ============================================
+# LATEX FORMULA SANITIZER
+# ============================================
+
 def fix_latex_string(text):
     if not text or not isinstance(text, str):
         return text
     
     text = text.strip()
     
-    # 1. Restore common stripped LaTeX backslashes from AI/JSON
-    math_symbols = ['sqrt', 'frac', 'text', 'vec', 'theta', 'alpha', 'beta', 'pi', 'infty', 'cdot', 'times', 'pm', 'Delta', 'sum', 'int']
+    math_symbols = ['sqrt', 'frac', 'text', 'vec', 'theta', 'alpha', 'beta', 'pi', 'infty', 'cdot', 'times', 'pm', 'Delta', 'sum', 'int', 'left', 'right', 'sin', 'cos', 'tan', 'log', 'ln']
     for sym in math_symbols:
         text = re.sub(r'(?<!\\)\b' + sym + r'\{', r'\\' + sym + '{', text)
+        text = re.sub(r'(?<!\\)\b' + sym + r'\b', r'\\' + sym, text)
 
-    # 2. Convert plain text fractions (e.g. A/(x+2)) into LaTeX \frac{A}{x+2}
     if '/' in text and '$' not in text and not text.startswith('http'):
         parts = text.split('/')
         if len(parts) == 2:
             num = parts[0].strip()
             den = parts[1].strip()
-            if re.search(r'[a-zA-Z0-9()+^_-]', num):
+            if re.search(r'[a-zA-Z0-9()+^_-]', num) and re.search(r'[a-zA-Z0-9()+^_-]', den):
                 text = f"\\frac{{{num}}}{{{den}}}"
 
-    # 3. Wrap math expressions with dollar signs if missing
     if ('\\' in text or '^' in text or '_' in text) and '$' not in text:
         text = f"${text}$"
 
-    # 4. Fix unclosed dollar signs
     if text.count('$') == 1:
         text = text + '$'
         
+    text = text.replace('\\\\', '\\')
+    
     return text
 
-
-# --- PDF Parser Functions ---
+# ============================================
+# PDF PARSER FUNCTIONS
+# ============================================
 
 def parse_single_chunk_with_ai(chunk_path):
     if not client:
@@ -142,6 +179,7 @@ def parse_single_chunk_with_ai(chunk_path):
     """
 
     models_to_try = [
+        "gemini-2.0-flash-exp",
         "gemini-flash-latest",
         "gemini-3.5-flash",
         "gemini-3.1-flash-lite"
@@ -189,7 +227,6 @@ def parse_single_chunk_with_ai(chunk_path):
     except Exception:
         pass
     raise Exception(f"Failed to process PDF segment. Detail: {last_error}")
-
 
 def parse_pdf_with_ai(pdf_path):
     reader = PdfReader(pdf_path)
@@ -250,11 +287,162 @@ def parse_pdf_with_ai(pdf_path):
         "questions": all_questions
     }
 
+# ============================================
+# AI CLASSIFICATION HELPER
+# ============================================
 
-# --- Telegram Membership Checking Helper ---
+def classify_question_with_curriculum(question_text, subject_name, grade_number):
+    if not client:
+        return {
+            "error": "Gemini API not configured.",
+            "confidence": "Low",
+            "reason": "API unavailable"
+        }
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    
+    cursor.execute(f"""
+        SELECT u.unit_number, u.title, 
+               s.section_number, s.title as section_title,
+               t.topic_title, t.subtopic
+        FROM curriculum_units u
+        JOIN curriculum_subjects cs ON u.subject_id = cs.id
+        JOIN curriculum_grades cg ON u.grade_id = cg.id
+        LEFT JOIN curriculum_sections s ON u.id = s.unit_id
+        LEFT JOIN curriculum_topics t ON s.id = t.section_id
+        WHERE cs.name = {param} AND cg.number = {param}
+        ORDER BY u.unit_number, s.section_number
+    """, (subject_name, grade_number))
+    
+    curriculum_data = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    curriculum_context = "Available curriculum units:\n"
+    current_unit = None
+    for row in curriculum_data:
+        if row['unit_number'] != current_unit:
+            current_unit = row['unit_number']
+            curriculum_context += f"\nUnit {row['unit_number']}: {row['title']}\n"
+        if row['section_number']:
+            curriculum_context += f"  Section {row['section_number']}: {row['section_title']}\n"
+            if row['topic_title']:
+                curriculum_context += f"    Topic: {row['topic_title']}"
+                if row['subtopic']:
+                    curriculum_context += f" - Subtopic: {row['subtopic']}"
+                curriculum_context += "\n"
+
+    prompt = f"""
+You are an expert Ethiopian curriculum specialist.
+
+Your task is to classify the following exam question into the correct Unit, Section, Topic, and Subtopic of the Ethiopian New Curriculum for {subject_name} Grade {grade_number}.
+
+**Question:**
+{question_text}
+
+**Official Curriculum Reference:**
+{curriculum_context}
+
+**Instructions:**
+1.  Identify the most specific Unit, Section, Topic, and Subtopic from the official curriculum provided above.
+2.  You MUST select from the official curriculum items listed. Do NOT invent new units or topics.
+3.  Provide a confidence level: "High", "Medium", or "Low".
+4.  Explain your reasoning briefly.
+5.  Output the result in the following JSON format ONLY:
+
+{{
+    "unit_number": "Unit number (e.g., 1)",
+    "unit_title": "Title of the unit from curriculum",
+    "section_number": "Section number (e.g., 1.2)",
+    "section_title": "Title of the section from curriculum",
+    "topic_title": "Title of the topic from curriculum",
+    "subtopic": "Subtopic from curriculum (if applicable, else null)",
+    "confidence": "High/Medium/Low",
+    "reason": "Brief reasoning for the classification."
+}}
+
+If the question does not clearly match any specific unit, select the most relevant one and set confidence to "Low".
+"""
+    try:
+        response = client.models.generate_content(
+            model="gemini-3.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.3
+            )
+        )
+        if response.text:
+            classification = json.loads(response.text)
+            
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            param = get_param_style()
+
+            unit_id = None
+            section_id = None
+            topic_id = None
+
+            cursor.execute(f"""
+                SELECT u.id FROM curriculum_units u
+                JOIN curriculum_subjects s ON u.subject_id = s.id
+                JOIN curriculum_grades g ON u.grade_id = g.id
+                WHERE s.name = {param} AND g.number = {param} AND u.unit_number = {param}
+            """, (subject_name, grade_number, classification.get('unit_number')))
+            unit = cursor.fetchone()
+            if unit:
+                unit_id = unit['id']
+
+            if unit_id:
+                cursor.execute(f"""
+                    SELECT id FROM curriculum_sections
+                    WHERE unit_id = {param} AND section_number = {param}
+                """, (unit_id, classification.get('section_number')))
+                section = cursor.fetchone()
+                if section:
+                    section_id = section['id']
+
+            if section_id:
+                cursor.execute(f"""
+                    SELECT id FROM curriculum_topics
+                    WHERE section_id = {param} AND topic_title = {param}
+                """, (section_id, classification.get('topic_title')))
+                topic = cursor.fetchone()
+                if topic:
+                    topic_id = topic['id']
+
+            cursor.close()
+            conn.close()
+
+            classification['unit_id'] = unit_id
+            classification['section_id'] = section_id
+            classification['topic_id'] = topic_id
+            classification['confidence'] = classification.get('confidence', 'Low')
+            
+            return classification
+    except Exception as e:
+        print(f"ERROR in classify_question_with_curriculum: {e}")
+        return {
+            "error": str(e),
+            "confidence": "Low",
+            "reason": "Classification error"
+        }
+    
+    return {
+        "error": "Classification failed.",
+        "confidence": "Low",
+        "reason": "No valid classification generated"
+    }
+
+# ============================================
+# TELEGRAM MEMBERSHIP CHECKING
+# ============================================
+
 def check_telegram_channel_membership(user_id_or_handle):
     if not TELEGRAM_BOT_TOKEN:
-        return True # Fallback if token not set in environment
+        return True
 
     user_id_or_handle = str(user_id_or_handle).strip().replace("@", "")
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getChatMember?chat_id={TELEGRAM_CHANNEL}&user_id={user_id_or_handle}"
@@ -269,8 +457,10 @@ def check_telegram_channel_membership(user_id_or_handle):
         print(f"DEBUG: Telegram API Check Warning: {e}")
     return False
 
+# ============================================
+# STATIC ROUTES
+# ============================================
 
-# --- Static Service Worker Route ---
 @app.route('/sw.js')
 def service_worker():
     return send_from_directory('static', 'sw.js', mimetype='application/javascript')
@@ -279,8 +469,9 @@ def service_worker():
 def ping():
     return "OK", 200
 
-
-# --- Authentication Routes ---
+# ============================================
+# AUTHENTICATION ROUTES
+# ============================================
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -295,8 +486,8 @@ def signup():
         
         conn = get_db_connection()
         cursor = conn.cursor()
+        param = get_param_style()
         try:
-            param = "%s" if is_postgres() else "?"
             cursor.execute(
                 f'INSERT INTO users (username, password_hash, telegram_id, is_verified) VALUES ({param}, {param}, {param}, {param})', 
                 (username, generate_password_hash(password), telegram_id, 1)
@@ -311,7 +502,6 @@ def signup():
             conn.close()
     return render_template('signup.html')
 
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -320,7 +510,7 @@ def login():
         
         conn = get_db_connection()
         cursor = conn.cursor()
-        param = "%s" if is_postgres() else "?"
+        param = get_param_style()
         cursor.execute(f'SELECT * FROM users WHERE username = {param}', (username,))
         user = cursor.fetchone()
         cursor.close()
@@ -334,22 +524,28 @@ def login():
         flash("Invalid credentials", "error")
     return render_template('login.html')
 
-
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('login'))
 
-
-# --- Main Web Page Routes ---
+# ============================================
+# MAIN WEB PAGE ROUTES
+# ============================================
 
 @app.route('/')
 @login_required
 def index():
     return render_template('index.html', username=session.get('username'), role=session.get('role'))
-@app.route('/worksheets')
+
 @app.route('/resources')
-def worksheets():
+@login_required
+def resources_hub():
+    return render_template('resources.html', username=session.get('username'), role=session.get('role', 'student'))
+
+@app.route('/worksheets')
+@login_required
+def worksheets_page():
     return render_template('worksheet.html', role=session.get('role', 'student'))
 
 @app.route('/subject/<name>')
@@ -382,40 +578,43 @@ def tutor_page():
 def admin_page():
     return render_template('admin.html')
 
-@app.route('/resources')
-@login_required
-def resources_hub():
-    return render_template('resources.html', username=session.get('username'))
-
 @app.route('/study/<int:material_id>')
 @login_required
 def study_material_console(material_id):
     return render_template('study_material.html', material_id=material_id)
 
+@app.route('/admin/review/<int:pending_exam_id>')
+@admin_required
+def review_pending_exam_page(pending_exam_id):
+    return render_template('review_exam.html', pending_exam_id=pending_exam_id)
 
-# --- API Endpoints ---
+# ============================================
+# API ENDPOINTS
+# ============================================
 
 @app.route('/api/verify-task', methods=['POST'])
 def verify_social_task():
     data = request.get_json(silent=True) or {}
     telegram_id = (data.get("telegram_id") or "").strip()
     task_type = (data.get("task_type") or "").strip()
+    
     if not telegram_id:
         return jsonify({
             "success": False,
             "error": "Telegram User ID/Handle required."
         }), 400
+        
     allowed_tasks = ["channel", "bot", "youtube", "group_invites"]
     if task_type not in allowed_tasks:
         return jsonify({
             "success": False,
             "error": "Invalid task type"
         }), 400
-    # Server-side 10 second verification timer
+        
     now = time.time()
     session_key = f"verify_started_{task_type}"
     started_at = session.get(session_key)
-    # First verification request starts the timer
+    
     if started_at is None:
         session[session_key] = now
         session.modified = True
@@ -425,8 +624,8 @@ def verify_social_task():
             "remaining": 10,
             "error": "Please wait 10 seconds before verification."
         }), 202
+        
     elapsed = now - float(started_at)
-    # Do not verify before 10 seconds
     if elapsed < 10:
         remaining = max(1, int(10 - elapsed + 0.999))
         return jsonify({
@@ -436,10 +635,8 @@ def verify_social_task():
             "error": f"Please wait {remaining} more seconds."
         }), 202
 
-    # Task 1: Telegram Channel
     if task_type == "channel":
         is_member = check_telegram_channel_membership(telegram_id)
-
         if not is_member:
             session.pop(session_key, None)
             session.modified = True
@@ -448,16 +645,15 @@ def verify_social_task():
                 "error": "Telegram channel membership could not be verified yet."
             }), 400
         message = "Channel join verified!"
-    # Task 2: Telegram Bot
     elif task_type == "bot":
         message = "Bot task verified!"
-    # Task 3 YouTube
     elif task_type == "youtube":
         message = "YouTube task verified!"
-    # Task 4: Group Invites
     elif task_type == "group_invites":
         message = "Group invite task verified!"
-    # Clear timer after successful verification
+    else:
+        return jsonify({"success": False, "error": "Invalid task type"}), 400
+
     session.pop(session_key, None)
     session.modified = True
     return jsonify({
@@ -465,59 +661,226 @@ def verify_social_task():
         "message": message
     })
 
-    return jsonify({"success": False, "error": "Invalid task type"}), 400
-
+# ============================================
+# EXAM AND QUESTION API
+# ============================================
 
 @app.route('/api/exams', methods=['GET'])
 @login_required
 def get_exams():
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM exams ORDER BY id DESC')
+    cursor.execute('''
+        SELECT e.*, r.file_url, r.pdf_url 
+        FROM exams e
+        LEFT JOIN resources r ON e.resource_id = r.id
+        ORDER BY e.id DESC
+    ''')
     exams = cursor.fetchall()
     cursor.close()
     conn.close()
     return jsonify([dict(exam) for exam in exams])
-
 
 @app.route('/api/exams/<int:exam_id>/questions', methods=['GET'])
 @login_required
 def get_questions(exam_id):
     conn = get_db_connection()
     cursor = conn.cursor()
-    param = "%s" if is_postgres() else "?"
-    cursor.execute(f'SELECT * FROM questions WHERE exam_id = {param} ORDER BY id ASC', (exam_id,))
+    param = get_param_style()
+    cursor.execute(f'''
+        SELECT q.*, 
+               u.unit_number, u.title as unit_title,
+               s.section_number, s.title as section_title,
+               t.topic_title, t.subtopic
+        FROM questions q
+        LEFT JOIN curriculum_units u ON q.curriculum_unit_id = u.id
+        LEFT JOIN curriculum_sections s ON q.curriculum_section_id = s.id
+        LEFT JOIN curriculum_topics t ON q.curriculum_topic_id = t.id
+        WHERE q.exam_id = {param}
+        ORDER BY q.id ASC
+    ''', (exam_id,))
     questions = cursor.fetchall()
     cursor.close()
     conn.close()
     return jsonify([dict(q) for q in questions])
 
+@app.route('/api/questions/<int:question_id>', methods=['GET'])
+@login_required
+def get_single_question(question_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    cursor.execute(f"SELECT * FROM questions WHERE id = {param}", (question_id,))
+    question = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if question:
+        return jsonify(dict(question))
+    return jsonify({"error": "Question not found"}), 404
+
+# ============================================
+# CHAPTER AND CURRICULUM API
+# ============================================
 
 @app.route('/api/chapters/<subject>', methods=['GET'])
 @login_required
 def get_chapters(subject):
+    grade = request.args.get('grade', 12)
     conn = get_db_connection()
     cursor = conn.cursor()
-    param = "%s" if is_postgres() else "?"
-    cursor.execute(f'SELECT * FROM chapters WHERE LOWER(subject) = LOWER({param}) ORDER BY id ASC', (subject,))
+    param = get_param_style()
+    
+    cursor.execute(f'''
+        SELECT DISTINCT u.id as unit_id, u.unit_number, u.title as name,
+               COUNT(DISTINCT q.id) as question_count,
+               COUNT(DISTINCT s.id) as section_count
+        FROM curriculum_units u
+        JOIN curriculum_subjects cs ON u.subject_id = cs.id
+        JOIN curriculum_grades g ON u.grade_id = g.id
+        LEFT JOIN curriculum_sections s ON u.id = s.unit_id
+        LEFT JOIN curriculum_topics t ON s.id = t.section_id
+        LEFT JOIN questions q ON q.curriculum_unit_id = u.id
+        WHERE cs.name = {param} AND g.number = {param}
+        GROUP BY u.id, u.unit_number, u.title
+        ORDER BY u.unit_number
+    ''', (subject, grade))
+    
     chaps = cursor.fetchall()
     cursor.close()
     conn.close()
     return jsonify([dict(c) for c in chaps])
 
+@app.route('/api/curriculum/<subject>/<int:grade>', methods=['GET'])
+@login_required
+def get_curriculum_structure(subject, grade):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    
+    cursor.execute(f'''
+        SELECT u.id as unit_id, u.unit_number, u.title as unit_title,
+               s.id as section_id, s.section_number, s.title as section_title,
+               t.id as topic_id, t.topic_title, t.subtopic,
+               COUNT(DISTINCT q.id) as question_count
+        FROM curriculum_units u
+        JOIN curriculum_subjects cs ON u.subject_id = cs.id
+        JOIN curriculum_grades g ON u.grade_id = g.id
+        LEFT JOIN curriculum_sections s ON u.id = s.unit_id
+        LEFT JOIN curriculum_topics t ON s.id = t.section_id
+        LEFT JOIN questions q ON q.curriculum_topic_id = t.id
+        WHERE cs.name = {param} AND g.number = {param}
+        GROUP BY u.id, u.unit_number, u.title, s.id, s.section_number, s.title, t.id, t.topic_title, t.subtopic
+        ORDER BY u.unit_number, s.section_number
+    ''', (subject, grade))
+    
+    structure = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    
+    result = {}
+    for row in structure:
+        unit_key = f"unit_{row['unit_id']}"
+        if unit_key not in result:
+            result[unit_key] = {
+                "id": row['unit_id'],
+                "unit_number": row['unit_number'],
+                "unit_title": row['unit_title'],
+                "sections": {}
+            }
+        if row['section_id']:
+            section_key = f"section_{row['section_id']}"
+            if section_key not in result[unit_key]["sections"]:
+                result[unit_key]["sections"][section_key] = {
+                    "id": row['section_id'],
+                    "section_number": row['section_number'],
+                    "section_title": row['section_title'],
+                    "topics": []
+                }
+            if row['topic_id']:
+                result[unit_key]["sections"][section_key]["topics"].append({
+                    "id": row['topic_id'],
+                    "topic_title": row['topic_title'],
+                    "subtopic": row['subtopic'],
+                    "question_count": row['question_count'] or 0
+                })
+    
+    return jsonify(list(result.values()))
+
+@app.route('/api/curriculum/unit/<int:unit_id>/questions', methods=['GET'])
+@login_required
+def get_unit_questions(unit_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    cursor.execute(f'''
+        SELECT q.*, e.title as exam_title
+        FROM questions q
+        JOIN exams e ON q.exam_id = e.id
+        WHERE q.curriculum_unit_id = {param}
+        ORDER BY q.id
+    ''', (unit_id,))
+    questions = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify([dict(q) for q in questions])
+
+@app.route('/api/curriculum/section/<int:section_id>/questions', methods=['GET'])
+@login_required
+def get_section_questions(section_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    cursor.execute(f'''
+        SELECT q.*, e.title as exam_title
+        FROM questions q
+        JOIN exams e ON q.exam_id = e.id
+        WHERE q.curriculum_section_id = {param}
+        ORDER BY q.id
+    ''', (section_id,))
+    questions = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify([dict(q) for q in questions])
+
+@app.route('/api/curriculum/topic/<int:topic_id>/questions', methods=['GET'])
+@login_required
+def get_topic_questions(topic_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    cursor.execute(f'''
+        SELECT q.*, e.title as exam_title
+        FROM questions q
+        JOIN exams e ON q.exam_id = e.id
+        WHERE q.curriculum_topic_id = {param}
+        ORDER BY q.id
+    ''', (topic_id,))
+    questions = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify([dict(q) for q in questions])
 
 @app.route('/api/questions/chapter/<int:chapter_id>', methods=['GET'])
 @login_required
 def get_chapter_questions(chapter_id):
     conn = get_db_connection()
     cursor = conn.cursor()
-    param = "%s" if is_postgres() else "?"
-    cursor.execute(f'SELECT * FROM questions WHERE chapter_id = {param} ORDER BY id ASC', (chapter_id,))
+    param = get_param_style()
+    cursor.execute(f'''
+        SELECT q.*, e.title as exam_title
+        FROM questions q
+        JOIN exams e ON q.exam_id = e.id
+        WHERE q.chapter_id = {param}
+        ORDER BY q.id ASC
+    ''', (chapter_id,))
     questions = cursor.fetchall()
     cursor.close()
     conn.close()
     return jsonify([dict(q) for q in questions])
 
+# ============================================
+# RESULT API
+# ============================================
 
 @app.route('/api/results/submit', methods=['POST'])
 @login_required
@@ -525,6 +888,7 @@ def submit_exam_results():
     data = request.json or {}
     conn = get_db_connection()
     cursor = conn.cursor()
+    param = get_param_style()
     
     score = int(data['score'])
     total = int(data['total_questions'])
@@ -537,7 +901,6 @@ def submit_exam_results():
     except Exception:
         recommendation = "Focus on weak chapters and review explanations for incorrect attempts."
 
-    param = "%s" if is_postgres() else "?"
     sql = f'''
         INSERT INTO user_results (user_id, exam_id, score, total_questions, time_used_seconds, accuracy, date_attempted, ai_recommendation)
         VALUES ({param}, {param}, {param}, {param}, {param}, {param}, {param}, {param})
@@ -555,13 +918,12 @@ def submit_exam_results():
     conn.close()
     return jsonify({"success": True, "result_id": result_id})
 
-
 @app.route('/api/results/<int:result_id>', methods=['GET'])
 @login_required
 def get_result_details(result_id):
     conn = get_db_connection()
     cursor = conn.cursor()
-    param = "%s" if is_postgres() else "?"
+    param = get_param_style()
     cursor.execute(f'''
         SELECT r.*, e.title as exam_title, e.category as exam_category
         FROM user_results r
@@ -575,176 +937,1371 @@ def get_result_details(result_id):
         return jsonify({"error": "Result not found"}), 404
     return jsonify(dict(result))
 
+# ============================================
+# RESOURCE API
+# ============================================
 
-# --- SMART UPLOAD ENGINE (Worksheets, Entrance Exams, Subject & Chapter Categorization) ---
+@app.route('/api/resources', methods=['GET'])
+@login_required
+def get_resources():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    cursor.execute(f'''
+        SELECT id, title, resource_type, subject, grade, file_url, pdf_url, description
+        FROM resources
+        WHERE status = {param}
+        ORDER BY grade, subject, resource_type
+    ''', ('published',))
+    resources = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify([dict(r) for r in resources])
+
+@app.route('/api/resources/<int:resource_id>', methods=['GET'])
+@login_required
+def get_resource(resource_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    cursor.execute(f"SELECT * FROM resources WHERE id = {param}", (resource_id,))
+    resource = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if resource:
+        return jsonify(dict(resource))
+    return jsonify({"error": "Resource not found"}), 404
+
+@app.route('/api/resources/type/<resource_type>', methods=['GET'])
+@login_required
+def get_resources_by_type(resource_type):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    cursor.execute(f'''
+        SELECT id, title, subject, grade, file_url, pdf_url, description
+        FROM resources
+        WHERE resource_type = {param} AND status = {param}
+        ORDER BY grade, subject
+    ''', (resource_type, 'published'))
+    resources = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify([dict(r) for r in resources])
+
+@app.route('/api/worksheets', methods=['GET'])
+@login_required
+def get_worksheets():
+    return get_resources_by_type('Worksheet')
+
+# ============================================
+# SMART UPLOAD ENGINE WITH CLASSIFICATION
+# ============================================
 
 @app.route('/api/upload', methods=['POST'])
 @admin_required
 def upload_engine():
     title = request.form.get('title', 'Untitled Resource').strip()
-    resource_type = request.form.get('resource_type', 'Exam').strip() # 'Exam' or 'Worksheet'
-    category = request.form.get('category', 'General').strip() # 'National Entrance (EUEE)', 'Model Exam', 'Chapter Worksheet'
+    resource_type = request.form.get('resource_type', 'Exam').strip()
+    category = request.form.get('category', 'General').strip()
     subject = request.form.get('subject', 'Mathematics').strip()
     grade = int(request.form.get('grade', 12))
-    chapter_name = request.form.get('chapter_name', '').strip()
     academic_year = request.form.get('academic_year', '').strip()
+    instructions = request.form.get('instructions', '').strip()
 
-    file = request.files.get('json_file') or request.files.get('pdf_file')
+    file = request.files.get('file')
     if not file:
         return jsonify({"success": False, "error": "No file uploaded"}), 400
 
+    if not allowed_file(file.filename):
+        return jsonify({"success": False, "error": f"File type not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"}), 400
+
+    filename = secure_filename(file.filename)
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(filepath)
+
     try:
-        # 1. Parse JSON or PDF
-        if file.filename.endswith('.json') or 'json' in file.mimetype:
-            ai_data = json.load(file)
+        if filename.endswith('.json'):
+            with open(filepath, 'r', encoding='utf-8') as f:
+                ai_data = json.load(f)
         else:
-            filepath = os.path.join('uploads', file.filename)
-            file.save(filepath)
-            try:
-                ai_data = parse_pdf_with_ai(filepath)
-            finally:
-                if os.path.exists(filepath):
-                    os.remove(filepath)
+            ai_data = parse_pdf_with_ai(filepath)
+
+        if not ai_data or not ai_data.get('questions'):
+            return jsonify({"success": False, "error": "No questions could be extracted from the file."}), 400
+
+        questions = ai_data.get('questions', [])
+        print(f"DEBUG: Extracted {len(questions)} questions")
 
         conn = get_db_connection()
         cursor = conn.cursor()
-        param = "%s" if is_postgres() else "?"
+        param = get_param_style()
 
-        # 2. Resolve or Create Chapter (Subject -> Chapter linkage)
-        chapter_id = None
-        if chapter_name:
-            cursor.execute(f'''
-                SELECT id FROM chapters WHERE LOWER(subject) = LOWER({param}) AND LOWER(name) = LOWER({param}) AND grade = {param}
-            ''', (subject, chapter_name, grade))
-            row = cursor.fetchone()
-            if row:
-                chapter_id = row['id']
-            else:
-                if is_postgres():
-                    cursor.execute(f'''
-                        INSERT INTO chapters (subject, name, grade) VALUES ({param}, {param}, {param}) RETURNING id
-                    ''', (subject, chapter_name, grade))
-                    chapter_id = cursor.fetchone()['id']
-                else:
-                    cursor.execute(f'''
-                        INSERT INTO chapters (subject, name, grade) VALUES ({param}, {param}, {param})
-                    ''', (subject, chapter_name, grade))
-                    chapter_id = cursor.lastrowid
-
-        # 3. Insert into Exams/Resources Table
-        sql_exam = f'''
-            INSERT INTO exams (title, category, resource_type, subject, grade, academic_year, instructions)
-            VALUES ({param}, {param}, {param}, {param}, {param}, {param}, {param})
-        '''
+        cursor.execute(f"""
+            INSERT INTO resources (title, resource_type, subject, grade, file_name, description, status, created_by)
+            VALUES ({param}, {param}, {param}, {param}, {param}, {param}, {param}, {param})
+            RETURNING id
+        """, (title, resource_type, subject, grade, filename, instructions, 'draft', session['user_id']))
+        
         if is_postgres():
-            sql_exam += " RETURNING id"
-            cursor.execute(sql_exam, (title, category, resource_type, subject, grade, academic_year, ai_data.get('instructions')))
-            exam_id = cursor.fetchone()['id']
+            resource_id = cursor.fetchone()['id']
         else:
-            cursor.execute(sql_exam, (title, category, resource_type, subject, grade, academic_year, ai_data.get('instructions')))
-            exam_id = cursor.lastrowid
+            resource_id = cursor.lastrowid
+        conn.commit()
 
-        # 4. Insert Questions and Auto-Fix LaTeX Formulas
-        questions = ai_data.get('questions', [])
-        for q in questions:
-            q_text = fix_latex_string(q.get('question') or q.get('question_text', ''))
-            opt_a  = fix_latex_string(q.get('A') or q.get('option_a', ''))
-            opt_b  = fix_latex_string(q.get('B') or q.get('option_b', ''))
-            opt_c  = fix_latex_string(q.get('C') or q.get('option_c', ''))
-            opt_d  = fix_latex_string(q.get('D') or q.get('option_d', ''))
-            expl   = fix_latex_string(q.get('explanation', ''))
+        cursor.execute(f"""
+            INSERT INTO pending_exams (resource_id, title, resource_type, subject, grade, source_filename, uploaded_by)
+            VALUES ({param}, {param}, {param}, {param}, {param}, {param}, {param})
+            RETURNING id
+        """, (resource_id, title, resource_type, subject, grade, filename, session['user_id']))
+        
+        if is_postgres():
+            pending_exam_id = cursor.fetchone()['id']
+        else:
+            pending_exam_id = cursor.lastrowid
+        conn.commit()
 
-            cursor.execute(f'''
-                INSERT INTO questions (
-                    exam_id, chapter_id, question_text, option_a, option_b, option_c, option_d,
-                    correct_answer, explanation, passage_text, diagram_instruction
-                )
-                VALUES ({param}, {param}, {param}, {param}, {param}, {param}, {param}, {param}, {param}, {param}, {param})
-            ''', (
-                exam_id, chapter_id, q_text, opt_a, opt_b, opt_c, opt_d,
-                q.get('correct') or q.get('correct_answer', 'A'),
-                expl, q.get('passage_text'), q.get('diagram_instruction')
-            ))
+        classified_count = 0
+        error_count = 0
+        
+        for idx, q in enumerate(questions):
+            try:
+                q_text = q.get('question') or q.get('question_text', '')
+                if not q_text:
+                    continue
 
-        # 5. Update Chapter Question Count
-        if chapter_id:
-            cursor.execute(f'''
-                UPDATE chapters SET question_count = question_count + {param} WHERE id = {param}
-            ''', (len(questions), chapter_id))
+                classification = classify_question_with_curriculum(q_text, subject, grade)
+                
+                opt_a = fix_latex_string(q.get('A') or q.get('option_a', ''))
+                opt_b = fix_latex_string(q.get('B') or q.get('option_b', ''))
+                opt_c = fix_latex_string(q.get('C') or q.get('option_c', ''))
+                opt_d = fix_latex_string(q.get('D') or q.get('option_d', ''))
+                explanation = fix_latex_string(q.get('explanation', ''))
+                question_text = fix_latex_string(q_text)
+
+                cursor.execute(f"""
+                    INSERT INTO pending_questions (
+                        pending_exam_id, question_number, question_text, option_a, option_b, option_c, option_d,
+                        correct_answer, explanation, passage_text, diagram_instruction,
+                        unit_number, unit_title, section_number, section_title, topic_title, subtopic,
+                        confidence, classification_reason, status
+                    )
+                    VALUES ({param}, {param}, {param}, {param}, {param}, {param}, {param}, 
+                            {param}, {param}, {param}, {param},
+                            {param}, {param}, {param}, {param}, {param}, {param},
+                            {param}, {param}, {param})
+                """, (
+                    pending_exam_id, 
+                    q.get('question_number', idx + 1),
+                    question_text,
+                    opt_a, opt_b, opt_c, opt_d,
+                    q.get('correct') or q.get('correct_answer', 'A'),
+                    explanation,
+                    q.get('passage_text'),
+                    q.get('diagram_instruction'),
+                    classification.get('unit_number'),
+                    classification.get('unit_title'),
+                    classification.get('section_number'),
+                    classification.get('section_title'),
+                    classification.get('topic_title'),
+                    classification.get('subtopic'),
+                    classification.get('confidence', 'Low'),
+                    classification.get('reason', 'Auto-classified'),
+                    'pending'
+                ))
+                classified_count += 1
+                
+            except Exception as q_error:
+                error_count += 1
+                print(f"ERROR processing question {idx}: {q_error}")
+                continue
 
         conn.commit()
         cursor.close()
         conn.close()
 
-        target_section = "Worksheets" if resource_type == "Worksheet" else ("Entrance Exams" if "entrance" in category.lower() else "Exams Available")
         return jsonify({
             "success": True,
-            "message": f"Successfully placed '{title}' under {subject} Grade {grade} ➔ {target_section} ({len(questions)} questions linked)!"
+            "message": f"✅ File processed! {classified_count} questions extracted and classified. {error_count} errors.",
+            "pending_exam_id": pending_exam_id,
+            "total_questions": len(questions),
+            "classified": classified_count,
+            "errors": error_count
         })
 
     except Exception as e:
+        print(f"ERROR in upload_engine: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        if os.path.exists(filepath):
+            os.remove(filepath)
 
+# ============================================
+# ADMIN REVIEW API
+# ============================================
+
+@app.route('/api/admin/pending_exams', methods=['GET'])
+@admin_required
+def get_pending_exams():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    cursor.execute(f"""
+        SELECT pe.*, r.title as resource_title, u.username as uploaded_by_name,
+               (SELECT COUNT(*) FROM pending_questions WHERE pending_exam_id = pe.id AND status = 'pending') as question_count
+        FROM pending_exams pe
+        JOIN resources r ON pe.resource_id = r.id
+        LEFT JOIN users u ON pe.uploaded_by = u.id
+        WHERE pe.status = {param}
+        ORDER BY pe.created_at DESC
+    """, ('pending',))
+    pending_exams = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify([dict(pe) for pe in pending_exams])
+
+@app.route('/api/admin/pending_exams/<int:pending_exam_id>/questions', methods=['GET'])
+@admin_required
+def get_pending_questions(pending_exam_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    cursor.execute(f"""
+        SELECT * FROM pending_questions
+        WHERE pending_exam_id = {param} AND status = {param}
+        ORDER BY question_number
+    """, (pending_exam_id, 'pending'))
+    questions = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify([dict(q) for q in questions])
+
+@app.route('/api/admin/pending_exams/<int:pending_exam_id>/stats', methods=['GET'])
+@admin_required
+def get_pending_exam_stats(pending_exam_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    
+    cursor.execute(f"""
+        SELECT pe.*, r.title as resource_title
+        FROM pending_exams pe
+        JOIN resources r ON pe.resource_id = r.id
+        WHERE pe.id = {param}
+    """, (pending_exam_id,))
+    exam = cursor.fetchone()
+    
+    if not exam:
+        return jsonify({"error": "Pending exam not found"}), 404
+    
+    cursor.execute(f"""
+        SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN confidence = 'High' THEN 1 ELSE 0 END) as high_confidence,
+            SUM(CASE WHEN confidence = 'Medium' THEN 1 ELSE 0 END) as medium_confidence,
+            SUM(CASE WHEN confidence = 'Low' THEN 1 ELSE 0 END) as low_confidence
+        FROM pending_questions
+        WHERE pending_exam_id = {param} AND status = {param}
+    """, (pending_exam_id, 'pending'))
+    stats = cursor.fetchone()
+    
+    cursor.close()
+    conn.close()
+    
+    return jsonify({
+        "exam": dict(exam),
+        "stats": dict(stats) if stats else {"total": 0, "high_confidence": 0, "medium_confidence": 0, "low_confidence": 0}
+    })
+
+@app.route('/api/admin/pending_questions/<int:question_id>', methods=['PUT'])
+@admin_required
+def update_pending_question(question_id):
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    
+    allowed_fields = [
+        'question_text', 'option_a', 'option_b', 'option_c', 'option_d', 
+        'correct_answer', 'explanation', 'passage_text', 'diagram_instruction',
+        'unit_number', 'unit_title', 'section_number', 'section_title', 
+        'topic_title', 'subtopic', 'confidence', 'classification_reason'
+    ]
+    
+    updates = []
+    values = []
+    for key, value in data.items():
+        if key in allowed_fields:
+            updates.append(f"{key} = {param}")
+            values.append(value)
+    
+    if not updates:
+        return jsonify({"error": "No valid fields to update"}), 400
+    
+    values.append(question_id)
+    cursor.execute(f"""
+        UPDATE pending_questions
+        SET {', '.join(updates)}
+        WHERE id = {param}
+    """, values)
+    conn.commit()
+    cursor.close()
+    conn.close()
+    
+    return jsonify({"success": True, "message": "Question updated successfully"})
+
+@app.route('/api/admin/pending_exams/<int:pending_exam_id>/approve', methods=['POST'])
+@admin_required
+def approve_pending_exam(pending_exam_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+
+    try:
+        cursor.execute(f"""
+            SELECT pe.*, r.*
+            FROM pending_exams pe
+            JOIN resources r ON pe.resource_id = r.id
+            WHERE pe.id = {param}
+        """, (pending_exam_id,))
+        pending_exam = cursor.fetchone()
+        
+        if not pending_exam:
+            return jsonify({"error": "Pending exam not found"}), 404
+
+        cursor.execute(f"""
+            INSERT INTO exams (
+                resource_id, title, category, resource_type, subject, grade, 
+                academic_year, school_name, instructions
+            )
+            VALUES ({param}, {param}, {param}, {param}, {param}, {param}, {param}, {param}, {param})
+            RETURNING id
+        """, (
+            pending_exam['resource_id'], 
+            pending_exam['title'], 
+            pending_exam['subject'],
+            pending_exam['resource_type'],
+            pending_exam['subject'],
+            pending_exam['grade'],
+            pending_exam.get('academic_year', ''),
+            pending_exam.get('school_name', ''),
+            pending_exam.get('instructions', '')
+        ))
+        
+        if is_postgres():
+            exam_id = cursor.fetchone()['id']
+        else:
+            exam_id = cursor.lastrowid
+        conn.commit()
+
+        cursor.execute(f"""
+            SELECT * FROM pending_questions 
+            WHERE pending_exam_id = {param} AND status = {param}
+        """, (pending_exam_id, 'pending'))
+        pending_questions = cursor.fetchall()
+
+        if not pending_questions:
+            return jsonify({"error": "No pending questions found for this exam"}), 404
+
+        inserted_count = 0
+        for pq in pending_questions:
+            cursor.execute(f"""
+                INSERT INTO questions (
+                    exam_id, question_text, option_a, option_b, option_c, option_d, 
+                    correct_answer, explanation, passage_text, diagram_instruction,
+                    classification_confidence, classification_reason
+                )
+                VALUES ({param}, {param}, {param}, {param}, {param}, {param}, 
+                        {param}, {param}, {param}, {param}, {param}, {param})
+            """, (
+                exam_id,
+                pq['question_text'],
+                pq['option_a'] or '',
+                pq['option_b'] or '',
+                pq['option_c'] or '',
+                pq['option_d'] or '',
+                pq['correct_answer'] or 'A',
+                pq['explanation'] or '',
+                pq['passage_text'],
+                pq['diagram_instruction'],
+                pq['confidence'],
+                pq['classification_reason']
+            ))
+            inserted_count += 1
+
+        cursor.execute(f"""
+            UPDATE pending_exams 
+            SET status = {param} 
+            WHERE id = {param}
+        """, ('approved', pending_exam_id))
+
+        cursor.execute(f"""
+            UPDATE resources 
+            SET status = {param} 
+            WHERE id = {param}
+        """, ('published', pending_exam['resource_id']))
+
+        conn.commit()
+        
+        return jsonify({
+            "success": True,
+            "message": f"Exam '{pending_exam['title']}' approved and published with {inserted_count} questions.",
+            "exam_id": exam_id,
+            "question_count": inserted_count
+        })
+
+    except Exception as e:
+        conn.rollback()
+        print(f"ERROR approving exam: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/api/admin/pending_exams/<int:pending_exam_id>/reject', methods=['POST'])
+@admin_required
+def reject_pending_exam(pending_exam_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    
+    try:
+        cursor.execute(f"""
+            UPDATE pending_exams 
+            SET status = {param} 
+            WHERE id = {param}
+        """, ('rejected', pending_exam_id))
+        conn.commit()
+        return jsonify({"success": True, "message": "Pending exam rejected."})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route('/api/admin/pending_exams/<int:pending_exam_id>', methods=['DELETE'])
+@admin_required
+def delete_pending_exam(pending_exam_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    
+    try:
+        cursor.execute(f"""
+            SELECT resource_id FROM pending_exams WHERE id = {param}
+        """, (pending_exam_id,))
+        result = cursor.fetchone()
+        
+        if result:
+            resource_id = result['resource_id']
+            cursor.execute(f"""
+                DELETE FROM pending_questions WHERE pending_exam_id = {param}
+            """, (pending_exam_id,))
+            cursor.execute(f"""
+                DELETE FROM pending_exams WHERE id = {param}
+            """, (pending_exam_id,))
+            cursor.execute(f"""
+                DELETE FROM resources WHERE id = {param}
+            """, (resource_id,))
+        
+        conn.commit()
+        return jsonify({"success": True, "message": "Pending exam deleted."})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+# ============================================
+# AI TUTOR - TUTOR HELPER FUNCTIONS
+# ============================================
+
+def get_tutor_thread(user_id, thread_id):
+    """Get a specific thread for a user"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    
+    try:
+        if is_postgres():
+            cursor.execute(f"""
+                SELECT id, title, created_at, updated_at 
+                FROM tutor_threads 
+                WHERE id = {param}::integer AND user_id = {param}::integer
+            """, (thread_id, user_id))
+        else:
+            cursor.execute(f"""
+                SELECT id, title, created_at, updated_at 
+                FROM tutor_threads 
+                WHERE id = {param} AND user_id = {param}
+            """, (thread_id, user_id))
+        
+        thread = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return dict(thread) if thread else None
+    except Exception as e:
+        print(f"Error getting thread: {e}")
+        cursor.close()
+        conn.close()
+        return None
+
+def create_tutor_thread(user_id, title="New Conversation"):
+    """Create a new tutor thread for a user"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    
+    try:
+        if is_postgres():
+            cursor.execute(f"""
+                INSERT INTO tutor_threads (user_id, title) 
+                VALUES ({param}::integer, {param}) 
+                RETURNING id
+            """, (user_id, title))
+            thread_id = cursor.fetchone()['id']
+        else:
+            cursor.execute(f"""
+                INSERT INTO tutor_threads (user_id, title) 
+                VALUES ({param}, {param})
+            """, (user_id, title))
+            thread_id = cursor.lastrowid
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return thread_id
+    except Exception as e:
+        print(f"Error creating thread: {e}")
+        conn.rollback()
+        cursor.close()
+        conn.close()
+        return None
+
+def get_tutor_messages(thread_id, limit=50):
+    """Get messages for a specific thread with limit"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    
+    try:
+        if is_postgres():
+            cursor.execute(f"""
+                SELECT id, sender_type, message_text, attachment_name, attachment_type, created_at
+                FROM tutor_messages
+                WHERE thread_id = {param}::integer
+                ORDER BY created_at ASC
+                LIMIT {param}::integer
+            """, (thread_id, limit))
+        else:
+            cursor.execute(f"""
+                SELECT id, sender_type, message_text, attachment_name, attachment_type, created_at
+                FROM tutor_messages
+                WHERE thread_id = {param}
+                ORDER BY created_at ASC
+                LIMIT {param}
+            """, (thread_id, limit))
+        
+        messages = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return [dict(m) for m in messages]
+    except Exception as e:
+        print(f"Error getting messages: {e}")
+        cursor.close()
+        conn.close()
+        return []
+
+def save_tutor_message(thread_id, sender_type, message_text, attachment_name=None, attachment_type=None):
+    """Save a message to the tutor thread"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    
+    try:
+        if is_postgres():
+            cursor.execute(f"""
+                INSERT INTO tutor_messages (thread_id, sender_type, message_text, attachment_name, attachment_type)
+                VALUES ({param}::integer, {param}, {param}, {param}, {param})
+                RETURNING id
+            """, (thread_id, sender_type, message_text, attachment_name, attachment_type))
+            message_id = cursor.fetchone()['id']
+        else:
+            cursor.execute(f"""
+                INSERT INTO tutor_messages (thread_id, sender_type, message_text, attachment_name, attachment_type)
+                VALUES ({param}, {param}, {param}, {param}, {param})
+            """, (thread_id, sender_type, message_text, attachment_name, attachment_type))
+            message_id = cursor.lastrowid
+        
+        # Update thread timestamp
+        if is_postgres():
+            cursor.execute(f"""
+                UPDATE tutor_threads 
+                SET updated_at = CURRENT_TIMESTAMP 
+                WHERE id = {param}::integer
+            """, (thread_id,))
+        else:
+            cursor.execute(f"""
+                UPDATE tutor_threads 
+                SET updated_at = CURRENT_TIMESTAMP 
+                WHERE id = {param}
+            """, (thread_id,))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return message_id
+    except Exception as e:
+        print(f"Error saving message: {e}")
+        conn.rollback()
+        cursor.close()
+        conn.close()
+        return None
+
+def get_all_tutor_threads(user_id):
+    """Get all threads for a user"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    
+    try:
+        cursor.execute(f"""
+            SELECT id, title, 
+                   (SELECT COUNT(*) FROM tutor_messages WHERE thread_id = tutor_threads.id) as message_count,
+                   updated_at
+            FROM tutor_threads
+            WHERE user_id = {param}
+            ORDER BY updated_at DESC
+        """, (user_id,))
+        
+        threads = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return [dict(t) for t in threads]
+    except Exception as e:
+        print(f"Error getting threads: {e}")
+        cursor.close()
+        conn.close()
+        return []
+
+def delete_tutor_thread(user_id, thread_id):
+    """Delete a thread and all its messages"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    
+    try:
+        if is_postgres():
+            cursor.execute(f"""
+                DELETE FROM tutor_threads 
+                WHERE id = {param}::integer AND user_id = {param}::integer
+            """, (thread_id, user_id))
+        else:
+            cursor.execute(f"""
+                DELETE FROM tutor_threads 
+                WHERE id = {param} AND user_id = {param}
+            """, (thread_id, user_id))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error deleting thread: {e}")
+        conn.rollback()
+        cursor.close()
+        conn.close()
+        return False
+
+def rename_tutor_thread(user_id, thread_id, new_title):
+    """Rename a thread"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    
+    try:
+        if is_postgres():
+            cursor.execute(f"""
+                UPDATE tutor_threads 
+                SET title = {param} 
+                WHERE id = {param}::integer AND user_id = {param}::integer
+            """, (new_title, thread_id, user_id))
+        else:
+            cursor.execute(f"""
+                UPDATE tutor_threads 
+                SET title = {param} 
+                WHERE id = {param} AND user_id = {param}
+            """, (new_title, thread_id, user_id))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error renaming thread: {e}")
+        conn.rollback()
+        cursor.close()
+        conn.close()
+        return False
+
+def process_uploaded_file(file):
+    """Process uploaded file and extract content"""
+    if not file:
+        return None, None, None
+    
+    filename = secure_filename(file.filename)
+    file_ext = filename.rsplit('.', 1)[1].lower()
+    
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_ext}")
+    file.save(temp_file.name)
+    temp_file_path = temp_file.name
+    temp_file.close()
+    
+    file_content = ""
+    file_type = None
+    uploaded_file_ref = None
+    
+    try:
+        if file_ext in ['png', 'jpg', 'jpeg', 'gif', 'webp']:
+            if client:
+                uploaded_file_ref = client.files.upload(file=temp_file_path)
+                while uploaded_file_ref.state.name == "PROCESSING":
+                    time.sleep(1.5)
+                    uploaded_file_ref = client.files.get(name=uploaded_file_ref.name)
+            file_type = 'image'
+            file_content = "Image uploaded for analysis."
+            
+        elif file_ext == 'pdf':
+            reader = PdfReader(temp_file_path)
+            text_parts = []
+            for page in reader.pages:
+                text_parts.append(page.extract_text())
+            file_content = "\n".join(text_parts)
+            file_type = 'text'
+            
+        elif file_ext == 'txt':
+            with open(temp_file_path, 'r', encoding='utf-8') as f:
+                file_content = f.read()
+            file_type = 'text'
+            
+        elif file_ext in ['mp3', 'wav', 'ogg', 'm4a']:
+            try:
+                recognizer = sr.Recognizer()
+                with sr.AudioFile(temp_file_path) as source:
+                    audio_data = recognizer.record(source)
+                    file_content = recognizer.recognize_google(audio_data)
+                    file_type = 'text'
+            except Exception as e:
+                file_content = "Could not transcribe audio."
+                file_type = 'error'
+                
+        elif file_ext == 'docx':
+            try:
+                import docx
+                doc = docx.Document(temp_file_path)
+                file_content = "\n".join([para.text for para in doc.paragraphs])
+                file_type = 'text'
+            except:
+                file_content = "DOCX support requires additional libraries."
+                file_type = 'error'
+        else:
+            file_content = f"File type '{file_ext}' uploaded."
+            file_type = 'text'
+            
+    except Exception as e:
+        file_content = f"Error processing file: {str(e)}"
+        file_type = 'error'
+        print(f"File processing error: {e}")
+    
+    if os.path.exists(temp_file_path):
+        try:
+            os.unlink(temp_file_path)
+        except:
+            pass
+    
+    return file_content, file_type, uploaded_file_ref
+
+def build_conversation_context(messages, max_messages=10):
+    """Build conversation context from messages"""
+    if not messages:
+        return ""
+    
+    recent_messages = messages[-max_messages:]
+    context = ""
+    
+    for msg in recent_messages:
+        sender = "Student" if msg['sender_type'] == 'user' else "Assistant"
+        context += f"{sender}: {msg['message_text']}\n"
+    
+    return context
+
+def generate_ai_response(user_message, conversation_context, file_content=None, uploaded_file_ref=None):
+    """Generate AI response using Gemini"""
+    if not client:
+        return "AI service is not configured. Please contact the administrator."
+    
+    context_parts = []
+    
+    if conversation_context:
+        context_parts.append(f"Previous conversation:\n{conversation_context}")
+    
+    if user_message:
+        context_parts.append(f"Student's new question: {user_message}")
+    
+    if file_content and file_content != "Image uploaded for analysis.":
+        context_parts.append(f"Uploaded content: {file_content[:500]}{'...' if len(file_content) > 500 else ''}")
+    
+    if not context_parts:
+        return "I didn't receive any message or file. How can I help you today?"
+    
+    full_prompt = f"""
+You are EduVault's empathetic, world-class academic tutor for Ethiopian students.
+
+**Instructions:**
+1. Review the previous conversation to understand the context.
+2. Answer the student's new question based on the full conversation history.
+3. If the student asks a follow-up question, reference the previous discussion.
+4. Provide clear, step-by-step explanations.
+5. Use simple, encouraging English suitable for high school students.
+6. For math and physics, include LaTeX formulas enclosed in $...$ or $$...$$.
+7. If the student uploaded an image, analyze it and respond accordingly.
+8. Be supportive and thorough in your explanations.
+
+**Conversation Context (Previous messages):**
+{conversation_context if conversation_context else 'No previous conversation.'}
+
+**Student's New Question:**
+{user_message}
+
+**Additional Content:**
+{file_content if file_content and file_content != "Image uploaded for analysis." else 'No additional content.'}
+
+**Your Response:**
+"""
+    
+    try:
+        if uploaded_file_ref:
+            response = client.models.generate_content(
+                model="gemini-3.5-flash",
+                contents=[uploaded_file_ref, full_prompt]
+            )
+            try:
+                client.files.delete(name=uploaded_file_ref.name)
+            except:
+                pass
+        else:
+            response = client.models.generate_content(
+                model="gemini-3.5-flash",
+                contents=full_prompt
+            )
+        
+        if response and response.text:
+            return response.text
+        else:
+            return "I apologize, but I couldn't generate a response. Please try rephrasing your question."
+    except Exception as e:
+        return f"I encountered an error: {str(e)}. Please try again."
+
+# ============================================
+# AI TUTOR MAIN CHAT ENDPOINT
+# ============================================
 
 @app.route('/api/tutor/chat', methods=['POST'])
 @login_required
 def tutor_chat():
-    data = request.get_json(silent=True) or {}
-    user_message = (data.get("message") or "").strip()
+    """
+    Handles text, images, and files for the AI Tutor.
+    Maintains conversation context for follow-up questions.
+    """
+    try:
+        user_id = session['user_id']
+        thread_id = request.form.get('thread_id')
+        user_message = request.form.get('message', '').strip()
+        conversation_context = request.form.get('context', '').strip()
+        
+        print(f"DEBUG: Tutor chat request - user: {user_id}, thread: {thread_id}")
+        print(f"DEBUG: Message: {user_message[:50] if user_message else 'empty'}...")
+        print(f"DEBUG: Context length: {len(conversation_context)} chars")
+        
+        # --- Thread Management ---
+        if not thread_id or thread_id in ['undefined', 'null', '']:
+            thread_title = user_message[:50] if user_message else "New Conversation"
+            thread_id = create_tutor_thread(user_id, thread_title)
+            if not thread_id:
+                return jsonify({"error": "Failed to create thread"}), 500
+            print(f"DEBUG: Created new thread: {thread_id}")
+        else:
+            thread = get_tutor_thread(user_id, thread_id)
+            if not thread:
+                thread_title = user_message[:50] if user_message else "New Conversation"
+                thread_id = create_tutor_thread(user_id, thread_title)
+                print(f"DEBUG: Thread not found, created new: {thread_id}")
+            else:
+                print(f"DEBUG: Using existing thread: {thread_id}")
+        
+        thread_id = str(thread_id)
+        
+        # --- Save User Message ---
+        if user_message:
+            save_tutor_message(thread_id, 'user', user_message)
+        
+        # --- Process Uploaded File ---
+        file_content = ""
+        file_type = None
+        uploaded_file_ref = None
+        
+        if 'file' in request.files:
+            file = request.files['file']
+            if file and allowed_file(file.filename):
+                file_content, file_type, uploaded_file_ref = process_uploaded_file(file)
+                
+                if file_content and file_type != 'error':
+                    save_tutor_message(
+                        thread_id, 
+                        'user', 
+                        f"[File uploaded: {file.filename}]", 
+                        file.filename, 
+                        file_type
+                    )
+        
+        # --- Get conversation history for context ---
+        if not conversation_context:
+            messages = get_tutor_messages(thread_id, limit=20)
+            conversation_context = build_conversation_context(messages, max_messages=10)
+            print(f"DEBUG: Built context from DB: {len(conversation_context)} chars")
+        
+        # --- Generate AI Response ---
+        ai_response = generate_ai_response(
+            user_message, 
+            conversation_context, 
+            file_content, 
+            uploaded_file_ref
+        )
+        
+        # --- Save AI Response ---
+        save_tutor_message(thread_id, 'ai', ai_response)
+        
+        print(f"DEBUG: Successfully processed request for thread {thread_id}")
+        
+        return jsonify({
+            "response": ai_response,
+            "thread_id": thread_id,
+            "success": True
+        })
+        
+    except Exception as e:
+        print(f"ERROR in tutor_chat: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "error": str(e),
+            "success": False
+        }), 500
 
-    if not user_message:
-        return jsonify({"error": "Message is required"}), 400
+# ============================================
+# AI TUTOR THREAD MANAGEMENT ENDPOINTS
+# ============================================
 
-    if not client:
-        return jsonify({"error": "GEMINI_API_KEY is not configured on the server."}), 500
+@app.route('/api/tutor/threads', methods=['GET'])
+@login_required
+def get_tutor_threads_endpoint():
+    """Returns a list of chat threads for the logged-in user."""
+    try:
+        threads = get_all_tutor_threads(session['user_id'])
+        return jsonify(threads)
+    except Exception as e:
+        print(f"Error getting threads: {e}")
+        return jsonify({"error": str(e)}), 500
 
-    tutor_prompt = f"""
-You are EduVault's empathetic, world-class academic tutor.
+@app.route('/api/tutor/threads/<int:thread_id>/messages', methods=['GET'])
+@login_required
+def get_tutor_messages_endpoint(thread_id):
+    """Returns messages for a specific thread."""
+    try:
+        thread = get_tutor_thread(session['user_id'], thread_id)
+        if not thread:
+            return jsonify({"error": "Thread not found"}), 404
+        
+        messages = get_tutor_messages(thread_id, limit=100)
+        return jsonify(messages)
+    except Exception as e:
+        print(f"Error getting messages: {e}")
+        return jsonify({"error": str(e)}), 500
 
-Answer the student's question clearly and accurately:
-- Explain step-by-step when necessary.
-- Use simple, friendly English.
-- For science and mathematics, include formulas or examples.
-- Be supportive and clear.
+@app.route('/api/tutor/threads/<int:thread_id>', methods=['DELETE'])
+@login_required
+def delete_tutor_thread_endpoint(thread_id):
+    """Deletes a chat thread and its messages."""
+    try:
+        success = delete_tutor_thread(session['user_id'], thread_id)
+        if success:
+            return jsonify({"success": True, "message": "Thread deleted"})
+        else:
+            return jsonify({"error": "Failed to delete thread"}), 500
+    except Exception as e:
+        print(f"Error deleting thread: {e}")
+        return jsonify({"error": str(e)}), 500
 
-Student's query:
-{user_message}
-"""
+@app.route('/api/tutor/threads/<int:thread_id>/rename', methods=['PUT'])
+@login_required
+def rename_tutor_thread_endpoint(thread_id):
+    """Renames a chat thread."""
+    try:
+        data = request.get_json()
+        new_title = data.get('title', '').strip()
+        if not new_title:
+            return jsonify({"error": "Title is required"}), 400
+        
+        success = rename_tutor_thread(session['user_id'], thread_id, new_title)
+        if success:
+            return jsonify({"success": True, "message": "Thread renamed"})
+        else:
+            return jsonify({"error": "Failed to rename thread"}), 500
+    except Exception as e:
+        print(f"Error renaming thread: {e}")
+        return jsonify({"error": str(e)}), 500
 
-    tutor_models = [
-        "gemini-flash-latest",
-        "gemini-3.5-flash",
-        "gemini-3.1-flash-lite"
-    ]
+# ============================================
+# AI TUTOR SIMPLE CHAT (Legacy)
+# ============================================
 
-    last_error = None
+@app.route('/api/tutor/chat/simple', methods=['POST'])
+@login_required
+def tutor_chat_simple():
+    """Simple text-only chat endpoint for backward compatibility."""
+    try:
+        data = request.get_json(silent=True) or {}
+        user_message = (data.get("message") or "").strip()
+        thread_id = data.get("thread_id")
+        
+        if not user_message:
+            return jsonify({"error": "Message is required"}), 400
+        
+        if not client:
+            return jsonify({"error": "GEMINI_API_KEY is not configured on the server."}), 500
+        
+        if not thread_id:
+            thread_id = create_tutor_thread(session['user_id'], user_message[:50])
+        else:
+            thread = get_tutor_thread(session['user_id'], thread_id)
+            if not thread:
+                thread_id = create_tutor_thread(session['user_id'], user_message[:50])
+        
+        save_tutor_message(thread_id, 'user', user_message)
+        
+        messages = get_tutor_messages(thread_id, limit=20)
+        conversation_context = build_conversation_context(messages, max_messages=10)
+        
+        ai_response = generate_ai_response(user_message, conversation_context)
+        
+        save_tutor_message(thread_id, 'ai', ai_response)
+        
+        return jsonify({
+            "response": ai_response,
+            "thread_id": str(thread_id),
+            "model": "gemini-3.5-flash"
+        })
+        
+    except Exception as error:
+        print(f"ERROR in tutor_chat_simple: {error}")
+        return jsonify({
+            "error": "AI Tutor is temporarily unavailable.",
+            "details": str(error)
+        }), 503
 
-    for model_name in tutor_models:
-        try:
-            print(f"DEBUG: AI Tutor query model: {model_name}")
-            response = client.models.generate_content(
-                model=model_name,
-                contents=tutor_prompt
-            )
+# ============================================
+# AI TUTOR STATS ENDPOINT
+# ============================================
 
-            if response and response.text:
-                return jsonify({
-                    "response": response.text,
-                    "model": model_name
-                })
+@app.route('/api/tutor/stats', methods=['GET'])
+@login_required
+def get_tutor_stats():
+    """Get tutor usage statistics for the user."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        param = get_param_style()
+        
+        cursor.execute(f"""
+            SELECT COUNT(*) as total_messages
+            FROM tutor_messages
+            WHERE thread_id IN (SELECT id FROM tutor_threads WHERE user_id = {param})
+        """, (session['user_id'],))
+        total_messages = cursor.fetchone()['total_messages'] or 0
+        
+        cursor.execute(f"""
+            SELECT COUNT(*) as total_threads
+            FROM tutor_threads
+            WHERE user_id = {param}
+        """, (session['user_id'],))
+        total_threads = cursor.fetchone()['total_threads'] or 0
+        
+        cursor.execute(f"""
+            SELECT MAX(updated_at) as last_activity
+            FROM tutor_threads
+            WHERE user_id = {param}
+        """, (session['user_id'],))
+        last_activity = cursor.fetchone()['last_activity']
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            "total_messages": total_messages,
+            "total_threads": total_threads,
+            "last_activity": last_activity
+        })
+    except Exception as e:
+        print(f"Error getting stats: {e}")
+        return jsonify({"error": str(e)}), 500
 
-            last_error = f"{model_name} returned an empty response."
+# ============================================
+# AI TUTOR SEARCH ENDPOINT
+# ============================================
 
-        except Exception as error:
-            last_error = error
-            print(f"DEBUG: AI Tutor model {model_name} failed: {error}")
-            continue
+@app.route('/api/tutor/search', methods=['GET'])
+@login_required
+def search_tutor_messages():
+    """Search through tutor messages for a user."""
+    try:
+        query = request.args.get('q', '').strip()
+        if not query or len(query) < 3:
+            return jsonify({"error": "Search query must be at least 3 characters"}), 400
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        param = get_param_style()
+        
+        if is_postgres():
+            cursor.execute(f"""
+                SELECT tm.*, tt.title as thread_title
+                FROM tutor_messages tm
+                JOIN tutor_threads tt ON tm.thread_id = tt.id
+                WHERE tt.user_id = {param}::integer
+                AND tm.message_text ILIKE {param}
+                ORDER BY tm.created_at DESC
+                LIMIT 50
+            """, (session['user_id'], f'%{query}%'))
+        else:
+            cursor.execute(f"""
+                SELECT tm.*, tt.title as thread_title
+                FROM tutor_messages tm
+                JOIN tutor_threads tt ON tm.thread_id = tt.id
+                WHERE tt.user_id = {param}
+                AND tm.message_text LIKE {param}
+                ORDER BY tm.created_at DESC
+                LIMIT 50
+            """, (session['user_id'], f'%{query}%'))
+        
+        results = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        return jsonify([dict(r) for r in results])
+    except Exception as e:
+        print(f"Error searching messages: {e}")
+        return jsonify({"error": str(e)}), 500
 
-    return jsonify({
-        "error": "AI Tutor is temporarily unavailable.",
-        "details": str(last_error)
-    }), 503
+# ============================================
+# AI TUTOR EXPORT ENDPOINT
+# ============================================
 
+@app.route('/api/tutor/export/<int:thread_id>', methods=['GET'])
+@login_required
+def export_tutor_thread(thread_id):
+    """Export a tutor thread as JSON or text."""
+    try:
+        thread = get_tutor_thread(session['user_id'], thread_id)
+        if not thread:
+            return jsonify({"error": "Thread not found"}), 404
+        
+        messages = get_tutor_messages(thread_id, limit=1000)
+        
+        export_data = {
+            "thread_id": thread_id,
+            "title": thread['title'],
+            "created_at": thread['created_at'],
+            "updated_at": thread['updated_at'],
+            "messages": messages
+        }
+        
+        format_type = request.args.get('format', 'json')
+        if format_type == 'text':
+            text_output = f"Thread: {thread['title']}\n"
+            text_output += f"Created: {thread['created_at']}\n"
+            text_output += "=" * 50 + "\n\n"
+            
+            for msg in messages:
+                sender = "Student" if msg['sender_type'] == 'user' else "Assistant"
+                text_output += f"[{sender}] {msg['message_text']}\n\n"
+            
+            return text_output, 200, {'Content-Type': 'text/plain'}
+        
+        return jsonify(export_data)
+    except Exception as e:
+        print(f"Error exporting thread: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# ============================================
+# CURRICULUM SEEDING API (Admin Only)
+# ============================================
+
+@app.route('/api/admin/seed_curriculum', methods=['POST'])
+@admin_required
+def seed_curriculum():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+    
+    file = request.files['file']
+    if not file.filename.endswith('.json'):
+        return jsonify({"error": "Only JSON files are supported"}), 400
+    
+    try:
+        data = json.load(file)
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        param = get_param_style()
+        
+        for subject_data in data.get('subjects', []):
+            subject_name = subject_data.get('name')
+            if not subject_name:
+                continue
+                
+            cursor.execute(f"""
+                INSERT INTO curriculum_subjects (name) 
+                VALUES ({param}) 
+                ON CONFLICT (name) DO UPDATE SET name = {param} 
+                RETURNING id
+            """, (subject_name, subject_name))
+            if is_postgres():
+                subject_id = cursor.fetchone()['id']
+            else:
+                subject_id = cursor.lastrowid
+            
+            for grade_data in subject_data.get('grades', []):
+                grade_number = grade_data.get('number')
+                if not grade_number:
+                    continue
+                    
+                cursor.execute(f"""
+                    INSERT INTO curriculum_grades (number) 
+                    VALUES ({param}) 
+                    ON CONFLICT (number) DO UPDATE SET number = {param} 
+                    RETURNING id
+                """, (grade_number, grade_number))
+                if is_postgres():
+                    grade_id = cursor.fetchone()['id']
+                else:
+                    grade_id = cursor.lastrowid
+                
+                for unit_data in grade_data.get('units', []):
+                    unit_number = unit_data.get('unit_number')
+                    unit_title = unit_data.get('title')
+                    if not unit_number or not unit_title:
+                        continue
+                        
+                    cursor.execute(f"""
+                        INSERT INTO curriculum_units (subject_id, grade_id, unit_number, title)
+                        VALUES ({param}, {param}, {param}, {param})
+                        ON CONFLICT (subject_id, grade_id, unit_number) 
+                        DO UPDATE SET title = {param}
+                        RETURNING id
+                    """, (subject_id, grade_id, unit_number, unit_title, unit_title))
+                    if is_postgres():
+                        unit_id = cursor.fetchone()['id']
+                    else:
+                        unit_id = cursor.lastrowid
+                    
+                    for section_data in unit_data.get('sections', []):
+                        section_number = section_data.get('section_number')
+                        section_title = section_data.get('title')
+                        if not section_number or not section_title:
+                            continue
+                            
+                        cursor.execute(f"""
+                            INSERT INTO curriculum_sections (unit_id, section_number, title)
+                            VALUES ({param}, {param}, {param})
+                            ON CONFLICT (unit_id, section_number) 
+                            DO UPDATE SET title = {param}
+                            RETURNING id
+                        """, (unit_id, section_number, section_title, section_title))
+                        if is_postgres():
+                            section_id = cursor.fetchone()['id']
+                        else:
+                            section_id = cursor.lastrowid
+                        
+                        for topic_data in section_data.get('topics', []):
+                            topic_title = topic_data.get('title')
+                            subtopic = topic_data.get('subtopic')
+                            if not topic_title:
+                                continue
+                                
+                            cursor.execute(f"""
+                                INSERT INTO curriculum_topics (section_id, topic_title, subtopic)
+                                VALUES ({param}, {param}, {param})
+                                ON CONFLICT (section_id, topic_title, subtopic) 
+                                DO UPDATE SET topic_title = {param}
+                                RETURNING id
+                            """, (section_id, topic_title, subtopic, topic_title))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({"success": True, "message": "Curriculum seeded successfully!"})
+        
+    except Exception as e:
+        print(f"ERROR seeding curriculum: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+# ============================================
+# SEED DEFAULT CURRICULUM ON STARTUP
+# ============================================
+
+def seed_default_curriculum_if_empty():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    
+    cursor.execute("SELECT COUNT(*) as count FROM curriculum_subjects")
+    count = cursor.fetchone()
+    
+    if count and count['count'] == 0:
+        print("Seeding default curriculum structure...")
+        subjects = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'Geography', 'History', 'Economics', 'Aptitude']
+        grades = [9, 10, 11, 12]
+        
+        for subject in subjects:
+            cursor.execute(f"INSERT INTO curriculum_subjects (name) VALUES ({param}) ON CONFLICT (name) DO NOTHING", (subject,))
+        
+        for grade in grades:
+            cursor.execute(f"INSERT INTO curriculum_grades (number) VALUES ({param}) ON CONFLICT (number) DO NOTHING", (grade,))
+        
+        conn.commit()
+        print("Default curriculum seeded.")
+    
+    cursor.close()
+    conn.close()
+
+try:
+    seed_default_curriculum_if_empty()
+except Exception as e:
+    print(f"Curriculum seeding error: {e}")
+
+# ============================================
+# MAIN ENTRY POINT
+# ============================================
 
 if __name__ == '__main__':
     if not os.path.exists('uploads'):

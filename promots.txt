@@ -1,0 +1,959 @@
+[23/08/2026 9:10 WB] ChatGPT | Midjourney: Copy the complete prompt below and send it to ChatGPT together with your EduVault project files and the curriculum JSON database files.
+
+```text
+
+You are a senior full-stack software architect and Educational Data Engineer.
+
+You are working on my project called EduVault Smart Hub, an Ethiopian Grade 9–12 learning management system and CBT examination platform.
+
+The project uses:
+
+• Python Flask
+
+• SQLite locally and PostgreSQL/Supabase in production
+
+• HTML, CSS, JavaScript, and Tailwind CSS
+
+• Google Gemini or another AI API
+
+• Telegram bot integration
+
+• Render.com hosting
+
+• JSON curriculum databases
+
+• PDF and JSON exam uploads
+
+Do not remove existing working features. Do not rewrite unrelated files. Preserve the current design, authentication, AI tutor, exam system, LaTeX rendering, Telegram verification, and admin functionality unless a change is required for the requested features.
+
+Before writing code, inspect all attached files carefully and understand the existing routes, database tables, HTML templates, and upload process.
+
+==================================================
+
+MAIN OBJECTIVES
+
+==================================================
+
+Implement these three major improvements:
+
+1. 
+
+Upgrade the AI Tutor to support text, images, files, and voice messages, with safe ChatGPT-style history and smart auto-scroll.
+
+2. 
+
+Update the Resource and Worksheet systems in app.py so that they work correctly with the database and do not disappear after deployment or restart.
+
+3. 
+
+Create an intelligent chapter-classification system that automatically separates uploaded entrance-exam questions into the correct subject, grade, unit, section, topic, and subtopic using official curriculum JSON files.
+
+==================================================
+
+PART 1: AI TUTOR MULTIMODAL SUPPORT
+
+==================================================
+
+Upgrade the EduVault AI Tutor so that students can use:
+
+• Text questions
+
+• Images
+
+• PDF files
+
+• DOCX or TXT files where supported
+
+• Voice messages or audio files
+
+• Mathematical and scientific formulas
+
+• Questions containing diagrams, graphs, tables, or handwritten work
+
+The AI Tutor must:
+
+1. Accept a normal text message.
+
+2. Allow users to attach an image.
+
+3. Allow users to upload a file.
+
+4. Allow users to record or upload voice/audio.
+
+5. Convert voice to text using an available speech-to-text method.
+
+6. Send the extracted text, image, or file content to the AI model.
+
+7. Return a clear answer in simple English.
+
+8. Explain mathematics and physics step by step.
+
+9. Support LaTeX formulas.
+
+10. Safely render Markdown and LaTeX.
+
+11. Never expose API keys in frontend JavaScript.
+
+12. Validate file type and file size.
+
+13. Reject unsupported or dangerous files.
+
+14. Use secure temporary files and delete them after processing.
+
+15. Handle API timeouts and errors gracefully.
+
+16. Show a loading indicator while the AI is processing.
+
+17. Preserve existing chat history.
+
+18. Allow users to start a new chat.
+
+19. Allow users to delete one chat thread.
+
+20. Allow users to clear all chat history.
+
+Chat history should be stored either:
+
+• In the database for logged-in users, or
+
+• In localStorage only if database storage is not yet implemented.
+
+If database storage is used, create suitable tables such as:
+
+• tutor_threads
+
+• tutor_messages
+[23/08/2026 9:10 WB] ChatGPT | Midjourney: Each message should include:
+
+• user_id
+
+• thread_id
+
+• sender_type
+
+• message_text
+
+• attachment_name if applicable
+
+• attachment_type if applicable
+
+• created_at
+
+==================================================
+
+AI TUTOR SMART AUTO-SCROLL
+
+==================================================
+
+Implement smart scrolling correctly.
+
+Required behavior:
+
+1. When the student sends a new message, scroll to the bottom.
+
+2. While the AI response is loading, scroll to the bottom only if the user is already near the bottom.
+
+3. When the AI response arrives, scroll to the bottom only if the user has not intentionally scrolled upward.
+
+4. If the user scrolls upward to read an earlier message, do not force the chat back to the bottom.
+
+5. Show a “Jump to latest” button when the user is far from the bottom.
+
+6. Clicking “Jump to latest” should scroll smoothly to the newest message.
+
+7. Do not use stream.scrollTop = stream.scrollHeight everywhere.
+
+8. Use functions such as:
+
+• isChatNearBottom()
+
+• scrollChatToBottom()
+
+• scrollChatIfNearBottom()
+
+• showJumpToLatestButton()
+
+The chat must work properly on desktop and Android mobile screens.
+
+==================================================
+
+PART 2: RESOURCE AND WORKSHEET SYSTEM
+
+==================================================
+
+Update app.py and the required templates so that textbooks, teacher guides, worksheets, and exams are handled correctly.
+
+Resources should support:
+
+• Grade 9
+
+• Grade 10
+
+• Grade 11
+
+• Grade 12
+
+• Subject
+
+• Resource type
+
+• Textbook
+
+• Teacher’s Guide
+
+• Worksheet
+
+• Notes
+
+• PDF link or uploaded file
+
+Worksheets must be separated from exams.
+
+Use clear resource types such as:
+
+• Textbook
+
+• Teacher Guide
+
+• Worksheet
+
+• Exam
+
+• Entrance Exam
+
+• Model Exam
+
+• School Exam
+
+• Notes
+
+Update the database so resources have fields similar to:
+
+• id
+
+• title
+
+• resource_type
+
+• subject
+
+• grade
+
+• unit_number
+
+• unit_title
+
+• section_number
+
+• section_title
+
+• topic_title
+
+• subtopic
+
+• file_url
+
+• pdf_url
+
+• file_name
+
+• description
+
+• created_by
+
+• status
+
+• created_at
+
+If the current database already has an exams table, do not destroy existing data. Add missing columns using safe migration logic.
+
+The upload system must:
+
+1. Accept PDF and JSON files.
+
+2. Detect the file extension safely.
+
+3. Store PDFs in a persistent location or external storage.
+
+4. Store metadata in the database.
+
+5. Never depend only on Render’s temporary filesystem.
+
+6. Use Supabase/PostgreSQL if DATABASE_URL is available.
+
+7. Use SQLite locally if DATABASE_URL is not available.
+
+8. Keep existing exams safe.
+
+9. Return clear success and error messages.
+
+10. Prevent duplicate imports where possible.
+
+Create or update API routes such as:
+
+• GET /api/resources
+
+• GET /api/resources/
+
+• GET /api/worksheets
+
+• GET /api/exams
+
+• GET /api/exams/entrance
+
+• GET /api/resources//questions
+
+==================================================
+
+PART 3: SMART EXAM CLASSIFICATION
+
+==================================================
+
+When an admin uploads an entrance exam PDF or JSON file, the system must automatically classify every question.
+
+Example:
+
+An uploaded file may be:
+
+Entrance Physics UEE 2017
+
+The system should automatically identify:
+[23/08/2026 9:10 WB] ChatGPT | Midjourney: • Exam title: Entrance Physics UEE 2017
+
+• Resource type: Entrance Exam
+
+• Subject: Physics
+
+• Grade: Grade 12
+
+• Question number: 45
+
+• Unit: Unit 1
+
+• Section: Section 1.2
+
+• Topic: Topic 1.2
+
+• Subtopic: Exact official subtopic
+
+• Difficulty: Easy, Medium, or Hard
+
+• Correct answer
+
+• Explanation
+
+The question must then be stored under the correct curriculum location.
+
+Required hierarchy:
+
+Subject
+
+  └── Grade
+
+      └── Unit
+
+          └── Section
+
+              └── Topic
+
+                  └── Subtopic
+
+                      └── Question
+
+Example:
+
+Physics
+
+  └── Grade 12
+
+      └── Unit 1: Mechanics
+
+          └── Section 1.2: Kinematics
+
+              └── Topic: Motion in One Dimension
+
+                  └── Question 45
+
+==================================================
+
+CURRICULUM JSON DATABASE
+
+==================================================
+
+The attached curriculum JSON files are the official reference sources.
+
+For every uploaded question:
+
+1. Read the question content.
+
+2. Compare it with the curriculum JSON.
+
+3. Select the closest official unit.
+
+4. Select the closest official section.
+
+5. Select the closest official topic.
+
+6. Select the closest official subtopic.
+
+7. Never invent a new unit or topic if a suitable official item exists.
+
+8. If classification is uncertain, save a confidence value.
+
+9. If confidence is low, place the question in an admin review queue.
+
+10. Do not silently assign all questions to one manually entered chapter.
+
+Every question should contain classification fields:
+
+• subject
+
+• grade
+
+• unit_number
+
+• unit_title
+
+• section_number
+
+• section_title
+
+• topic_title
+
+• subtopic
+
+• classification_confidence
+
+• classification_reason
+
+Use these confidence values only:
+
+• High
+
+• Medium
+
+• Low
+
+==================================================
+
+TWO-STAGE AI PROCESSING PIPELINE
+
+==================================================
+
+Do not ask one AI request to perform the entire process if that causes missing questions or invalid JSON.
+
+Use two stages.
+
+STAGE 1: EXTRACTION
+
+Extract every question from the uploaded PDF or JSON file.
+
+For each question, identify:
+
+• Question number
+
+• Question text
+
+• Option A
+
+• Option B
+
+• Option C
+
+• Option D
+
+• Correct answer if available
+
+• Passage
+
+• Diagram
+
+• Formula
+
+• Explanation
+
+STAGE 2: CLASSIFICATION
+
+For each extracted question, compare it with the official curriculum JSON and classify it.
+
+The classification prompt must force the AI to select only from the supplied curriculum list.
+
+If the question is about projectile motion, for example, the AI must select the closest official curriculum item from the supplied Physics JSON rather than inventing “Projectile Chapter” unless that exact item exists in the curriculum file.
+
+==================================================
+
+ADMIN REVIEW AND APPROVAL
+
+==================================================
+
+Do not publish AI-classified questions directly to students without review.
+
+Create a pending approval system.
+
+When an admin uploads a file:
+
+1. Parse the file.
+
+2. Extract all questions.
+
+3. Classify all questions.
+
+4. Save the result as a draft or pending exam.
+
+5. Display a review page in the Admin Console.
+
+6. Show every question with its suggested classification.
+
+7.
+[23/08/2026 9:10 WB] ChatGPT | Midjourney: Allow the admin to change:
+
+   - Subject
+
+   - Grade
+
+   - Unit
+
+   - Section
+
+   - Topic
+
+   - Subtopic
+
+   - Correct answer
+
+   - Difficulty
+
+8. Show the classification confidence.
+
+9. Allow the admin to approve the entire exam.
+
+10. Allow the admin to reject or delete the draft.
+
+11. Publish only after approval.
+
+Suggested database tables:
+
+pending_exams
+
+• id
+
+• title
+
+• resource_type
+
+• subject
+
+• grade
+
+• source_filename
+
+• status
+
+• uploaded_by
+
+• created_at
+
+pending_questions
+
+• id
+
+• pending_exam_id
+
+• question_number
+
+• question_text
+
+• option_a
+
+• option_b
+
+• option_c
+
+• option_d
+
+• correct_answer
+
+• explanation
+
+• unit_number
+
+• unit_title
+
+• section_number
+
+• section_title
+
+• topic_title
+
+• subtopic
+
+• confidence
+
+• status
+
+Use statuses such as:
+
+• pending
+
+• approved
+
+• rejected
+
+• published
+
+Suggested routes:
+
+• GET /admin/review
+
+• GET /admin/review/
+
+• POST /admin/review//approve
+
+• POST /admin/review//reject
+
+• POST /api/pending-question//update
+
+==================================================
+
+STUDENT CHAPTER PAGE
+
+==================================================
+
+Update the chapter page so that students can see real classified questions.
+
+When a student opens:
+
+/chapters/Physics
+
+the page should show available units and chapters.
+
+When the student opens a specific unit or topic, show questions assigned to it.
+
+Required functionality:
+
+1. Display units for the selected subject and grade.
+
+2. Display sections under each unit.
+
+3. Display topics under each section.
+
+4. Display question counts.
+
+5. Provide a “Start Practice” button.
+
+6. Load only questions from the selected chapter or topic.
+
+7. Support entrance questions and normal practice questions.
+
+8. Keep the existing exam interface.
+
+9. Use the correct database IDs.
+
+10. Do not redirect a chapter ID to an unrelated exam ID.
+
+Create suitable endpoints such as:
+
+• GET /api/curriculum//
+
+• GET /api/curriculum///units
+
+• GET /api/curriculum/unit//questions
+
+• GET /api/curriculum/topic//questions
+
+==================================================
+
+JSON FORMAT FOR EXAM IMPORT
+
+==================================================
+
+The import format must be compatible with EduVault.
+
+Use this structure:
+
+{
+
+  "exam_title": "Entrance Physics UEE 2017",
+
+  "school_name": null,
+
+  "subject": "Physics",
+
+  "grade": 12,
+
+  "curriculum": "Ethiopian New Curriculum",
+
+  "academic_year": "2017",
+
+  "resource_type": "Entrance Exam",
+
+  "instructions": null,
+
+  "questions": [
+
+    {
+
+      "question_number": 45,
+
+      "unit_number": 1,
+
+      "unit_title": "Official unit title from curriculum JSON",
+
+      "section_number": "1.2",
+
+      "section_title": "Official section title from curriculum JSON",
+
+      "topic_title": "Official topic title from curriculum JSON",
+
+      "subtopic": "Official subtopic from curriculum JSON",
+
+      "classification_confidence": "High",
+
+      "classification_reason": "Short reason for classification",
+
+      "difficulty": "Medium",
+
+      "question": "Complete question text",
+
+      "A": "Option A",
+
+      "B": "Option B",
+
+      "C": "Option C",
+
+      "D": "Option D",
+
+      "correct": "A",
+
+      "explanation": "Clear step-by-step explanation",
+
+      "passage_text": null,
+
+      "diagram_instruction": null
+
+    }
+
+  ]
+
+}
+[23/08/2026 9:10 WB] ChatGPT | Midjourney: The importer must support both:
+
+1. The new fields above.
+
+2. The existing EduVault fields already used by the current database.
+
+Never fail just because optional metadata is missing.
+
+==================================================
+
+LATEX AND FORMULA HANDLING
+
+==================================================
+
+The system must preserve formulas correctly.
+
+Use valid JSON escaping.
+
+Examples:
+
+"fracv^22g"
+
+"sqrt2"
+
+"F = ma"
+
+"9.8 text m/s^2"
+
+The frontend must render formulas as textbook-style mathematics using KaTeX or MathJax.
+
+Do not show raw strings such as:
+
+\frac{1}{2}
+
+unless the formula is genuinely invalid.
+
+Existing questions must also render correctly. Do not require the admin to re-upload every old exam if frontend rendering can fix it safely.
+
+==================================================
+
+SECURITY REQUIREMENTS
+
+==================================================
+
+Implement secure practices:
+
+1. Do not expose API keys.
+
+2. Do not store secrets in GitHub.
+
+3. Validate file extensions.
+
+4. Limit uploaded file size.
+
+5. Use secure filenames.
+
+6. Delete temporary files.
+
+7. Sanitize rendered HTML.
+
+8. Use parameterized SQL queries.
+
+9. Do not use unsafe eval for user input.
+
+10. Protect admin routes.
+
+11. Prevent duplicate form submissions.
+
+12. Handle failed AI requests safely.
+
+13. Do not let users publish or modify exams.
+
+14. Do not bypass approval accidentally.
+
+==================================================
+
+RENDER DEPLOYMENT REQUIREMENTS
+
+==================================================
+
+The final solution must work on Render.
+
+Include:
+
+• Correct requirements.txt
+
+• Correct startup command
+
+• Environment variable names
+
+• Database migration instructions
+
+• Supabase/PostgreSQL compatibility
+
+• SQLite local fallback if appropriate
+
+• No interactive terminal login during deployment
+
+• No dependence on a local Telethon session file unless a StringSession is configured
+
+• Clear Render deployment instructions
+
+Required environment variables may include:
+
+• DATABASE_URL
+
+• GEMINI_API_KEY
+
+• GROQ_API_KEY
+
+• BOT_TOKEN
+
+• API_ID
+
+• API_HASH
+
+• TELEGRAM_SESSION_STRING
+
+• SECRET_KEY
+
+Never include real secrets in generated code.
+
+==================================================
+
+FILES TO PRODUCE
+
+==================================================
+
+After inspecting the attached project files, produce complete corrected files, not fragments.
+
+At minimum, provide:
+
+1. Updated app.py
+
+2. Updated init_db.py or migration file
+
+3. Updated requirements.txt
+
+4. Updated admin.html
+
+5. Updated chapter.html
+
+6. Updated tutor.html
+
+7. Updated resources.html if needed
+
+8. Updated exam.html if needed
+
+9. Any required review template
+
+10. Any required curriculum helper module
+
+11. Clear file placement instructions
+
+12. Clear database migration instructions
+
+13. Clear local testing instructions
+
+14. Clear GitHub and Render deployment instructions
+
+Do not omit important sections with comments such as:
+
+• “the rest stays the same”
+
+• “add your existing code here”
+
+• “code omitted”
+
+• “continue as before”
+
+Provide complete files that can be copied and pasted.
+
+==================================================
+
+IMPORTANT RESPONSE RULES
+
+==================================================
+
+Before generating code:
+
+1. Inspect the attached files.
+
+2. Identify duplicate routes.
+
+3.
+[23/08/2026 9:10 WB] ChatGPT | Midjourney: Identify database incompatibilities.
+
+4. Identify missing imports.
+
+5. Identify incorrect SQL placeholders.
+
+6. Identify missing tables and columns.
+
+7. Identify frontend/backend field mismatches.
+
+8. Identify routes that currently do not exist.
+
+9. Explain the exact problems briefly.
+
+Then provide:
+
+1. The corrected architecture.
+
+2. The database schema changes.
+
+3. Complete updated files.
+
+4. Exact placement instructions.
+
+5. Commands to test locally.
+
+6. Commands to push to GitHub.
+
+7. Render deployment instructions.
+
+8. A testing checklist.
+
+The final implementation must ensure that an uploaded entrance exam containing 100 questions is automatically extracted, classified according to the official curriculum JSON, saved as pending, reviewed by the admin, and published to the correct subject, grade, unit, section, topic, and subtopic only after approval.
+
+-----
+21.08 ₽ · /balance_help
