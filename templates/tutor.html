@@ -16,6 +16,7 @@
         <div>
             <h1 class="text-2xl font-black text-slate-800 dark:text-white flex items-center gap-2">
                 <span>👨🏻‍💻 Stone Assistant</span>
+                <span class="text-xs font-normal text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg">Multimodal</span>
             </h1>
             <p class="text-xs text-slate-400">Ask questions, upload images, PDFs, or send voice messages.</p>
         </div>
@@ -38,8 +39,8 @@
         </div>
     </div>
 
-    <!-- Chat Stream Pane -->
-    <div id="tutor-chat-stream" class="flex-grow bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 overflow-y-auto space-y-3 custom-scrollbar shadow-sm relative">
+    <!-- Chat Stream Pane - FIXED FOR MOBILE -->
+    <div id="tutor-chat-stream" class="flex-grow bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 overflow-y-auto space-y-3 custom-scrollbar shadow-sm relative" style="-webkit-overflow-scrolling: touch; overscroll-behavior: contain;">
         <div id="default-welcome-msg" class="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100/50 dark:border-blue-900/30 p-4 rounded-2xl max-w-lg text-xs leading-relaxed text-slate-700 dark:text-slate-300">
             <div class="flex items-start gap-3">
                 <span class="text-2xl">👋</span>
@@ -162,6 +163,9 @@
     let isProcessing = false;
     let userScrolledUp = false;
     let conversationHistory = [];
+    let isMobile = false;
+    let scrollTimeout = null;
+    let lastScrollTop = 0;
 
     const chatStream = document.getElementById('tutor-chat-stream');
     const msgField = document.getElementById('tutor-msg-field');
@@ -173,6 +177,18 @@
     const jumpToLatestBtn = document.getElementById('jump-to-latest');
     const voiceStatus = document.getElementById('voice-status');
     const voiceRecordBtn = document.getElementById('voice-record-btn');
+
+    // ============================================
+    // DETECT MOBILE DEVICE
+    // ============================================
+    function detectMobile() {
+        isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (isMobile) {
+            document.body.classList.add('mobile-device');
+            console.log('📱 Mobile device detected');
+        }
+        return isMobile;
+    }
 
     // ============================================
     // THREAD STORAGE FUNCTIONS
@@ -240,28 +256,23 @@
         }
 
         saveAllThreads(threads);
-        
-        // Update conversation history for context
         updateConversationHistory();
     }
 
     // ============================================
-    // CONVERSATION HISTORY FOR CONTEXT
+    // CONVERSATION HISTORY
     // ============================================
     function updateConversationHistory() {
         const thread = getThread(currentThreadId);
         if (thread && thread.messages) {
-            // Build conversation history for AI context
             conversationHistory = thread.messages.map(msg => ({
                 role: msg.type === 'user' ? 'user' : 'assistant',
                 content: msg.content
             }));
-            console.log('Conversation history updated:', conversationHistory.length, 'messages');
         }
     }
 
     function getConversationContext() {
-        // Get last 10 messages for context (to avoid token limits)
         const history = conversationHistory.slice(-10);
         let context = '';
         history.forEach(msg => {
@@ -319,7 +330,11 @@
             MathJax.typesetPromise([stream]).catch(err => console.error("MathJax error:", err));
         }
 
-        scrollChatToBottom();
+        // Use delayed scroll for mobile
+        setTimeout(() => {
+            scrollChatToBottom();
+        }, 100);
+        
         updateSavedBadgeCount();
         updateConversationHistory();
     }
@@ -347,7 +362,11 @@
         
         bubble.innerHTML = messageHtml;
         stream.appendChild(bubble);
-        scrollChatIfNearBottom();
+        
+        // Use mobile-friendly scroll
+        setTimeout(() => {
+            scrollChatIfNearBottom();
+        }, 50);
     }
 
     function renderAIMessage(content) {
@@ -370,7 +389,10 @@
             MathJax.typesetPromise([bubble]).catch(err => console.error("MathJax error:", err));
         }
         
-        scrollChatIfNearBottom();
+        // Use mobile-friendly scroll
+        setTimeout(() => {
+            scrollChatIfNearBottom();
+        }, 100);
     }
 
     function renderErrorMessage(content) {
@@ -386,11 +408,17 @@
             </div>
         `;
         stream.appendChild(bubble);
-        scrollChatIfNearBottom();
+        
+        setTimeout(() => {
+            scrollChatIfNearBottom();
+        }, 50);
     }
 
     function renderTypingIndicator() {
         const stream = document.getElementById('tutor-chat-stream');
+        // Remove existing indicator
+        removeTypingIndicator();
+        
         const indicator = document.createElement('div');
         indicator.id = 'typing-indicator';
         indicator.className = 'flex justify-start';
@@ -405,7 +433,11 @@
             </div>
         `;
         stream.appendChild(indicator);
-        scrollChatToBottom();
+        
+        // Always scroll to bottom when typing indicator appears
+        setTimeout(() => {
+            scrollChatToBottom();
+        }, 50);
     }
 
     function removeTypingIndicator() {
@@ -414,40 +446,117 @@
     }
 
     // ============================================
-    // AUTO-SCROLL LOGIC
+    // MOBILE-FRIENDLY AUTO-SCROLL
     // ============================================
     function isChatNearBottom() {
-        const threshold = 150;
+        if (!chatStream) return true;
+        const threshold = isMobile ? 200 : 150;
         return chatStream.scrollHeight - chatStream.scrollTop - chatStream.clientHeight <= threshold;
     }
 
     function scrollChatToBottom() {
-        if (!userScrolledUp) {
+        if (!chatStream) return;
+        
+        // Don't scroll if user scrolled up
+        if (userScrolledUp) {
+            console.log('User scrolled up, skipping auto-scroll');
+            return;
+        }
+        
+        try {
+            // Use smooth scrolling for better mobile experience
+            chatStream.scrollTo({
+                top: chatStream.scrollHeight,
+                behavior: isMobile ? 'auto' : 'smooth'
+            });
+            jumpToLatestBtn.classList.add('hidden');
+        } catch (e) {
+            // Fallback for older browsers
             chatStream.scrollTop = chatStream.scrollHeight;
             jumpToLatestBtn.classList.add('hidden');
         }
     }
 
     function scrollChatIfNearBottom() {
-        if (isChatNearBottom()) {
-            chatStream.scrollTop = chatStream.scrollHeight;
-            jumpToLatestBtn.classList.add('hidden');
-        } else if (!userScrolledUp) {
-            chatStream.scrollTop = chatStream.scrollHeight;
-            jumpToLatestBtn.classList.add('hidden');
+        if (!chatStream) return;
+        
+        // Only scroll if user is near bottom or hasn't scrolled up
+        if (!userScrolledUp && isChatNearBottom()) {
+            try {
+                chatStream.scrollTo({
+                    top: chatStream.scrollHeight,
+                    behavior: isMobile ? 'auto' : 'smooth'
+                });
+                jumpToLatestBtn.classList.add('hidden');
+            } catch (e) {
+                chatStream.scrollTop = chatStream.scrollHeight;
+                jumpToLatestBtn.classList.add('hidden');
+            }
         }
     }
 
-    chatStream.addEventListener('scroll', function() {
-        const isNearBottom = isChatNearBottom();
-        userScrolledUp = !isNearBottom;
-        
-        if (userScrolledUp && chatStream.scrollHeight - chatStream.scrollTop - chatStream.clientHeight > 200) {
+    function showJumpToLatestButton() {
+        if (!chatStream) return;
+        const distanceFromBottom = chatStream.scrollHeight - chatStream.scrollTop - chatStream.clientHeight;
+        if (userScrolledUp && distanceFromBottom > 200) {
             jumpToLatestBtn.classList.remove('hidden');
         } else {
             jumpToLatestBtn.classList.add('hidden');
         }
+    }
+
+    // ============================================
+    // SCROLL EVENT LISTENER - MOBILE FRIENDLY
+    // ============================================
+    chatStream.addEventListener('scroll', function(e) {
+        // Clear previous timeout
+        if (scrollTimeout) {
+            clearTimeout(scrollTimeout);
+        }
+        
+        // Throttle scroll events for mobile performance
+        scrollTimeout = setTimeout(() => {
+            const isNearBottom = isChatNearBottom();
+            userScrolledUp = !isNearBottom;
+            
+            // Update jump to latest button
+            const distanceFromBottom = chatStream.scrollHeight - chatStream.scrollTop - chatStream.clientHeight;
+            if (userScrolledUp && distanceFromBottom > 200) {
+                jumpToLatestBtn.classList.remove('hidden');
+            } else {
+                jumpToLatestBtn.classList.add('hidden');
+            }
+            
+            // Save scroll position for mobile
+            if (isMobile) {
+                try {
+                    sessionStorage.setItem('chat_scroll_position', chatStream.scrollTop);
+                } catch (e) {}
+            }
+        }, 100);
     });
+
+    // ============================================
+    // TOUCH EVENT HANDLING FOR MOBILE
+    // ============================================
+    let touchStartY = 0;
+    chatStream.addEventListener('touchstart', function(e) {
+        touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+
+    chatStream.addEventListener('touchmove', function(e) {
+        const touchEndY = e.touches[0].clientY;
+        const deltaY = touchStartY - touchEndY;
+        
+        // If user is scrolling up (dragging down), they want to read history
+        if (deltaY < -20) {
+            userScrolledUp = true;
+        }
+        // If user is scrolling down (dragging up), they might want to go to bottom
+        else if (deltaY > 20 && isChatNearBottom()) {
+            userScrolledUp = false;
+        }
+    }, { passive: true });
 
     // ============================================
     // FILE HANDLING
@@ -538,7 +647,7 @@
     }
 
     // ============================================
-    // SEND MESSAGE - WITH CONVERSATION CONTEXT
+    // SEND MESSAGE WITH CONTEXT
     // ============================================
     async function sendTutorMessage() {
         if (isProcessing) return;
@@ -564,10 +673,8 @@
                 }
             }
 
-            // Get conversation context (last 10 messages)
             const context = getConversationContext();
             
-            // Save user message locally
             if (message) {
                 saveMessageToThread(currentThreadId, 'user', message);
                 renderUserMessage(message);
@@ -588,7 +695,7 @@
             const formData = new FormData();
             formData.append('message', message || '');
             formData.append('thread_id', currentThreadId);
-            formData.append('context', context); // Send conversation context
+            formData.append('context', context);
             if (file) {
                 formData.append('file', file);
             }
@@ -671,6 +778,7 @@
         currentThreadId = 'thread_' + Date.now();
         localStorage.setItem(ACTIVE_THREAD_ID_KEY, currentThreadId);
         conversationHistory = [];
+        userScrolledUp = false;
         
         const stream = document.getElementById('tutor-chat-stream');
         stream.innerHTML = `
@@ -687,7 +795,11 @@
         clearFileAttachment();
         msgField.value = '';
         msgField.focus();
-        scrollChatToBottom();
+        
+        setTimeout(() => {
+            scrollChatToBottom();
+        }, 50);
+        
         updateSavedBadgeCount();
     }
 
@@ -791,6 +903,7 @@
         toggleSavedChatsModal();
         updateSavedBadgeCount();
         updateConversationHistory();
+        userScrolledUp = false;
     }
 
     function deleteSingleThread(event, threadId) {
@@ -884,6 +997,7 @@
     // INITIALIZATION
     // ============================================
     function initChatSystem() {
+        detectMobile();
         checkAiOnlineStatus();
         
         const activeId = localStorage.getItem(ACTIVE_THREAD_ID_KEY);
@@ -904,10 +1018,22 @@
             startNewChat();
         }
 
+        // Restore scroll position for mobile
+        if (isMobile) {
+            try {
+                const savedScroll = sessionStorage.getItem('chat_scroll_position');
+                if (savedScroll) {
+                    setTimeout(() => {
+                        chatStream.scrollTop = parseInt(savedScroll);
+                    }, 300);
+                }
+            } catch (e) {}
+        }
+
         updateSavedBadgeCount();
         msgField.focus();
         console.log('🤖 Stone Assistant initialized with thread:', currentThreadId);
-        console.log('💡 Conversation history will be maintained for context.');
+        console.log('📱 Mobile mode:', isMobile);
     }
 
     document.addEventListener('visibilitychange', function() {
@@ -938,6 +1064,7 @@
     console.log('🤖 Stone Assistant initialized!');
     console.log('💡 Tip: Use Ctrl+K to focus the input field.');
     console.log('💡 The AI remembers the last 10 messages for context.');
+    console.log('📱 Auto-scroll optimized for mobile devices.');
 </script>
 
 {% endblock %}
