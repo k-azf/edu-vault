@@ -1538,25 +1538,47 @@ def approve_pending_exam(pending_exam_id):
         for pq in pending_questions:
             unit_id = section_id = topic_id = chapter_id = None
             cursor.execute(f"""
-                SELECT u.id AS unit_id, s.id AS section_id, t.id AS topic_id
+                SELECT u.id
                 FROM curriculum_units u
                 JOIN curriculum_subjects cs ON cs.id = u.subject_id
                 JOIN curriculum_grades cg ON cg.id = u.grade_id
-                LEFT JOIN curriculum_sections s ON s.unit_id = u.id
-                    AND s.section_number = {param}
-                LEFT JOIN curriculum_topics t ON t.section_id = s.id
-                    AND t.topic_title = {param}
                 WHERE cs.name = {param} AND cg.number = {param}
-                  AND u.unit_number = {param}
+                  AND (CAST(u.unit_number AS TEXT) = CAST({param} AS TEXT)
+                       OR LOWER(TRIM(u.title)) = LOWER(TRIM({param})))
+                LIMIT 1
             """, (
-                pq['section_number'], pq['topic_title'], pending_exam['subject'],
-                pending_exam['grade'], pq['unit_number']
+                pending_exam['subject'], pending_exam['grade'],
+                pq['unit_number'] or pq['unit_title']
             ))
-            curriculum_row = cursor.fetchone()
-            if curriculum_row:
-                unit_id = curriculum_row['unit_id']
-                section_id = curriculum_row['section_id']
-                topic_id = curriculum_row['topic_id']
+            unit = cursor.fetchone()
+            if unit:
+                unit_id = unit['id']
+
+                cursor.execute(f"""
+                    SELECT id
+                    FROM curriculum_sections
+                    WHERE unit_id = {param}
+                      AND (CAST(section_number AS TEXT) = CAST({param} AS TEXT)
+                           OR LOWER(TRIM(title)) = LOWER(TRIM({param})))
+                    LIMIT 1
+                """, (
+                    unit_id, pq['section_number'] or pq['section_title']
+                ))
+                section = cursor.fetchone()
+                if section:
+                    section_id = section['id']
+
+                    if pq['topic_title']:
+                        cursor.execute(f"""
+                            SELECT id
+                            FROM curriculum_topics
+                            WHERE section_id = {param}
+                              AND LOWER(TRIM(topic_title)) = LOWER(TRIM({param}))
+                            LIMIT 1
+                        """, (section_id, pq['topic_title']))
+                        topic = cursor.fetchone()
+                        if topic:
+                            topic_id = topic['id']
 
             chapter_name = pq['topic_title'] or pq['unit_title'] or 'Unclassified'
             cursor.execute(f"""
