@@ -1,7 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="bg-blue-950 text-slate-900 font-sans antialiased min-h-screen selection:bg-blue-200">
-<a href="/eduvault-system">Unified Exam System</a>
     <!-- HERO SECTION: Dynamic Brand Background & AI Welcome -->
     <section class="relative pt-12 pb-28 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <!-- Ambient Glowing Orbs -->
@@ -71,11 +70,28 @@
         </div>
     </section>
 
+    <!-- SERVER-CALCULATED TOP STUDENTS -->
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 relative z-20">
+        <div class="bg-slate-900/95 border border-amber-500/30 rounded-[2rem] p-6 sm:p-8 shadow-2xl">
+            <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6">
+                <div>
+                    <span class="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400">REAL PERFORMANCE LEADERBOARD</span>
+                    <h2 class="text-2xl font-black text-white mt-2">Top 3 Students</h2>
+                </div>
+                <p class="text-xs text-slate-400 max-w-sm">Rankings update from stored examination results after every submission.</p>
+            </div>
+            <div id="top-students-list" class="grid md:grid-cols-3 gap-4" aria-live="polite">
+                <p class="text-xs text-slate-400">Loading performance rankings...</p>
+            </div>
+            <p id="current-student-rank" class="hidden mt-5 text-sm text-slate-300"></p>
+        </div>
+    </section>
+
     <!-- ============================================ -->
     <!-- MAIN ACTION CARDS: ENTRANCE PORTAL, RESOURCE HUB, WORKSHEETS, CHAPTER PORTAL -->
     <!-- ============================================ -->
     <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 relative z-20">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
             
             <!-- Card 1: Entrance Portal -->
             <div class="group relative overflow-hidden bg-slate-900/90 border border-amber-500/30 hover:border-amber-400 p-6 rounded-[2.2rem] shadow-xl hover:shadow-2xl hover:shadow-amber-500/10 transition-all duration-300 hover:-translate-y-2 flex flex-col justify-between backdrop-blur-xl">
@@ -203,6 +219,28 @@
                             <span class="ml-1.5">→</span>
                         </button>
                     </div>
+                </div>
+            </div>
+
+            <!-- Card 5: Unified Exam System -->
+            <div class="group relative overflow-hidden bg-slate-900/90 border border-sky-500/30 hover:border-sky-400 p-6 rounded-[2.2rem] shadow-xl hover:shadow-2xl hover:shadow-sky-500/10 transition-all duration-300 hover:-translate-y-2 flex flex-col justify-between backdrop-blur-xl">
+                <div class="relative z-10">
+                    <div class="w-14 h-14 bg-gradient-to-br from-sky-500 to-blue-700 text-white rounded-2xl flex items-center justify-center text-2xl mb-4 shadow-lg shadow-sky-500/30 group-hover:scale-110 transition-transform duration-300">
+                        🧪
+                    </div>
+                    <span class="bg-sky-500/10 border border-sky-500/30 text-sky-400 text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full inline-block mb-2">
+                        ALL-IN-ONE CBT
+                    </span>
+                    <h3 class="text-lg font-black text-white tracking-tight">Unified Exam System</h3>
+                    <p class="text-xs text-slate-300 mt-1.5 leading-relaxed">
+                        Practice six entrance subjects, track your score, and continue your exam preparation in one focused workspace.
+                    </p>
+                </div>
+                <div class="relative z-10 pt-4">
+                    <a href="{{ url_for('eduvault_system') }}" class="inline-flex items-center text-[10px] font-black text-sky-400 uppercase tracking-widest group-hover:text-sky-300 transition-colors">
+                        <span>Open System</span>
+                        <span class="ml-1.5 group-hover:translate-x-1.5 transition-transform duration-300">→</span>
+                    </a>
                 </div>
             </div>
 
@@ -697,6 +735,7 @@
     }
 
     document.addEventListener("DOMContentLoaded", function() {
+        loadTopStudents();
         fetch('/api/exams')
             .then(res => res.json())
             .then(exams => {
@@ -741,5 +780,42 @@
                 console.error("Error fetching exams:", err);
             });
     });
+
+    function escapeRankingHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = value == null ? '' : String(value);
+        return div.innerHTML;
+    }
+
+    function loadTopStudents() {
+        fetch('/api/rankings')
+            .then(res => res.ok ? res.json() : Promise.reject(new Error('Unable to load rankings')))
+            .then(data => {
+                const list = document.getElementById('top-students-list');
+                const current = document.getElementById('current-student-rank');
+                if (!data.top_students?.length) {
+                    list.innerHTML = '<p class="text-xs text-slate-400 md:col-span-3">No student examination results are available yet.</p>';
+                    return;
+                }
+                list.innerHTML = data.top_students.map(student => `
+                    <div class="border ${student.rank === 1 ? 'border-amber-400/70 bg-amber-500/10' : 'border-slate-700 bg-slate-950/60'} rounded-2xl p-5">
+                        <div class="flex items-center justify-between gap-3">
+                            <span class="text-xs font-black uppercase tracking-widest ${student.rank === 1 ? 'text-amber-300' : 'text-slate-400'}">Top ${student.rank}</span>
+                            <span class="text-lg font-black ${student.rank === 1 ? 'text-amber-300' : 'text-white'}">${student.latest_score.toFixed(2)}%</span>
+                        </div>
+                        <h3 class="text-lg font-extrabold text-white mt-3 truncate">${escapeRankingHtml(student.username)}</h3>
+                        <p class="text-[11px] text-slate-400 mt-1">Latest performance · ${student.attempt_count} attempt${student.attempt_count === 1 ? '' : 's'}</p>
+                    </div>
+                `).join('');
+                if (data.current_student && data.current_student.rank > 3) {
+                    current.textContent = `Your current rank: #${data.current_student.rank}`;
+                    current.classList.remove('hidden');
+                }
+            })
+            .catch(error => {
+                document.getElementById('top-students-list').innerHTML = '<p class="text-xs text-slate-400 md:col-span-3">Rankings are temporarily unavailable.</p>';
+                console.error('Error fetching rankings:', error);
+            });
+    }
 </script>
 {% endblock %}

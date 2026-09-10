@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
 {% block content %}
 <!-- Exam Interface with Sidebar -->
-<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-screen relative">
+<div class="exam-shell grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-screen relative">
 
     <!-- Left Sidebar: Question Navigator -->
-    <div class="lg:col-span-3 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 p-6 flex flex-col justify-between">
+    <aside class="lg:col-span-3 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 p-6 flex flex-col justify-between lg:sticky lg:top-20 lg:h-[calc(100vh-5rem)]">
         <div>
             <h3 class="text-sm font-extrabold text-slate-400 uppercase tracking-widest mb-4">Navigator</h3>
             <div id="question-nav-grid" class="grid grid-cols-5 gap-2.5">
@@ -20,11 +20,11 @@
                 <div id="calculator-output" class="text-xs font-bold font-mono mt-1 text-slate-700 dark:text-slate-300">Ans: </div>
             </div>
         </div>
-    </div>
+    </aside>
 
     <!-- Main Question Arena -->
     <div class="lg:col-span-9 px-6 py-8 max-w-4xl mx-auto w-full">
-        <div id="exam-timer-header" class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 flex justify-between items-center mb-8">
+        <div id="exam-timer-header" class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 flex justify-between items-center mb-5">
             <div>
                 <h1 id="exam-header-title" class="text-xl font-extrabold">Loading Exam Module...</h1>
                 <p id="exam-header-meta" class="text-xs text-slate-400 mt-0.5">Please wait...</p>
@@ -34,6 +34,11 @@
                 <span id="exam-clock" class="text-2xl font-black text-red-600 font-mono tracking-tight">00:00</span>
             </div>
         </div>
+
+        <section id="exam-instructions" class="hidden mb-8 bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-2xl p-5 sm:p-6" aria-labelledby="exam-instructions-title">
+            <h2 id="exam-instructions-title" class="text-sm font-black uppercase tracking-widest text-blue-700 dark:text-blue-300 mb-3">Exam Instructions</h2>
+            <div id="exam-instructions-content" class="exam-rich-content text-sm text-slate-700 dark:text-slate-200"></div>
+        </section>
 
         <div id="score-banner" class="hidden mb-8"></div>
 
@@ -55,6 +60,8 @@
     let questionsData = [];
     let isExamFinished = false;
     let correctAnswersCount = 0;
+    let examDurationSeconds = 0;
+    const submittedAnswers = {};
 
     Promise.all([
         fetch('/api/exams').then(res => res.json()),
@@ -81,13 +88,17 @@
         }
 
         timeLeft = totalQuestions * minutesPerQuestion * 60;
+        examDurationSeconds = timeLeft;
         document.getElementById('exam-header-meta').innerText = `${currentExam?.category || 'General'} | Rate: ${minutesPerQuestion} Mins/Question`;
+        renderRichContent(document.getElementById('exam-instructions-content'), currentExam?.instructions);
+        document.getElementById('exam-instructions').classList.toggle('hidden', !currentExam?.instructions?.trim());
 
         // Render Navigation Grid
         for (let i = 0; i < totalQuestions; i++) {
-            navGrid.innerHTML += `
-                <button id="nav-btn-${questions[i].id}" class="h-9 w-9 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-600 dark:text-slate-400">${i + 1}</button>
-            `;
+            navGrid.innerHTML += `<button type="button" id="nav-btn-${questions[i].id}" aria-label="Go to question ${i + 1}" class="h-9 w-9 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-600 dark:text-slate-400">${i + 1}</button>`;
+            document.getElementById(`nav-btn-${questions[i].id}`).addEventListener('click', () => {
+                document.getElementById(`question-card-${questions[i].id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
         }
 
         // Render Question Arena Cards with Auto LaTeX Cleaner
@@ -95,31 +106,35 @@
             const card = document.createElement('div');
             card.className = "bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800";
             
-            const qText = cleanLatex(q.question_text);
-            const optA  = cleanLatex(q.option_a);
-            const optB  = cleanLatex(q.option_b);
-            const optC  = cleanLatex(q.option_c);
-            const optD  = cleanLatex(q.option_d);
-            const exp   = cleanLatex(q.explanation);
+            card.id = `question-card-${q.id}`;
+            card.innerHTML = `<div class="question-passage exam-rich-content bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900 rounded-xl p-4 mb-4 text-sm font-medium"></div>
+                <h3 class="question-title text-lg sm:text-xl font-bold text-slate-800 dark:text-white mb-4"></h3>
+                <div class="question-diagram exam-rich-content border border-slate-200 dark:border-slate-800 p-4 rounded-xl mb-4 text-sm bg-slate-50 dark:bg-slate-950 font-mono flex items-center gap-2"></div>
+                <div class="grid gap-3" id="options-box-${q.id}"></div>
+                <div id="exp-${q.id}" class="hidden p-4 bg-violet-50/50 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900 rounded-xl text-sm text-slate-600 dark:text-slate-400 mt-4 leading-relaxed font-medium"><strong class="text-violet-700 dark:text-violet-400 block mb-1">Explanation</strong><div class="explanation-content exam-rich-content"></div></div>`;
 
-            let passagePart = q.passage_text ? `<div class="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900 rounded-xl p-4 mb-4 text-xs font-medium">${cleanLatex(q.passage_text)}</div>` : "";
-            let diagramPart = q.diagram_instruction ? `<div class="border border-slate-200 dark:border-slate-800 p-4 rounded-xl mb-4 text-xs bg-slate-50 dark:bg-slate-950 font-mono flex items-center gap-2"><span class="text-blue-600">📐</span> ${q.diagram_instruction}</div>` : "";
-
-            card.innerHTML = `
-                ${passagePart}
-                <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-4">${index + 1}. ${qText}</h3>
-                ${diagramPart}
-                <div class="grid gap-3" id="options-box-${q.id}">
-                    <button onclick="checkAnswer(this, 'A', '${q.correct_answer}', '${q.id}')" data-option="A" class="option-btn text-left p-3.5 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition font-medium text-sm text-slate-700 dark:text-slate-300">A. ${optA}</button>
-                    <button onclick="checkAnswer(this, 'B', '${q.correct_answer}', '${q.id}')" data-option="B" class="option-btn text-left p-3.5 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition font-medium text-sm text-slate-700 dark:text-slate-300">B. ${optB}</button>
-                    <button onclick="checkAnswer(this, 'C', '${q.correct_answer}', '${q.id}')" data-option="C" class="option-btn text-left p-3.5 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition font-medium text-sm text-slate-700 dark:text-slate-300">C. ${optC}</button>
-                    <button onclick="checkAnswer(this, 'D', '${q.correct_answer}', '${q.id}')" data-option="D" class="option-btn text-left p-3.5 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition font-medium text-sm text-slate-700 dark:text-slate-300">D. ${optD}</button>
-                </div>
-                <div id="exp-${q.id}" class="hidden p-4 bg-violet-50/50 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900 rounded-xl text-xs text-slate-600 dark:text-slate-400 mt-4 leading-relaxed font-medium">
-                    <strong class="text-violet-700 dark:text-violet-400 block mb-1">AI Explanation</strong>
-                    ${exp}
-                </div>
-            `;
+            renderRichContent(card.querySelector('.question-title'), `${index + 1}. ${q.question_text || ''}`);
+            renderRichContent(card.querySelector('.question-passage'), q.passage_text);
+            card.querySelector('.question-passage').classList.toggle('hidden', !q.passage_text);
+            renderRichContent(card.querySelector('.question-diagram'), q.diagram_instruction ? `📐 ${q.diagram_instruction}` : '');
+            card.querySelector('.question-diagram').classList.toggle('hidden', !q.diagram_instruction);
+            renderRichContent(card.querySelector('.explanation-content'), q.explanation);
+            ['A', 'B', 'C', 'D'].forEach(option => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.dataset.option = option;
+                button.className = 'option-btn text-left p-4 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition font-medium text-sm text-slate-700 dark:text-slate-300';
+                const label = document.createElement('span');
+                label.className = 'font-black mr-2';
+                label.textContent = `${option}.`;
+                button.appendChild(label);
+                const content = document.createElement('span');
+                content.className = 'exam-rich-content';
+                button.appendChild(content);
+                renderRichContent(content, q[`option_${option.toLowerCase()}`]);
+                button.addEventListener('click', () => checkAnswer(button, option, q.correct_answer, q.id));
+                card.querySelector(`#options-box-${q.id}`).appendChild(button);
+            });
             container.appendChild(card);
         });
 
@@ -141,39 +156,48 @@
         startTimer();
     });
 
-    // 🌟 ROBUST LaTeX CLEANER & FORMATTER 🌟
-    function cleanLatex(text) {
-        if (!text) return "";
-        let str = text.trim();
+    function renderRichContent(element, value) {
+        if (!element) return;
+        const raw = value == null ? '' : String(value).replace(/\\\\/g, '\\');
+        if (!raw.trim()) { element.replaceChildren(); return; }
+        const source = /<[^>]+>/.test(raw) ? raw : raw.split(/\n{2,}/).map(part => `<p>${part.replace(/\n/g, '<br>')}</p>`).join('');
+        const clean = window.DOMPurify ? DOMPurify.sanitize(source, {
+            USE_PROFILES: { html: true },
+            ADD_ATTR: ['loading', 'alt', 'title']
+        }) : sanitizeRichHtml(source);
+        element.innerHTML = clean;
+        element.querySelectorAll('table').forEach(table => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'exam-rich-table-wrap';
+            table.parentNode.insertBefore(wrapper, table);
+            wrapper.appendChild(table);
+        });
+        element.querySelectorAll('img').forEach(image => {
+            image.loading = 'lazy';
+            if (!image.alt) image.alt = 'Exam illustration';
+        });
+    }
 
-        // 1. Convert plain text fractions like A/(x+2) into LaTeX \frac{A}{x+2} if not already formatted
-        if (str.includes('/') && !str.includes('\\frac')) {
-            const parts = str.split('/');
-            if (parts.length === 2) {
-                const num = parts[0].trim();
-                const den = parts[1].trim();
-                // Check if it looks like a math expression
-                if ((num.match(/[a-zA-Z0-9()+^_-]/g) || []).length > 0) {
-                    str = `\\frac{${num}}{${den}}`;
-                }
+    function sanitizeRichHtml(source) {
+        const template = document.createElement('template');
+        template.innerHTML = source;
+        const allowedTags = new Set(['A', 'B', 'BR', 'CODE', 'EM', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'HR', 'I', 'IMG', 'LI', 'OL', 'P', 'PRE', 'SMALL', 'SPAN', 'STRONG', 'SUB', 'SUP', 'TABLE', 'TBODY', 'TD', 'TFOOT', 'TH', 'THEAD', 'TR', 'U', 'UL']);
+        const allowedAttributes = new Set(['alt', 'colspan', 'height', 'href', 'loading', 'rowspan', 'src', 'target', 'title', 'width']);
+        const nodes = [template.content, ...template.content.querySelectorAll('*')];
+        nodes.forEach(node => {
+            if (node.nodeType !== Node.ELEMENT_NODE) return;
+            if (!allowedTags.has(node.tagName)) {
+                node.replaceWith(...Array.from(node.childNodes));
+                return;
             }
-        }
-
-        // 2. Ensure every formula or math symbol starts and ends with $
-        if ((str.includes('\\') || str.includes('^') || str.includes('_')) && !str.includes('$')) {
-            str = '$' + str + '$';
-        }
-
-        // 3. Fix unclosed dollar signs
-        const dollarCount = (str.match(/\$/g) || []).length;
-        if (dollarCount === 1) {
-            str = str + '$';
-        }
-
-        // 4. Fix escaped backslashes from JSON (\\\\frac -> \frac)
-        str = str.replace(/\\\\/g, '\\');
-
-        return str;
+            Array.from(node.attributes).forEach(attribute => {
+                const name = attribute.name.toLowerCase();
+                const value = attribute.value.trim();
+                const unsafeUrl = (name === 'href' || name === 'src') && !/^(https?:|data:image\/(?:png|jpeg|gif|webp);|#)/i.test(value);
+                if (name.startsWith('on') || !allowedAttributes.has(name) || unsafeUrl) node.removeAttribute(attribute.name);
+            });
+        });
+        return template.innerHTML;
     }
 
     function startTimer() {
@@ -192,9 +216,10 @@
 
     function checkAnswer(button, selected, correct, qId) {
         if (isExamFinished) return;
+        submittedAnswers[String(qId)] = selected;
         const parent = button.parentElement;
         const buttons = parent.querySelectorAll('.option-btn');
-        const navBtn = document.getElementById(`nav-id-${qId}`);
+        const navBtn = document.getElementById(`nav-btn-${qId}`);
 
         buttons.forEach(btn => btn.disabled = true);
 
@@ -210,6 +235,7 @@
             });
         }
         document.getElementById(`exp-${qId}`).classList.remove('hidden');
+        navBtn?.classList.add('bg-emerald-50', 'border-emerald-500', 'text-emerald-800');
     }
 
     function endExam() {
@@ -226,10 +252,8 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 exam_id: examId,
-                score: correctAnswersCount,
-                total_questions: totalQuestions,
-                time_used: 1800 - timeLeft,
-                accuracy: accuracy
+                answers: submittedAnswers,
+                time_used: Math.max(0, examDurationSeconds - timeLeft)
             })
         })
         .then(res => res.json())

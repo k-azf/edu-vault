@@ -60,6 +60,7 @@ def get_gemini_client():
 classification_retry_after = 0.0
 
 from init_db import init_db
+from ranking import calculate_rankings
 
 try:
     init_db()
@@ -730,6 +731,11 @@ def logout():
 def index():
     return render_template('index.html', username=session.get('username'), role=session.get('role'))
 
+@app.route('/eduvault-system')
+@login_required
+def eduvault_system():
+    return render_template('eduvault_system.html')
+
 @app.route('/resources')
 @login_required
 def resources_hub():
@@ -1074,17 +1080,66 @@ def get_chapter_questions(chapter_id):
 # RESULT API
 # ============================================
 
+@app.route('/api/rankings', methods=['GET'])
+@login_required
+def get_rankings():
+    """Return the server-calculated Top 3 and the logged-in student's rank."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT r.id, r.user_id, u.username, r.score, r.total_questions,
+               r.accuracy, r.date_attempted
+        FROM user_results r
+        JOIN users u ON u.id = r.user_id
+        WHERE u.role = 'student'
+        ORDER BY r.date_attempted ASC, r.id ASC
+    ''')
+    rows = [dict(row) for row in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+    return jsonify(calculate_rankings(rows, current_user_id=session['user_id']))
+
 @app.route('/api/results/submit', methods=['POST'])
 @login_required
 def submit_exam_results():
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     conn = get_db_connection()
     cursor = conn.cursor()
     param = get_param_style()
-    
-    score = int(data['score'])
-    total = int(data['total_questions'])
-    accuracy = float(data['accuracy'])
+
+    try:
+        exam_id = int(data['exam_id'])
+        submitted_answers = data.get('answers') or {}
+        time_used = max(0, int(data.get('time_used', 0)))
+    except (TypeError, ValueError):
+        cursor.close()
+        conn.close()
+        return jsonify({"success": False, "error": "Invalid exam submission."}), 400
+
+    cursor.execute(f'SELECT id FROM exams WHERE id = {param}', (exam_id,))
+    if not cursor.fetchone():
+        cursor.close()
+        conn.close()
+        return jsonify({"success": False, "error": "Exam not found."}), 404
+
+    cursor.execute(f'''
+        SELECT id, correct_answer
+        FROM questions
+        WHERE exam_id = {param}
+        ORDER BY id ASC
+    ''', (exam_id,))
+    question_rows = cursor.fetchall()
+    if not question_rows:
+        cursor.close()
+        conn.close()
+        return jsonify({"success": False, "error": "Exam has no questions."}), 400
+
+    score = sum(
+        1 for question in question_rows
+        if str(submitted_answers.get(str(question['id']), '')).upper() == str(question['correct_answer']).upper()
+    )
+    total = len(question_rows)
+    accuracy = round(score / total * 100, 2)
     
     rec_prompt = f"The student scored {score}/{total} ({accuracy}% accuracy) in an exam. Provide a brief, supportive, 2-sentence study plan."
     try:
@@ -1099,10 +1154,10 @@ def submit_exam_results():
     '''
     if is_postgres():
         sql += " RETURNING id"
-        cursor.execute(sql, (session['user_id'], data['exam_id'], score, total, data['time_used'], accuracy, time.strftime("%Y-%m-%d %H:%M"), recommendation))
+        cursor.execute(sql, (session['user_id'], exam_id, score, total, time_used, accuracy, time.strftime("%Y-%m-%d %H:%M"), recommendation))
         result_id = cursor.fetchone()['id']
     else:
-        cursor.execute(sql, (session['user_id'], data['exam_id'], score, total, data['time_used'], accuracy, time.strftime("%Y-%m-%d %H:%M"), recommendation))
+        cursor.execute(sql, (session['user_id'], exam_id, score, total, time_used, accuracy, time.strftime("%Y-%m-%d %H:%M"), recommendation))
         result_id = cursor.lastrowid
 
     conn.commit()
