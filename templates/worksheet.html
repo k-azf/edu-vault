@@ -1,0 +1,336 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="bg-blue-950 text-slate-100 font-sans antialiased min-h-screen py-10 px-4 sm:px-6 lg:px-8 selection:bg-blue-500/30">
+
+    <div class="max-w-7xl mx-auto space-y-10">
+
+        <!-- Back Navigation & Breadcrumb -->
+        <div class="flex items-center justify-between">
+            <a href="/" class="inline-flex items-center gap-2 text-xs font-bold text-blue-400 hover:text-blue-300 uppercase tracking-widest bg-slate-900/80 border border-slate-800 px-4 py-2 rounded-xl transition shadow-md">
+                <span>←</span>
+                <span>Back to Home</span>
+            </a>
+            <span class="bg-purple-500/10 border border-purple-500/30 text-purple-400 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
+                ETHIOPIAN CURRICULUM WORKSHEETS
+            </span>
+        </div>
+
+        <!-- HERO BANNER -->
+        <div class="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-950 to-purple-950/80 border border-slate-800/90 p-8 sm:p-12 rounded-[2.5rem] shadow-2xl backdrop-blur-xl">
+            <!-- Background Radial Glow -->
+            <div class="absolute top-0 right-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-[120px] pointer-events-none"></div>
+
+            <div class="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
+                <div class="space-y-4 max-w-2xl">
+                    <div class="inline-flex items-center space-x-2 bg-purple-500/10 border border-purple-500/30 px-3.5 py-1 rounded-full">
+                        <span class="text-[10px] font-black text-purple-400 uppercase tracking-[0.25em]">PRACTICE & MODEL SHEETS</span>
+                    </div>
+                    <h1 class="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
+                        Worksheets & Model Exercises
+                    </h1>
+                    <p class="text-slate-300 text-sm sm:text-base leading-relaxed">
+                        Access Grade 9-12 unit worksheets, regional BBO model exam sets, and chapter practice questions prepared by top Ethiopian teachers.
+                    </p>
+                </div>
+
+                <!-- Action CTA -->
+                <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+                    <a href="/tutor" class="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs px-6 py-4 rounded-2xl shadow-xl shadow-purple-600/25 hover:scale-[1.02] active:scale-95 transition-all">
+                        <span>🤖</span>
+                        <span>Ask AI to Solve Questions</span>
+                    </a>
+                    {% if role == 'admin' %}
+                    <a href="/admin" class="inline-flex items-center justify-center gap-2 bg-slate-900/90 border border-purple-500/40 hover:border-purple-400 text-purple-300 font-extrabold text-xs px-6 py-4 rounded-2xl hover:scale-[1.02] active:scale-95 transition-all">
+                        <span>⚡</span>
+                        <span>Upload New Worksheet</span>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- SEARCH & FILTER CONTROLS -->
+        <div class="bg-slate-900/90 border border-slate-800 p-6 sm:p-8 rounded-[2rem] shadow-xl backdrop-blur-xl space-y-6">
+            
+            <!-- Search Input -->
+            <div class="relative">
+                <input type="text" id="worksheet-search" placeholder="Search worksheets by title, subject, or unit (e.g. Grade 12 Math Calculus)..." 
+                       class="w-full bg-slate-950/80 border border-slate-800 focus:border-purple-500 text-white placeholder-slate-500 text-sm rounded-2xl px-5 py-4 pl-12 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition">
+                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg">🔍</span>
+            </div>
+
+            <!-- Grade Filter Pills -->
+            <div>
+                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">Filter by Grade Level</span>
+                <div class="flex flex-wrap gap-2.5" id="grade-filters">
+                    <button data-grade="all" class="grade-pill active bg-purple-600 text-white text-xs font-bold px-4 py-2 rounded-xl transition">All Grades</button>
+                    <button data-grade="9" class="grade-pill bg-slate-950 border border-slate-800 hover:border-purple-500/50 text-slate-300 text-xs font-bold px-4 py-2 rounded-xl transition">Grade 9</button>
+                    <button data-grade="10" class="grade-pill bg-slate-950 border border-slate-800 hover:border-purple-500/50 text-slate-300 text-xs font-bold px-4 py-2 rounded-xl transition">Grade 10</button>
+                    <button data-grade="11" class="grade-pill bg-slate-950 border border-slate-800 hover:border-purple-500/50 text-slate-300 text-xs font-bold px-4 py-2 rounded-xl transition">Grade 11</button>
+                    <button data-grade="12" class="grade-pill bg-slate-950 border border-slate-800 hover:border-purple-500/50 text-slate-300 text-xs font-bold px-4 py-2 rounded-xl transition">Grade 12</button>
+                </div>
+            </div>
+
+            <!-- Subject Filter Pills -->
+            <div>
+                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">Filter by Subject</span>
+                <div class="flex flex-wrap gap-2.5" id="subject-filters">
+                    <button data-subject="all" class="subject-pill active bg-blue-600 text-white text-xs font-bold px-3.5 py-1.5 rounded-lg transition">All Subjects</button>
+                    <button data-subject="Mathematics" class="subject-pill bg-slate-950 border border-slate-800 hover:border-blue-500/50 text-slate-300 text-xs font-bold px-3.5 py-1.5 rounded-lg transition">Mathematics</button>
+                    <button data-subject="Physics" class="subject-pill bg-slate-950 border border-slate-800 hover:border-blue-500/50 text-slate-300 text-xs font-bold px-3.5 py-1.5 rounded-lg transition">Physics</button>
+                    <button data-subject="Chemistry" class="subject-pill bg-slate-950 border border-slate-800 hover:border-blue-500/50 text-slate-300 text-xs font-bold px-3.5 py-1.5 rounded-lg transition">Chemistry</button>
+                    <button data-subject="Biology" class="subject-pill bg-slate-950 border border-slate-800 hover:border-blue-500/50 text-slate-300 text-xs font-bold px-3.5 py-1.5 rounded-lg transition">Biology</button>
+                    <button data-subject="English" class="subject-pill bg-slate-950 border border-slate-800 hover:border-blue-500/50 text-slate-300 text-xs font-bold px-3.5 py-1.5 rounded-lg transition">English</button>
+                    <button data-subject="Aptitude" class="subject-pill bg-slate-950 border border-slate-800 hover:border-blue-500/50 text-slate-300 text-xs font-bold px-3.5 py-1.5 rounded-lg transition">Aptitude</button>
+                    <button data-subject="Geography" class="subject-pill bg-slate-950 border border-slate-800 hover:border-blue-500/50 text-slate-300 text-xs font-bold px-3.5 py-1.5 rounded-lg transition">Geography</button>
+                    <button data-subject="History" class="subject-pill bg-slate-950 border border-slate-800 hover:border-blue-500/50 text-slate-300 text-xs font-bold px-3.5 py-1.5 rounded-lg transition">History</button>
+                    <button data-subject="Economics" class="subject-pill bg-slate-950 border border-slate-800 hover:border-blue-500/50 text-slate-300 text-xs font-bold px-3.5 py-1.5 rounded-lg transition">Economics</button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- WORKSHEETS GRID -->
+        <div class="space-y-6">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <h2 class="text-xl font-black text-white tracking-tight">Available Worksheets</h2>
+                <span id="worksheet-count" class="text-xs font-bold text-purple-400 bg-purple-500/10 border border-purple-500/30 px-3 py-1 rounded-full">
+                    Loading Worksheets...
+                </span>
+            </div>
+
+            <div id="worksheet-grid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Skeleton Loader -->
+                <div class="animate-pulse bg-slate-900/80 border border-slate-800 p-6 rounded-2xl h-44"></div>
+                <div class="animate-pulse bg-slate-900/80 border border-slate-800 p-6 rounded-2xl h-44"></div>
+                <div class="animate-pulse bg-slate-900/80 border border-slate-800 p-6 rounded-2xl h-44"></div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- JavaScript to handle Worksheet Fetching & Filtering -->
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        let allWorksheets = [];
+        let selectedGrade = "all";
+        let selectedSubject = "all";
+
+        const grid = document.getElementById('worksheet-grid');
+        const countBadge = document.getElementById('worksheet-count');
+        const searchInput = document.getElementById('worksheet-search');
+
+        // Sample worksheets fallback dataset if database is empty
+        const sampleWorksheets = [
+            {
+                id: 101,
+                title: "Grade 12 Mathematics - Calculus & Vectors Unit Practice",
+                subject: "Mathematics",
+                grade: 12,
+                school_name: "Oromia Education Bureau BBO Model",
+                download_url: "#",
+                questions_count: 35
+            },
+            {
+                id: 102,
+                title: "Grade 11 Physics - Mechanics & Dynamics Worksheet",
+                subject: "Physics",
+                grade: 11,
+                school_name: "Ambo University STEM Partner",
+                download_url: "#",
+                questions_count: 28
+            },
+            {
+                id: 103,
+                title: "Grade 12 Chemistry - Organic Reactions & Polymers",
+                subject: "Chemistry",
+                grade: 12,
+                school_name: "National Model Exam Set",
+                download_url: "#",
+                questions_count: 40
+            },
+            {
+                id: 104,
+                title: "Grade 10 Biology - Genetics & Molecular Inheritance",
+                subject: "Biology",
+                grade: 10,
+                school_name: "Addis Ababa Regional Model",
+                download_url: "#",
+                questions_count: 25
+            },
+            {
+                id: 105,
+                title: "Grade 12 Scholastic Aptitude - Verbal & Logic Reasoning",
+                subject: "Aptitude",
+                grade: 12,
+                school_name: "National Entrance Exam Prep",
+                download_url: "#",
+                questions_count: 50
+            },
+            {
+                id: 106,
+                title: "Grade 11 English - Advanced Grammar & Comprehension",
+                subject: "English",
+                grade: 11,
+                school_name: "Secondary Curriculum Series",
+                download_url: "#",
+                questions_count: 30
+            },
+            {
+                id: 107,
+                title: "Grade 12 Geography - Ethiopian Physical Systems & Maps",
+                subject: "Geography",
+                grade: 12,
+                school_name: "Regional Model Paper",
+                download_url: "#",
+                questions_count: 32
+            },
+            {
+                id: 108,
+                title: "Grade 11 History - Horn of Africa & Ethiopian Empires",
+                subject: "History",
+                grade: 11,
+                school_name: "Curriculum Notes Set",
+                download_url: "#",
+                questions_count: 25
+            },
+            {
+                id: 109,
+                title: "Grade 12 Economics - Macroeconomics & Ethiopian Development",
+                subject: "Economics",
+                grade: 12,
+                school_name: "Social Science Special Model",
+                download_url: "#",
+                questions_count: 30
+            }
+        ];
+
+        // Fetch Worksheets from API or Fallback
+        fetch('/api/worksheets')
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data) && data.length > 0) {
+                    allWorksheets = data;
+                } else {
+                    allWorksheets = sampleWorksheets;
+                }
+                renderWorksheets();
+            })
+            .catch(err => {
+                console.warn("Using sample worksheets dataset:", err);
+                allWorksheets = sampleWorksheets;
+                renderWorksheets();
+            });
+
+        // Filter Function
+        function renderWorksheets() {
+            const query = searchInput.value.toLowerCase().trim();
+
+            const filtered = allWorksheets.filter(item => {
+                const matchesGrade = (selectedGrade === "all") || (String(item.grade) === String(selectedGrade));
+                const matchesSubject = (selectedSubject === "all") || (item.subject.toLowerCase() === selectedSubject.toLowerCase());
+                const matchesSearch = !query || item.title.toLowerCase().includes(query) || item.subject.toLowerCase().includes(query) || (item.school_name && item.school_name.toLowerCase().includes(query));
+
+                return matchesGrade && matchesSubject && matchesSearch;
+            });
+
+            countBadge.innerText = `${filtered.length} Worksheets Available`;
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `
+                    <div class="bg-slate-900/80 p-10 rounded-2xl border border-dashed border-slate-800 text-center col-span-full">
+                        <p class="text-slate-400 text-sm font-medium">No worksheets match your filters.</p>
+                        <button id="reset-filters" class="mt-4 text-xs font-black text-purple-400 hover:underline uppercase tracking-wider">
+                            Reset All Filters →
+                        </button>
+                    </div>`;
+                
+                document.getElementById('reset-filters')?.addEventListener('click', () => {
+                    selectedGrade = "all";
+                    selectedSubject = "all";
+                    searchInput.value = "";
+                    updatePillUI();
+                    renderWorksheets();
+                });
+                return;
+            }
+
+            grid.innerHTML = "";
+            filtered.forEach(ws => {
+                grid.innerHTML += `
+                    <div class="group relative bg-slate-900/90 border border-slate-800 hover:border-purple-500/60 p-6 rounded-2xl transition-all duration-300 flex flex-col justify-between shadow-xl hover:-translate-y-1">
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="bg-purple-500/10 border border-purple-500/30 text-purple-400 text-[9px] font-black tracking-widest px-2.5 py-0.5 rounded uppercase">
+                                    Grade ${ws.grade} • ${ws.subject}
+                                </span>
+                                <span class="text-[10px] text-slate-400 font-bold">
+                                    📝 ${ws.questions_count || 30} Questions
+                                </span>
+                            </div>
+                            <h3 class="text-base font-extrabold text-white group-hover:text-purple-300 transition-colors leading-snug">
+                                ${ws.title}
+                            </h3>
+                            <p class="text-[11px] text-slate-400">
+                                📍 ${ws.school_name || "Ethiopian National Curriculum"}
+                            </p>
+                        </div>
+
+                        <div class="pt-6 mt-4 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                            <a href="/tutor" class="text-[11px] font-bold text-slate-400 hover:text-white flex items-center gap-1 transition">
+                                <span>🤖 Solve with AI</span>
+                            </a>
+                            <a href="/exam/${ws.id}" class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-extrabold px-4 py-2.5 rounded-xl transition shadow-md shadow-purple-600/20 flex items-center gap-1">
+                                <span>Practice</span>
+                                <span>→</span>
+                            </a>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // Pill UI Handler
+        function updatePillUI() {
+            document.querySelectorAll('.grade-pill').forEach(btn => {
+                if (btn.dataset.grade === selectedGrade) {
+                    btn.className = "grade-pill active bg-purple-600 text-white text-xs font-bold px-4 py-2 rounded-xl transition";
+                } else {
+                    btn.className = "grade-pill bg-slate-950 border border-slate-800 hover:border-purple-500/50 text-slate-300 text-xs font-bold px-4 py-2 rounded-xl transition";
+                }
+            });
+
+            document.querySelectorAll('.subject-pill').forEach(btn => {
+                if (btn.dataset.subject.toLowerCase() === selectedSubject.toLowerCase()) {
+                    btn.className = "subject-pill active bg-blue-600 text-white text-xs font-bold px-3.5 py-1.5 rounded-lg transition";
+                } else {
+                    btn.className = "subject-pill bg-slate-950 border border-slate-800 hover:border-blue-500/50 text-slate-300 text-xs font-bold px-3.5 py-1.5 rounded-lg transition";
+                }
+            });
+        }
+
+        // Event Listeners for Grade Pills
+        document.getElementById('grade-filters').addEventListener('click', (e) => {
+            if (e.target.classList.contains('grade-pill')) {
+                selectedGrade = e.target.dataset.grade;
+                updatePillUI();
+                renderWorksheets();
+            }
+        });
+
+        // Event Listeners for Subject Pills
+        document.getElementById('subject-filters').addEventListener('click', (e) => {
+            if (e.target.classList.contains('subject-pill')) {
+                selectedSubject = e.target.dataset.subject;
+                updatePillUI();
+                renderWorksheets();
+            }
+        });
+
+        // Event Listener for Search
+        searchInput.addEventListener('input', renderWorksheets);
+    });
+</script>
+{% endblock %}
