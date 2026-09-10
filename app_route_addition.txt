@@ -1,0 +1,5 @@
+# Add to your existing Flask app.py
+
+@app.route("/eduvault-system")
+def eduvault_system():
+    return render_template("eduvault_system.html")
