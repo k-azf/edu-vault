@@ -822,6 +822,39 @@ def unified_login():
     return jsonify({"success": True, "role": account['role'], "account": unified_account_dict(account)})
 
 
+@app.route('/api/unified/student-login', methods=['POST'])
+def unified_student_login():
+    data = request.get_json(silent=True) or request.form
+    student_code = str(data.get('student_code') or data.get('code') or '').strip().upper()
+    full_name = normalize_person_name(data.get('full_name') or data.get('name') or '')
+    if not student_code or not full_name:
+        return jsonify({"success": False, "error": "Student code and full name are required."}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    cursor.execute(
+        f"SELECT * FROM unified_accounts WHERE student_code = {param} AND role = 'student'",
+        (student_code,)
+    )
+    account = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    if not account or account['account_status'] != 'ACTIVE':
+        return jsonify({"success": False, "error": "Invalid student code or inactive student account."}), 401
+
+    expected_name = normalize_person_name(
+        f"{account['first_name']} {account['last_name']}"
+    )
+    if full_name.casefold() != expected_name.casefold():
+        return jsonify({"success": False, "error": "Full name does not match the registered student account."}), 401
+
+    session['unified_account_id'] = account['id']
+    session['unified_role'] = account['role']
+    return jsonify({"success": True, "role": account['role'], "account": unified_account_dict(account)})
+
+
 @app.route('/api/unified/logout', methods=['POST'])
 def unified_logout():
     session.pop('unified_account_id', None)

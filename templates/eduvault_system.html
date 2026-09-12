@@ -1254,12 +1254,12 @@ setTimeout(syncPending,1500);
 
     <div id="studentPanel" class="rolePanel" hidden>
       <div class="field">
-        <label for="studentCodeInput">Password</label>
-        <input id="studentCodeInput" type="password" autocomplete="current-password" placeholder="Enter password">
+        <label for="studentCodeInput">Student Code</label>
+        <input id="studentCodeInput" autocomplete="off" placeholder="Enter issued student code">
       </div>
       <div class="field">
-        <label for="studentUsernameInput">Username</label>
-        <input id="studentUsernameInput" autocomplete="username" placeholder="Enter username">
+        <label for="studentFullNameInput">Full Name</label>
+        <input id="studentFullNameInput" autocomplete="name" placeholder="Enter your registered full name">
       </div>
       <button class="primary" id="studentEnterBtn" type="button">Enter as Student</button>
       <p id="studentMsg" class="muted small" style="margin-top:10px"></p>
@@ -1315,13 +1315,13 @@ setTimeout(syncPending,1500);
   };
 
   document.getElementById("studentEnterBtn").onclick=async function(){
-    const username=document.getElementById("studentUsernameInput").value.trim();
-    const password=document.getElementById("studentCodeInput").value;
+    const student_code=document.getElementById("studentCodeInput").value.trim().toUpperCase();
+    const full_name=document.getElementById("studentFullNameInput").value.trim();
     const msg=document.getElementById("studentMsg");
-    if(!username||!password){msg.textContent="Please enter username and password.";return;}
+    if(!student_code||!full_name){msg.textContent="Please enter your student code and full name.";return;}
     this.disabled=true; this.textContent="Checking…"; msg.textContent="";
     try{
-      const response=await fetch('/api/unified/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
+      const response=await fetch('/api/unified/student-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({student_code,full_name})});
       const result=await response.json();
       if(!response.ok||!result.success){msg.textContent=result.error||"Student identity verification failed.";return;}
       student={...student,...result.account,code:result.account.code,name:result.account.name};
