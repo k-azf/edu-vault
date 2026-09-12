@@ -81,3 +81,40 @@ def calculate_rankings(result_rows, current_user_id=None, limit=3):
         "current_student": current_student,
         "total_students": len(students),
     }
+
+
+def calculate_exam_top_performers(result_rows):
+    """Return the highest-scoring student for every published exam package."""
+    best_by_exam = {}
+    for row in result_rows:
+        exam_id = row.get("exam_id")
+        if exam_id is None:
+            continue
+        candidate = dict(row)
+        candidate["performance"] = round(_performance_percent(candidate), 2)
+        current = best_by_exam.get(exam_id)
+        if current is None or (
+            candidate["performance"],
+            str(candidate.get("date_attempted") or ""),
+            int(candidate.get("id") or 0),
+        ) > (
+            current["performance"],
+            str(current.get("date_attempted") or ""),
+            int(current.get("id") or 0),
+        ):
+            best_by_exam[exam_id] = candidate
+
+    performers = []
+    for exam_id, result in best_by_exam.items():
+        performers.append({
+            "exam_id": exam_id,
+            "exam_title": result.get("exam_title") or "Exam",
+            "exam_type": result.get("exam_type") or "mock",
+            "student_id": result.get("user_id"),
+            "username": result.get("username") or "Student",
+            "score": result["performance"],
+            "score_raw": result.get("score", 0),
+            "total_questions": result.get("total_questions", 0),
+            "attempted_at": result.get("date_attempted"),
+        })
+    return sorted(performers, key=lambda item: (-item["score"], str(item["exam_title"]).casefold()))

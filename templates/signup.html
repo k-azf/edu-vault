@@ -3,393 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign Up - EduVault Smart Hub</title>
+    <title>Student Registration - EduVault</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 </head>
-<body class="bg-slate-100 dark:bg-slate-950 min-h-screen flex items-center justify-center px-4 py-10 font-['Plus_Jakarta_Sans']">
-
-    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-8 rounded-3xl shadow-xl max-w-md w-full space-y-6">
-        
-        <div class="text-center">
-            <span class="bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full">Member Access</span>
-            <h2 class="text-2xl font-black text-slate-800 dark:text-white mt-2">Create EduVault Account</h2>
-            <p class="text-xs text-slate-400 mt-1">Complete the 4 mandatory steps below to unlock your registration.</p>
+<body class="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center px-4 py-10">
+    <main class="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl p-6 sm:p-8">
+        <div class="text-center mb-6">
+            <span class="text-[10px] font-black tracking-widest uppercase text-blue-600">Student Registration</span>
+            <h1 class="text-2xl font-black text-slate-900 dark:text-white mt-2">Request EduVault access</h1>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">Your account will remain pending until an administrator reviews it. Your Student Code will be issued after approval.</p>
         </div>
-
-        <!-- Flash Feedback Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, msg in messages %}
-              <div class="p-3 text-xs rounded-xl bg-red-100 text-red-800 border border-red-200">
-                {{ msg }}
-              </div>
+              <div class="mb-4 p-3 rounded-xl text-xs font-semibold {% if category == 'error' %}bg-red-100 text-red-800{% else %}bg-emerald-100 text-emerald-800{% endif %}">{{ msg }}</div>
             {% endfor %}
           {% endif %}
         {% endwith %}
-
-        <form action="/signup" method="POST" id="signup-form" class="space-y-4">
-            
-            <!-- Step 0: Basic User Credentials -->
-            <div>
-                <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Create Username</label>
-                <input type="text" name="username" required placeholder="e.g. student01" class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-sm dark:text-white outline-none focus:ring-2 focus:ring-blue-500">
+        <form action="{{ url_for('signup') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+            <div class="grid sm:grid-cols-2 gap-4">
+                <label class="block text-xs font-bold text-slate-500">First Name
+                    <input name="first_name" required minlength="2" maxlength="50" pattern="[A-Za-z][A-Za-z' -]{1,49}" autocomplete="given-name" class="mt-1 w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-white" />
+                </label>
+                <label class="block text-xs font-bold text-slate-500">Last Name
+                    <input name="last_name" required minlength="2" maxlength="50" pattern="[A-Za-z][A-Za-z' -]{1,49}" autocomplete="family-name" class="mt-1 w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-white" />
+                </label>
             </div>
-
-            <div>
-                <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Set Password</label>
-                <input type="password" name="password" required placeholder="Create password" class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-sm dark:text-white outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-
-            <div>
-                <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Your Telegram User ID</label>
-                <input type="text" id="telegram_id" name="telegram_id" required placeholder="e.g. 123456789" class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-sm dark:text-white outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-
-            <!-- MANDATORY TASKS CHECKLIST -->
-            <div class="border-t border-slate-200 dark:border-slate-800 pt-4 space-y-3">
-                <span class="text-xs font-black uppercase text-blue-600 dark:text-blue-400 block">Mandatory Verification Steps (4/4)</span>
-
-                <!-- Task 1: Telegram Channel -->
-                <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl">
-                    <div class="text-xs">
-                        <span class="font-extrabold block text-slate-800 dark:text-white">1. Join Telegram Channel</span>
-                        <a href="https://t.me/eduvault12" target="_blank" class="text-blue-500 font-semibold hover:underline">@eduvault12 ↗️</a>
-                    </div>
-                    <button type="button" data-task="channel" data-url="https://t.me/eduvault12" id="btn-channel" class="task-btn bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition">Verify</button>
-                </div>
-
-                <!-- Task 2: Telegram Bot -->
-                <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl">
-                    <div class="text-xs">
-                        <span class="font-extrabold block text-slate-800 dark:text-white">2. Start Telegram Bot</span>
-                        <a href="https://t.me/EduVaultsmartbot" target="_blank" class="text-blue-500 font-semibold hover:underline">@EduVaultsmartbot ↗️</a>
-                    </div>
-                    <button type="button" data-task="bot" data-url="https://t.me/EduVaultsmartbot" id="btn-bot" class="task-btn bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition">Verify</button>
-                </div>
-
-                <!-- Task 3: YouTube Subscribe -->
-                <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl">
-                    <div class="text-xs">
-                        <span class="font-extrabold block text-slate-800 dark:text-white">3. Subscribe YouTube</span>
-                        <a href="https://www.youtube.com/@kayotech12?sub_confirmation=1" target="_blank" class="text-blue-500 font-semibold hover:underline">Kayo Tech Channel ↗️</a>
-                    </div>
-                    <button type="button" data-task="youtube" data-url="https://www.youtube.com/@kayotech12?sub_confirmation=1" id="btn-youtube" class="task-btn bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition">Verify</button>
-                </div>
-
-                <!-- Task 4: Add 5 Members -->
-                <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl">
-                    <div class="text-xs">
-                        <span class="font-extrabold block text-slate-800 dark:text-white">4. Add 5 Members to Group</span>
-                        <a href="https://t.me/eduvault13" target="_blank" class="text-blue-500 font-semibold hover:underline">@eduvault13 ↗️</a>
-                    </div>
-                    <button type="button" data-task="group_invites" data-url="https://t.me/eduvault13" id="btn-group_invites" class="task-btn bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition">Verify</button>
-                </div>
-            </div>
-
-            <!-- Complete Registration Button (Disabled until all 4 tasks are verified) -->
-            <button type="submit" id="submit-btn" disabled class="w-full bg-slate-300 dark:bg-slate-800 text-slate-500 font-bold text-xs p-4 rounded-xl uppercase tracking-wider transition cursor-not-allowed">
-                Complete Registration
-            </button>
+            <label class="block text-xs font-bold text-slate-500">Username
+                <input name="username" required minlength="3" maxlength="30" pattern="[a-z0-9][a-z0-9_.-]{1,28}[a-z0-9]" autocomplete="username" placeholder="lowercase username" class="mt-1 w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-white" />
+            </label>
+            <label class="block text-xs font-bold text-slate-500">Password
+                <input name="password" required minlength="8" type="password" autocomplete="new-password" placeholder="At least 8 characters with a number" class="mt-1 w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-white" />
+            </label>
+            <label class="block text-xs font-bold text-slate-500">3x4 Profile Photograph
+                <input name="profile_photo" required type="file" accept="image/jpeg,image/png,image/webp" class="mt-1 w-full p-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-white" />
+                <span class="block mt-1 text-[11px] font-normal text-slate-400">JPG, PNG, or WEBP. Portrait 3x4 shape, minimum 150x200 pixels, maximum 6 MB.</span>
+            </label>
+            <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider p-4 rounded-xl">Submit Registration</button>
         </form>
-
-        <p class="text-center text-xs text-slate-500">
-            Already registered? <a href="/login" class="text-blue-600 hover:underline font-bold">Sign In</a>
-        </p>
-    </div>
-
-    <script>
-"use strict";
-
-const tasks = {
-    channel: false,
-    bot: false,
-    youtube: false,
-    group_invites: false
-};
-
-const PENDING_KEY = "eduvault_pending_verification";
-const TASKS_KEY = "eduvault_verified_tasks";
-let countdownTimer = null;
-let verificationRunning = false;
-
-function saveTasks() {
-    try {
-        sessionStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
-    } catch (e) {
-        console.error("Could not save task state", e);
-    }
-}
-
-function loadTasks() {
-    try {
-        const saved = JSON.parse(sessionStorage.getItem(TASKS_KEY) || "{}");
-        Object.keys(tasks).forEach(task => {
-            tasks[task] = saved[task] === true;
-        });
-    } catch (e) {
-        console.error("Could not load task state", e);
-    }
-
-    Object.keys(tasks).forEach(task => {
-        if (tasks[task]) setVerified(document.getElementById(`btn-${task}`));
-    });
-
-    checkAllTasksCompleted();
-}
-
-function getTelegramId() {
-    return document.getElementById("telegram_id").value.trim();
-}
-
-function validateTelegramId(taskType) {
-    const id = getTelegramId();
-
-    if (!id) {
-        alert("Please enter your Telegram User ID first!");
-        document.getElementById("telegram_id").focus();
-        return false;
-    }
-
-    // Telegram getChatMember requires the user's numeric Telegram ID.
-    if (taskType === "channel" && !/^\d+$/.test(id)) {
-        alert("For Channel verification, enter your numeric Telegram User ID, not @username.");
-        document.getElementById("telegram_id").focus();
-        return false;
-    }
-
-    return true;
-}
-
-function startTask(taskType, url) {
-    if (verificationRunning || tasks[taskType]) return;
-
-    if (!validateTelegramId(taskType)) return;
-
-    const btn = document.getElementById(`btn-${taskType}`);
-    if (!btn) return;
-
-    try {
-        sessionStorage.setItem(PENDING_KEY, JSON.stringify({
-            taskType: taskType,
-            telegramId: getTelegramId(),
-            createdAt: Date.now()
-        }));
-    } catch (e) {
-        alert("Browser storage is unavailable. Please allow site data/cookies in Chrome.");
-        return;
-    }
-
-    btn.disabled = true;
-    btn.innerText = "Opening...";
-
-    // Same-tab navigation is reliable with Android Chrome Back/pageshow.
-    window.location.assign(url);
-}
-
-function setupButtons() {
-    document.querySelectorAll(".task-btn").forEach(btn => {
-        btn.addEventListener("click", function (event) {
-            event.preventDefault();
-            startTask(btn.dataset.task, btn.dataset.url);
-        });
-    });
-}
-
-function startCountdown(taskType, telegramId, seconds) {
-    const btn = document.getElementById(`btn-${taskType}`);
-    if (!btn) return;
-
-    if (countdownTimer) {
-        clearInterval(countdownTimer);
-        countdownTimer = null;
-    }
-
-    let remaining = Math.max(1, Number(seconds) || 10);
-    btn.disabled = true;
-    btn.innerText = `Wait ${remaining}s...`;
-
-    countdownTimer = setInterval(() => {
-        remaining--;
-
-        if (remaining > 0) {
-            btn.innerText = `Wait ${remaining}s...`;
-            return;
-        }
-
-        clearInterval(countdownTimer);
-        countdownTimer = null;
-        btn.innerText = "Checking...";
-        verifyTaskOnServer(taskType, telegramId);
-    }, 1000);
-}
-
-async function verifyPendingTask() {
-    if (verificationRunning) return;
-
-    let pending;
-    try {
-        const raw = sessionStorage.getItem(PENDING_KEY);
-        if (!raw) return;
-        pending = JSON.parse(raw);
-    } catch (e) {
-        sessionStorage.removeItem(PENDING_KEY);
-        return;
-    }
-
-    const taskType = pending.taskType;
-    const telegramId = pending.telegramId;
-    const btn = document.getElementById(`btn-${taskType}`);
-
-    if (!taskType || !telegramId || !btn || tasks[taskType]) {
-        sessionStorage.removeItem(PENDING_KEY);
-        return;
-    }
-
-    verificationRunning = true;
-    btn.disabled = true;
-    btn.innerText = "Starting...";
-
-    try {
-        // First request starts the server-side 10-second timer.
-        const response = await fetch("/api/verify-task", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "same-origin",
-            cache: "no-store",
-            body: JSON.stringify({
-                telegram_id: telegramId,
-                task_type: taskType
-            })
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-            markVerified(taskType, btn);
-            verificationRunning = false;
-            return;
-        }
-
-        if (data.waiting) {
-            startCountdown(taskType, telegramId, data.remaining || 10);
-            return;
-        }
-
-        verificationFailed(btn, data.error || "Verification failed.");
-    } catch (e) {
-        console.error(e);
-        verificationFailed(btn, "Verification server error. Please try again.");
-    }
-}
-
-async function verifyTaskOnServer(taskType, telegramId) {
-    const btn = document.getElementById(`btn-${taskType}`);
-    if (!btn) {
-        verificationRunning = false;
-        return;
-    }
-
-    btn.disabled = true;
-    btn.innerText = "Checking...";
-
-    try {
-        const response = await fetch("/api/verify-task", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "same-origin",
-            cache: "no-store",
-            body: JSON.stringify({
-                telegram_id: telegramId,
-                task_type: taskType
-            })
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-            markVerified(taskType, btn);
-            verificationRunning = false;
-            return;
-        }
-
-        if (data.waiting) {
-            startCountdown(taskType, telegramId, data.remaining || 1);
-            return;
-        }
-
-        verificationFailed(btn, data.error || "Verification failed.");
-    } catch (e) {
-        console.error(e);
-        verificationFailed(btn, "Verification server error. Please try again.");
-    }
-}
-
-function markVerified(taskType, btn) {
-    tasks[taskType] = true;
-    saveTasks();
-    setVerified(btn);
-
-    try {
-        sessionStorage.removeItem(PENDING_KEY);
-    } catch (e) {}
-
-    checkAllTasksCompleted();
-}
-
-function setVerified(btn) {
-    if (!btn) return;
-    btn.disabled = true;
-    btn.innerText = "✓ Verified";
-    btn.className = "bg-emerald-600 text-white text-xs font-bold px-3.5 py-2 rounded-xl";
-}
-
-function verificationFailed(btn, message) {
-    verificationRunning = false;
-
-    if (countdownTimer) {
-        clearInterval(countdownTimer);
-        countdownTimer = null;
-    }
-
-    btn.disabled = false;
-    btn.innerText = "Verify";
-    alert(message);
-}
-
-function checkAllTasksCompleted() {
-    const allDone = Object.values(tasks).every(status => status === true);
-    const submitBtn = document.getElementById("submit-btn");
-    if (!submitBtn) return;
-
-    if (allDone) {
-        submitBtn.disabled = false;
-        submitBtn.className = "w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs p-4 rounded-xl uppercase tracking-wider transition cursor-pointer shadow-lg shadow-emerald-500/20";
-    } else {
-        submitBtn.disabled = true;
-        submitBtn.className = "w-full bg-slate-300 dark:bg-slate-800 text-slate-500 font-bold text-xs p-4 rounded-xl uppercase tracking-wider transition cursor-not-allowed";
-    }
-}
-
-// Android Chrome returns to this page through pageshow after Back.
-window.addEventListener("pageshow", function () {
-    loadTasks();
-    setTimeout(verifyPendingTask, 200);
-});
-
-document.addEventListener("DOMContentLoaded", function () {
-    setupButtons();
-    loadTasks();
-    setTimeout(verifyPendingTask, 300);
-});
-
-document.getElementById("signup-form").addEventListener("submit", function (event) {
-    const allDone = Object.values(tasks).every(status => status === true);
-    if (!allDone) {
-        event.preventDefault();
-        alert("Please complete and verify all 4 mandatory tasks first.");
-    }
-});
-</script>
+        <p class="text-center text-xs text-slate-500 mt-5">Already registered? <a href="{{ url_for('login') }}" class="text-blue-600 font-bold hover:underline">Sign in</a></p>
+    </main>
 </body>
 </html>

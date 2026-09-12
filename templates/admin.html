@@ -14,6 +14,9 @@
 
     <!-- Tabs -->
     <div class="flex gap-1 sm:gap-2 border-b border-slate-200 dark:border-slate-800 mb-6 overflow-x-auto pb-px">
+        <button id="tab-students" class="tab-btn bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 text-xs font-bold px-4 sm:px-6 py-3 rounded-t-xl transition hover:border-blue-500 whitespace-nowrap">
+            👥 Student Approvals <span id="student-pending-badge" class="hidden bg-red-500 text-white text-[10px] font-black rounded-full px-2 py-0.5 ml-1.5">0</span>
+        </button>
         <button id="tab-upload" class="tab-btn active bg-blue-600 text-white text-xs font-bold px-4 sm:px-6 py-3 rounded-t-xl transition whitespace-nowrap">
             📤 Upload Resource
         </button>
@@ -27,6 +30,32 @@
         <button id="tab-resources" class="tab-btn bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 text-xs font-bold px-4 sm:px-6 py-3 rounded-t-xl transition hover:border-blue-500 whitespace-nowrap">
             📄 All Resources
         </button>
+    </div>
+
+    <div id="students-section" class="tab-content hidden">
+        <div class="bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-900 rounded-2xl shadow-xl overflow-hidden mb-6">
+            <div class="p-6 border-b border-blue-100 dark:border-blue-900">
+                <h2 class="text-lg font-black text-slate-800 dark:text-white">Add Student Directly</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Students added by an administrator are activated immediately and receive an automatic Student Code.</p>
+            </div>
+            <form id="add-student-form" class="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input name="first_name" required minlength="2" maxlength="50" placeholder="First name" class="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-white text-sm">
+                <input name="last_name" required minlength="2" maxlength="50" placeholder="Last name" class="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-white text-sm">
+                <input name="username" required minlength="3" maxlength="30" pattern="[a-z0-9][a-z0-9_.-]*[a-z0-9]" placeholder="Username" class="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-white text-sm">
+                <input name="password" required minlength="8" type="password" placeholder="Temporary password" class="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-white text-sm">
+                <div class="sm:col-span-2 flex flex-wrap items-center gap-3">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-black px-5 py-3 rounded-xl">Add and Activate Student</button>
+                    <span id="add-student-msg" class="text-xs font-semibold"></span>
+                </div>
+            </form>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+            <div class="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4">
+                <div><h2 class="text-lg font-black text-slate-800 dark:text-white">Pending Student Registrations</h2><p class="text-xs text-slate-500 dark:text-slate-400">Approve a registration to generate its permanent Student Code, or reject it.</p></div>
+                <button onclick="loadPendingStudents()" class="bg-slate-100 dark:bg-slate-800 text-xs font-bold px-4 py-2 rounded-xl">Refresh</button>
+            </div>
+            <div id="pending-students-list" class="p-4 sm:p-6 space-y-4"><p class="text-xs text-slate-400">Loading pending registrations...</p></div>
+        </div>
     </div>
 
     <!-- ============================================ -->
@@ -383,6 +412,7 @@
             // Show corresponding content
             const tabId = this.id.replace('tab-', '');
             const contentMap = {
+                'students': 'students-section',
                 'upload': 'upload-section',
                 'review': 'review-section',
                 'curriculum': 'curriculum-section',
@@ -393,6 +423,7 @@
                 document.getElementById(contentId).classList.remove('hidden');
                 // Load data when switching tabs
                 if (tabId === 'review') loadPendingExams();
+                if (tabId === 'students') loadPendingStudents();
                 if (tabId === 'resources') loadAllResources();
                 if (tabId === 'curriculum') loadCurriculumStats();
             }
@@ -478,6 +509,72 @@
                 }
             })
             .catch(() => {});
+    }
+
+    function loadPendingStudents() {
+        const list = document.getElementById('pending-students-list');
+        fetch('/api/admin/students/pending')
+            .then(res => res.json())
+            .then(students => {
+                const badge = document.getElementById('student-pending-badge');
+                badge.textContent = students.length;
+                badge.classList.toggle('hidden', students.length === 0);
+                if (!students.length) {
+                    list.innerHTML = '<p class="text-xs text-slate-400">No pending student registrations.</p>';
+                    return;
+                }
+                list.innerHTML = students.map(student => `
+                    <div class="flex flex-wrap items-center gap-4 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50">
+                        ${student.photo_url ? `<img src="${student.photo_url}" alt="${escapeHtml(student.full_name)} profile photo" class="w-16 h-20 object-cover rounded-xl border border-slate-200">` : '<div class="w-16 h-20 rounded-xl bg-slate-200 dark:bg-slate-800"></div>'}
+                        <div class="flex-grow min-w-[220px]"><span class="text-[10px] font-black uppercase tracking-widest text-amber-600">${escapeHtml(student.account_status)}</span><h3 class="text-base font-black text-slate-800 dark:text-white mt-1">${escapeHtml(student.full_name)}</h3><p class="text-xs text-slate-500">@${escapeHtml(student.username)} · Registered ${escapeHtml(student.registered_at || '')}</p></div>
+                        <div class="flex gap-2"><button onclick="approveStudent(${student.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl">Approve</button><button onclick="rejectStudent(${student.id})" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl">Reject</button></div>
+                    </div>`).join('');
+            })
+            .catch(() => { list.innerHTML = '<p class="text-xs text-red-600">Could not load student registrations.</p>'; });
+    }
+
+    document.getElementById('add-student-form').addEventListener('submit', function (event) {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const message = document.getElementById('add-student-msg');
+        const button = form.querySelector('button[type="submit"]');
+        button.disabled = true;
+        message.className = 'text-xs font-semibold text-blue-600';
+        message.textContent = 'Adding student...';
+        fetch('/api/admin/students', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(Object.fromEntries(new FormData(form)))
+        })
+            .then(async response => {
+                const data = await response.json();
+                if (!response.ok || !data.success) throw new Error(data.error || 'Student could not be added.');
+                message.className = 'text-xs font-semibold text-emerald-600';
+                message.textContent = `${data.full_name} added. Student Code: ${data.student_code}`;
+                form.reset();
+                loadPendingStudents();
+            })
+            .catch(error => {
+                message.className = 'text-xs font-semibold text-red-600';
+                message.textContent = error.message;
+            })
+            .finally(() => { button.disabled = false; });
+    });
+
+    function approveStudent(userId) {
+        if (!confirm('Approve this student and generate a Student Code?')) return;
+        fetch(`/api/admin/students/${userId}/approve`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => { alert(data.success ? `${data.message} Code: ${data.student_code}` : data.error); loadPendingStudents(); })
+            .catch(() => alert('Approval failed. Please try again.'));
+    }
+
+    function rejectStudent(userId) {
+        if (!confirm('Reject this student registration?')) return;
+        fetch(`/api/admin/students/${userId}/reject`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => { alert(data.success ? data.message : data.error); loadPendingStudents(); })
+            .catch(() => alert('Rejection failed. Please try again.'));
     }
 
     function loadPendingExams() {
@@ -1008,6 +1105,7 @@
     document.addEventListener('DOMContentLoaded', function() {
         // Load pending exams count
         loadPendingExamsCount();
+        loadPendingStudents();
         // Load pending exams by default (since Upload tab is active, but we preload)
         // Actually, load them in background
         setTimeout(() => {

@@ -20,6 +20,7 @@ from PIL import Image
 import speech_recognition as sr
 from io import BytesIO
 import base64
+from datetime import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, '.env'))
@@ -29,13 +30,16 @@ app.secret_key = os.getenv("SECRET_KEY", "super-secret-eduvault-key-12345")
 
 # --- Configuration ---
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
+PROFILE_PHOTO_FOLDER = os.path.join(UPLOAD_FOLDER, 'profile_photos')
 MAX_FILE_SIZE = 16 * 1024 * 1024  # 16 MB
+SQLITE_BUSY_TIMEOUT_MS = 30_000
 ALLOWED_EXTENSIONS = {'pdf', 'json', 'png', 'jpg', 'jpeg', 'gif', 'txt', 'docx', 'mp3', 'wav', 'ogg', 'm4a'}
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(PROFILE_PHOTO_FOLDER, exist_ok=True)
 
 # Telegram Configuration
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -60,7 +64,7 @@ def get_gemini_client():
 classification_retry_after = 0.0
 
 from init_db import init_db
-from ranking import calculate_rankings
+from ranking import calculate_exam_top_performers, calculate_rankings
 
 try:
     init_db()
@@ -316,8 +320,15 @@ def get_db_connection():
             return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
         except Exception as error:
             print(f"DEBUG: PostgreSQL connection failed ({error}); using SQLite.")
-    conn = sqlite3.connect(os.path.join(BASE_DIR, 'data', 'exams.db'))
+    conn = sqlite3.connect(
+        os.path.join(BASE_DIR, 'data', 'exams.db'),
+        timeout=SQLITE_BUSY_TIMEOUT_MS / 1000,
+        check_same_thread=False,
+    )
     conn.row_factory = sqlite3.Row
+    conn.execute(f'PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS}')
+    conn.execute('PRAGMA journal_mode = WAL')
+    conn.execute('PRAGMA foreign_keys = ON')
     return conn
 
 
@@ -382,6 +393,95 @@ def admin_required(function):
             return jsonify({"error": "Forbidden: Admin access required"}), 403
         return function(*args, **kwargs)
     return decorated_function
+
+
+def normalize_person_name(value):
+    return re.sub(r"\s+", " ", (value or "").strip())
+
+
+def valid_person_name(value):
+    return bool(re.fullmatch(r"[A-Za-z][A-Za-z' -]{1,49}", value or ""))
+
+
+def valid_username(value):
+    return bool(re.fullmatch(r"[a-z0-9](?:[a-z0-9_.-]{1,28}[a-z0-9])?", value or ""))
+
+
+def get_user_by_id(user_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    cursor.execute(f"SELECT * FROM users WHERE id = {param}", (user_id,))
+    user = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    return user
+
+
+def is_active_student(user):
+    return user and user['role'] == 'student' and user['account_status'] == 'ACTIVE' and user['student_code']
+
+
+def exam_access_allowed(exam_id=None):
+    if session.get('role') == 'admin':
+        return True
+    user = get_user_by_id(session.get('user_id'))
+    if not is_active_student(user):
+        return False
+    verified_user_id = session.get('exam_verified_user_id')
+    verified_exam_id = session.get('exam_verified_exam_id')
+    return verified_user_id == user['id'] and (exam_id is None or verified_exam_id == exam_id)
+
+
+def exam_access_required(function):
+    @wraps(function)
+    def decorated_function(*args, **kwargs):
+        exam_id = kwargs.get('exam_id')
+        if not exam_access_allowed(exam_id):
+            if request.path.startswith('/api/'):
+                return jsonify({"error": "Full name and student code verification is required."}), 403
+            return redirect(url_for('exam_page', exam_id=exam_id, verify='required'))
+        return function(*args, **kwargs)
+    return decorated_function
+
+
+def next_student_code(cursor):
+    cursor.execute("SELECT student_code FROM users WHERE student_code IS NOT NULL")
+    highest = 0
+    for row in cursor.fetchall():
+        match = re.fullmatch(r"ST(\d+)", str(row['student_code'] or '').upper())
+        if match:
+            highest = max(highest, int(match.group(1)))
+    while True:
+        highest += 1
+        candidate = f"ST{highest:03d}"
+        param = get_param_style()
+        cursor.execute(f"SELECT 1 FROM users WHERE student_code = {param}", (candidate,))
+        if not cursor.fetchone():
+            return candidate
+
+
+def save_profile_photo(file):
+    if not file or not file.filename:
+        raise ValueError("A 3x4 profile photograph is required.")
+    if (file.mimetype or '').lower() not in {'image/jpeg', 'image/png', 'image/webp'}:
+        raise ValueError("Profile photo must be a JPG, PNG, or WEBP image.")
+    if request.content_length and request.content_length > 6 * 1024 * 1024:
+        raise ValueError("Profile photo upload is too large.")
+    try:
+        image = Image.open(file.stream)
+        image.verify()
+        file.stream.seek(0)
+        image = Image.open(file.stream)
+        width, height = image.size
+    except Exception as error:
+        raise ValueError("The uploaded profile photo is not a valid image.") from error
+    if width < 150 or height < 200 or not 0.68 <= width / height <= 0.82:
+        raise ValueError("Profile photo must have a portrait 3x4 shape and be at least 150x200 pixels.")
+    extension = {'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp'}[file.mimetype.lower()]
+    filename = f"{uuid.uuid4().hex}{extension}"
+    file.save(os.path.join(PROFILE_PHOTO_FOLDER, filename))
+    return filename
 
 
 def get_curriculum_outline(subject_name, grade_number):
@@ -662,6 +762,14 @@ def service_worker():
 def ping():
     return "OK", 200
 
+
+@app.route('/profile-photo/<filename>')
+@login_required
+def profile_photo(filename):
+    if not re.fullmatch(r"[a-f0-9]{32}\.(?:jpg|png|webp)", filename or ''):
+        return "Not found", 404
+    return send_from_directory(PROFILE_PHOTO_FOLDER, filename)
+
 # ============================================
 # AUTHENTICATION ROUTES
 # ============================================
@@ -669,12 +777,25 @@ def ping():
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
-        username = request.form['username'].strip().lower()
-        password = request.form['password']
-        telegram_id = request.form.get('telegram_id', '').strip()
+        first_name = normalize_person_name(request.form.get('first_name'))
+        last_name = normalize_person_name(request.form.get('last_name'))
+        username = request.form.get('username', '').strip().lower()
+        password = request.form.get('password', '')
+        photo = request.files.get('profile_photo')
 
-        if not username or not password:
-            flash("All fields are required", "error")
+        if not valid_person_name(first_name) or not valid_person_name(last_name):
+            flash("Enter a valid first and last name using 2 to 50 letters.", "error")
+            return render_template('signup.html')
+        if not valid_username(username):
+            flash("Username must be 3-30 characters using lowercase letters, numbers, dots, dashes, or underscores.", "error")
+            return render_template('signup.html')
+        if len(password) < 8 or not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
+            flash("Password must be at least 8 characters and include a letter and a number.", "error")
+            return render_template('signup.html')
+        try:
+            profile_photo_name = save_profile_photo(photo)
+        except ValueError as error:
+            flash(str(error), "error")
             return render_template('signup.html')
         
         conn = get_db_connection()
@@ -682,14 +803,21 @@ def signup():
         param = get_param_style()
         try:
             cursor.execute(
-                f'INSERT INTO users (username, password_hash, telegram_id, is_verified) VALUES ({param}, {param}, {param}, {param})', 
-                (username, generate_password_hash(password), telegram_id, 1)
+                f'''INSERT INTO users
+                    (username, password_hash, role, first_name, last_name, profile_photo,
+                     account_status, is_verified, registered_at)
+                    VALUES ({param}, {param}, {param}, {param}, {param}, {param}, {param}, {param}, CURRENT_TIMESTAMP)''',
+                (username, generate_password_hash(password), 'student', first_name, last_name,
+                 profile_photo_name, 'PENDING_APPROVAL', 0)
             )
             conn.commit()
-            flash("Signup success! Please login.", "success")
+            flash("Registration submitted. An administrator must approve your account before you can log in.", "success")
             return redirect(url_for('login'))
-        except Exception as e:
-            flash("Username already taken", "error")
+        except Exception:
+            conn.rollback()
+            if os.path.exists(os.path.join(PROFILE_PHOTO_FOLDER, profile_photo_name)):
+                os.remove(os.path.join(PROFILE_PHOTO_FOLDER, profile_photo_name))
+            flash("That username is already registered. Choose another username.", "error")
         finally:
             cursor.close()
             conn.close()
@@ -710,6 +838,13 @@ def login():
         conn.close()
         
         if user and check_password_hash(user['password_hash'], password):
+            if user['role'] == 'student' and user['account_status'] != 'ACTIVE':
+                status_message = {
+                    'PENDING_APPROVAL': "Your registration is waiting for administrator approval.",
+                    'REJECTED': "Your registration was rejected. Please contact an administrator.",
+                }.get(user['account_status'], "Your account is not active yet.")
+                flash(status_message, "error")
+                return render_template('login.html')
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['role'] = user['role']
@@ -734,7 +869,20 @@ def index():
 @app.route('/eduvault-system')
 @login_required
 def eduvault_system():
-    return render_template('eduvault_system.html')
+    student_profile = None
+    if session.get('role') == 'student':
+        user = get_user_by_id(session['user_id'])
+        if is_active_student(user):
+            student_profile = {
+                'code': user['student_code'],
+                'name': normalize_person_name(f"{user['first_name']} {user['last_name']}"),
+                'photo': url_for('profile_photo', filename=user['profile_photo']) if user['profile_photo'] else '',
+            }
+    return render_template(
+        'eduvault_system.html',
+        flask_role=session.get('role', ''),
+        flask_student=student_profile,
+    )
 
 @app.route('/resources')
 @login_required
@@ -759,7 +907,31 @@ def chapters_page(subject):
 @app.route('/exam/<int:exam_id>')
 @login_required
 def exam_page(exam_id):
-    return render_template('exam.html', exam_id=exam_id)
+    return render_template('exam.html', exam_id=exam_id, exam_access_granted=exam_access_allowed(exam_id), verify_required=request.args.get('verify') == 'required')
+
+
+@app.route('/exam/<int:exam_id>/verify', methods=['POST'])
+@login_required
+def verify_exam_identity(exam_id):
+    if session.get('role') == 'admin':
+        session['exam_verified_user_id'] = session['user_id']
+        session['exam_verified_exam_id'] = exam_id
+        return redirect(url_for('exam_page', exam_id=exam_id))
+    user = get_user_by_id(session['user_id'])
+    full_name = normalize_person_name(request.form.get('full_name'))
+    student_code = request.form.get('student_code', '').strip().upper()
+    expected_name = normalize_person_name(f"{user['first_name']} {user['last_name']}") if user else ''
+    if not is_active_student(user):
+        flash("Your account must be approved before entering an examination.", "error")
+    elif full_name.casefold() != expected_name.casefold():
+        flash("Full name does not match the approved student profile.", "error")
+    elif student_code != str(user['student_code']).upper():
+        flash("Student code is invalid for this account. Obtain the code from an administrator.", "error")
+    else:
+        session['exam_verified_user_id'] = user['id']
+        session['exam_verified_exam_id'] = exam_id
+        return redirect(url_for('exam_page', exam_id=exam_id))
+    return redirect(url_for('exam_page', exam_id=exam_id, verify='required'))
 
 @app.route('/result/<int:result_id>')
 @login_required
@@ -789,6 +961,173 @@ def review_pending_exam_page(pending_exam_id):
 # ============================================
 # API ENDPOINTS
 # ============================================
+
+@app.route('/api/admin/students/pending', methods=['GET'])
+@admin_required
+def get_pending_students():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, first_name, last_name, username, profile_photo,
+               registered_at, account_status
+        FROM users
+        WHERE role = 'student' AND account_status = 'PENDING_APPROVAL'
+        ORDER BY registered_at ASC, id ASC
+    """)
+    students = []
+    for row in cursor.fetchall():
+        item = dict(row)
+        item['full_name'] = normalize_person_name(f"{item.get('first_name') or ''} {item.get('last_name') or ''}")
+        item['photo_url'] = url_for('profile_photo', filename=item['profile_photo']) if item.get('profile_photo') else None
+        students.append(item)
+    cursor.close()
+    conn.close()
+    return jsonify(students)
+
+
+@app.route('/api/admin/students', methods=['POST'])
+@admin_required
+def add_student_by_admin():
+    data = request.get_json(silent=True) or request.form
+    first_name = normalize_person_name(data.get('first_name'))
+    last_name = normalize_person_name(data.get('last_name'))
+    username = str(data.get('username') or '').strip().lower()
+    password = str(data.get('password') or '')
+
+    if not valid_person_name(first_name) or not valid_person_name(last_name):
+        return jsonify({"success": False, "error": "Enter a valid first and last name."}), 400
+    if not valid_username(username):
+        return jsonify({"success": False, "error": "Username must use lowercase letters, numbers, dots, dashes, or underscores."}), 400
+    if len(password) < 8 or not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
+        return jsonify({"success": False, "error": "Password must be at least 8 characters and include a letter and a number."}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    try:
+        cursor.execute(f"SELECT id FROM users WHERE username = {param}", (username,))
+        if cursor.fetchone():
+            return jsonify({"success": False, "error": "That username is already registered."}), 409
+
+        code = next_student_code(cursor)
+        insert_sql = f'''
+            INSERT INTO users
+                (username, password_hash, role, first_name, last_name, student_code,
+                 account_status, is_verified, registered_at, approved_at)
+            VALUES ({param}, {param}, {param}, {param}, {param}, {param},
+                    {param}, {param}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        '''
+        cursor.execute(insert_sql, (
+            username, generate_password_hash(password), 'student', first_name,
+            last_name, code, 'ACTIVE', 1
+        ))
+        conn.commit()
+        return jsonify({
+            "success": True,
+            "message": "Student added and activated successfully.",
+            "student_code": code,
+            "username": username,
+            "full_name": normalize_person_name(f"{first_name} {last_name}")
+        }), 201
+    except Exception as error:
+        conn.rollback()
+        return jsonify({"success": False, "error": str(error)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/admin/students/<int:user_id>/approve', methods=['POST'])
+@admin_required
+def approve_student(user_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    try:
+        cursor.execute(f"SELECT id, role, account_status, student_code FROM users WHERE id = {param}", (user_id,))
+        student = cursor.fetchone()
+        if not student or student['role'] != 'student':
+            return jsonify({"success": False, "error": "Student registration not found."}), 404
+        if student['account_status'] == 'ACTIVE' and student['student_code']:
+            return jsonify({"success": True, "student_code": student['student_code'], "message": "Student is already approved."})
+        if student['account_status'] != 'PENDING_APPROVAL':
+            return jsonify({"success": False, "error": "Only pending registrations can be approved."}), 409
+        code = next_student_code(cursor)
+        cursor.execute(f"""
+            UPDATE users
+            SET account_status = {param}, student_code = {param}, is_verified = {param}, approved_at = CURRENT_TIMESTAMP
+            WHERE id = {param} AND role = 'student' AND account_status = 'PENDING_APPROVAL'
+        """, ('ACTIVE', code, 1, user_id))
+        if cursor.rowcount != 1:
+            conn.rollback()
+            return jsonify({"success": False, "error": "Registration changed before approval. Refresh and try again."}), 409
+        conn.commit()
+        return jsonify({"success": True, "student_code": code, "message": "Student approved and code generated."})
+    except Exception as error:
+        conn.rollback()
+        return jsonify({"success": False, "error": str(error)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/admin/students/<int:user_id>/reject', methods=['POST'])
+@admin_required
+def reject_student(user_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    try:
+        cursor.execute(f"""
+            UPDATE users
+            SET account_status = {param}, is_verified = {param}, rejected_at = CURRENT_TIMESTAMP
+            WHERE id = {param} AND role = 'student' AND account_status = 'PENDING_APPROVAL'
+        """, ('REJECTED', 0, user_id))
+        if cursor.rowcount != 1:
+            conn.rollback()
+            return jsonify({"success": False, "error": "Only pending registrations can be rejected."}), 409
+        conn.commit()
+        return jsonify({"success": True, "message": "Student registration rejected."})
+    except Exception as error:
+        conn.rollback()
+        return jsonify({"success": False, "error": str(error)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/profile', methods=['GET'])
+@login_required
+def get_profile():
+    user = get_user_by_id(session['user_id'])
+    if not user:
+        return jsonify({"error": "Account not found."}), 404
+    profile = dict(user)
+    profile.pop('password_hash', None)
+    profile['full_name'] = normalize_person_name(f"{profile.get('first_name') or ''} {profile.get('last_name') or ''}")
+    if profile.get('profile_photo'):
+        profile['photo_url'] = url_for('profile_photo', filename=profile['profile_photo'])
+    return jsonify(profile)
+
+
+@app.route('/api/verify-student-identity', methods=['POST'])
+@login_required
+def verify_student_identity():
+    if session.get('role') != 'student':
+        return jsonify({"success": False, "error": "Student verification is only available for student accounts."}), 403
+    data = request.get_json(silent=True) or {}
+    full_name = normalize_person_name(data.get('full_name'))
+    student_code = str(data.get('student_code') or '').strip().upper()
+    user = get_user_by_id(session['user_id'])
+    expected_name = normalize_person_name(f"{user['first_name']} {user['last_name']}") if user else ''
+    if not is_active_student(user):
+        return jsonify({"success": False, "error": "Your account is not approved or active."}), 403
+    if full_name.casefold() != expected_name.casefold():
+        return jsonify({"success": False, "error": "Full name does not match your registered account."}), 403
+    if student_code != str(user['student_code']).upper():
+        return jsonify({"success": False, "error": "Student Code is invalid for this account."}), 403
+    session['unified_exam_verified_user_id'] = user['id']
+    return jsonify({"success": True, "student": {"code": user['student_code'], "name": expected_name, "photo": url_for('profile_photo', filename=user['profile_photo']) if user['profile_photo'] else ''}})
 
 @app.route('/api/verify-task', methods=['POST'])
 def verify_social_task():
@@ -881,6 +1220,7 @@ def get_exams():
 
 @app.route('/api/exams/<int:exam_id>/questions', methods=['GET'])
 @login_required
+@exam_access_required
 def get_questions(exam_id):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -1083,24 +1423,40 @@ def get_chapter_questions(chapter_id):
 @app.route('/api/rankings', methods=['GET'])
 @login_required
 def get_rankings():
-    """Return the server-calculated Top 3 and the logged-in student's rank."""
+    """Return platform rankings and the highest performer for each exam."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('''
-        SELECT r.id, r.user_id, u.username, r.score, r.total_questions,
-               r.accuracy, r.date_attempted
+    param = get_param_style()
+    exam_id = request.args.get('exam_id')
+    filter_sql = ''
+    values = []
+    if exam_id:
+        try:
+            values.append(int(exam_id))
+            filter_sql = f' AND r.exam_id = {param}'
+        except ValueError:
+            return jsonify({"error": "Invalid exam_id."}), 400
+    cursor.execute(f'''
+        SELECT r.id, r.user_id, r.exam_id, u.username, r.score, r.total_questions,
+               r.accuracy, r.date_attempted, e.title AS exam_title,
+               CASE WHEN LOWER(e.resource_type) LIKE '%entrance%' OR LOWER(e.category) LIKE '%entrance%'
+                    THEN 'entrance' ELSE 'mock' END AS exam_type
         FROM user_results r
         JOIN users u ON u.id = r.user_id
-        WHERE u.role = 'student'
+        JOIN exams e ON e.id = r.exam_id
+        WHERE u.role = 'student'{filter_sql}
         ORDER BY r.date_attempted ASC, r.id ASC
-    ''')
+    ''', values)
     rows = [dict(row) for row in cursor.fetchall()]
     cursor.close()
     conn.close()
-    return jsonify(calculate_rankings(rows, current_user_id=session['user_id']))
+    response = calculate_rankings(rows, current_user_id=session['user_id'])
+    response['top_performers_by_exam'] = calculate_exam_top_performers(rows)
+    return jsonify(response)
 
 @app.route('/api/results/submit', methods=['POST'])
 @login_required
+@exam_access_required
 def submit_exam_results():
     data = request.get_json(silent=True) or {}
     conn = get_db_connection()
@@ -2705,4 +3061,4 @@ if __name__ == '__main__':
     if not os.path.exists('uploads'):
         os.makedirs('uploads')
     debug_mode = os.getenv('FLASK_DEBUG', '0') == '1'
-    app.run(debug=debug_mode, port=5000)
+    app.run(debug=debug_mode, threaded=True, port=5000)

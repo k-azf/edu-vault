@@ -516,7 +516,7 @@ function home(){
 function profile(){
  document.getElementById("app").innerHTML=`<div class="card"><h2>Student Profile</h2><p class="muted">This information is saved on this device. Your exam scores can also sync to Firebase when internet is available.</p>
  <div class="grid"><div>
- <div class="field"><label>Student code *</label><input id="pcode" value="${esc(student.code)}" placeholder="e.g. EV-001"></div>
+ <div class="field"><label>Student code issued by administrator</label><input id="pcode" value="${esc(student.code)}" readonly aria-readonly="true"></div>
  <div class="field"><label>Full name *</label><input id="pname" value="${esc(student.name)}"></div>
  <div class="field"><label>Sex</label><select id="psex"><option value="">Select</option><option ${student.sex==="MALE"?"selected":""}>MALE</option><option ${student.sex==="FEMALE"?"selected":""}>FEMALE</option></select></div>
  <div class="field"><label>Age</label><input id="pagev" type="number" value="${esc(student.age)}"></div>
@@ -711,7 +711,10 @@ async function weekly(){
   }catch(e){console.warn("Student result sync unavailable",e);}
  }
  const bySubject={};
- mine.forEach(r=>{if(!bySubject[r.subject])bySubject[r.subject]=r;});
+ mine.forEach(r=>{
+   const previous=bySubject[r.subject];
+   if(!previous||Number(r.score??r.percent??0)>Number(previous.score??previous.percent??0))bySubject[r.subject]=r;
+ });
  const completedSubjects=SUBJECTS.filter(s=>bySubject[s]);
  const allCompleted=completedSubjects.length===SUBJECTS.length;
 
@@ -1211,7 +1214,7 @@ setTimeout(syncPending,1500);
   <div class="roleBox">
     <div class="mark" style="margin-bottom:12px">EV</div>
     <h1 class="roleTitle">EduVault</h1>
-    <p class="roleSub">Choose your access type. Admin uses a normal username and password; Student uses Student Code + Username. Firebase is used for exam results only.</p>
+    <p class="roleSub">Your EduVault account is already authenticated. Students must verify the Student Code issued by an administrator before entering the examination workspace.</p>
     <div class="roleBtns">
       <button class="roleBtn" id="studentRoleBtn" type="button">🎓 Student</button>
       <button class="roleBtn admin" id="adminRoleBtn" type="button">🛡️ Admin</button>
@@ -1223,8 +1226,8 @@ setTimeout(syncPending,1500);
         <input id="studentCodeInput" autocomplete="off" placeholder="Enter Student Code">
       </div>
       <div class="field">
-        <label for="studentUsernameInput">Name</label>
-        <input id="studentUsernameInput" autocomplete="name" placeholder="Enter your user name">
+        <label for="studentUsernameInput">Full Name</label>
+        <input id="studentUsernameInput" autocomplete="name" placeholder="Enter your full name">
       </div>
       <button class="primary" id="studentEnterBtn" type="button">Enter as Student</button>
       <p id="studentMsg" class="muted small" style="margin-top:10px"></p>
@@ -1249,8 +1252,8 @@ setTimeout(syncPending,1500);
 
 <script>
 (function(){
-  const ADMIN_USERNAME="Admin";
-  const ADMIN_PASSWORD="1234";
+  const SERVER_ROLE={{ flask_role|default('', true)|tojson }};
+  const SERVER_STUDENT={{ flask_student|default({}, true)|tojson }};
 
   const gate=document.getElementById("roleGate");
   const studentPanel=document.getElementById("studentPanel");
@@ -1282,31 +1285,25 @@ setTimeout(syncPending,1500);
     const code=document.getElementById("studentCodeInput").value.trim();
     const username=document.getElementById("studentUsernameInput").value.trim();
     const msg=document.getElementById("studentMsg");
-    if(!code||!username){msg.textContent="Please enter Student Code and username.";return;}
+    if(!code||!username){msg.textContent="Please enter Student Code and full name.";return;}
     this.disabled=true; this.textContent="Checking…"; msg.textContent="";
     try{
-      const list=await syncStudentsFromCloud();
-      const found=list.find(x=>String(x.code||x.studentCode||"").trim().toLowerCase()===code.toLowerCase());
-      if(!found){msg.textContent="Student Code is not registered. Ask the Admin.";return;}
-      const registeredName=String(found.name||found.studentName||"").trim();
-      if(!registeredName||registeredName.toLowerCase()!==username.toLowerCase()){
-        msg.textContent="Student Code or username is incorrect.";return;
-      }
-      student={...student,...found,code:found.code,name:registeredName};
+      const response=await fetch('/api/verify-student-identity',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({full_name:username,student_code:code})});
+      const result=await response.json();
+      if(!response.ok||!result.success){msg.textContent=result.error||"Student identity verification failed.";return;}
+      student={...student,...result.student,code:result.student.code,name:result.student.name};
       save(LS.student,student);
-      enter("student",found.code); page="home"; render();
+      enter("student",result.student.code); page="home"; render();
     }catch(e){console.error("Student login failed",e);msg.textContent="Could not verify student: "+e.message;}
     finally{this.disabled=false;this.textContent="Enter as Student";}
   };
 
   document.getElementById("adminEnterBtn").onclick=function(){
-    const u=document.getElementById("adminUsernameInput").value.trim();
-    const p=document.getElementById("adminPasswordInput").value;
-    if(u===ADMIN_USERNAME && p===ADMIN_PASSWORD){
+    if(SERVER_ROLE==="admin"){
       adminMsg.textContent="";
       enter("admin",""); page="adminDashboard"; render();
     }else{
-      adminMsg.textContent="Incorrect Admin username or password.";
+      adminMsg.textContent="Administrator access requires an approved Flask admin session.";
     }
   };
 
@@ -1330,11 +1327,20 @@ setTimeout(syncPending,1500);
     }
   };
 
-  const saved=sessionStorage.getItem("eduVaultRole");
-  if(saved==="student"||saved==="admin"){
-     enter(saved,sessionStorage.getItem("eduVaultStudentCode")||"");
-     if(saved==="admin"){page="adminDashboard";render();}
-   }
+    if(SERVER_ROLE==="admin"){
+      enter("admin",""); page="adminDashboard"; render();
+    } else if(SERVER_ROLE==="student"){
+      studentPanel.hidden=true; adminPanel.hidden=true;
+      if(SERVER_STUDENT?.code){
+        student={...student,...SERVER_STUDENT};
+        save(LS.student,student);
+        enter("student",SERVER_STUDENT.code);
+        page="home";
+        render();
+      } else {
+        studentPanel.hidden=false;
+      }
+    }
 })();
 </script>
 
@@ -1473,8 +1479,12 @@ function home(){
 }
 
 async function weeklyExam(){
- const done=new Set(getTypeResults("entrance").map(r=>r.subject));
- document.getElementById("app").innerHTML=`<section class="hero"><h1>Entrance Examination</h1><p>Entrance exam packages are separate from Mock Examination packages.</p></section><div class="card">${SUBJECTS.map(s=>{const e=getPackage("entrance",s),d=done.has(s);return `<div class="subject"><div><strong>${s}</strong><div class="muted small">${esc(e?.title||"Not installed")} • ${e?.questions?.length||0} questions</div></div><button class="${d?"secondary":"primary"}" ${d?"disabled":""} onclick="startExamV2('${s}','entrance')">${d?"Submitted":"Start"}</button></div>`}).join("")}</div>`;
+ const latest=new Map();
+ getTypeResults("entrance").forEach(result=>{
+   const previous=latest.get(result.subject);
+   if(!previous||String(result.submittedAt||"")>String(previous.submittedAt||""))latest.set(result.subject,result);
+ });
+ document.getElementById("app").innerHTML=`<section class="hero"><h1>Entrance Examination</h1><p>Submit an entrance subject, view the result, and retake it whenever you need. The highest score for the current entrance package remains the top performance until the next upload.</p></section><div class="card">${SUBJECTS.map(s=>{const e=getPackage("entrance",s),r=latest.get(s);return `<div class="subject"><div><strong>${s}</strong><div class="muted small">${esc(e?.title||"Not installed")} • ${e?.questions?.length||0} questions</div>${r?`<div class="subjectSubmitted">Last result: ${Number(r.percent??r.score??0).toFixed(1)}% • Retake available</div>`:""}</div><button class="primary" ${!e?.questions?.length?"disabled":""} onclick="startExamV2('${s}','entrance')">${r?"Retake Entrance":"Start"}</button></div>`}).join("")}</div>`;
 }
 async function mockExamPage(){
  const mine=new Map(getTypeResults("mock").map(r=>[r.subject,r]));
@@ -1598,7 +1608,7 @@ async function deleteExamPackage(type,subject){
 const oldAdminDashboard=adminDashboard;
 adminDashboard=async function(){
  if(!window.EduVaultAccess?.requireAdmin())return;
- document.getElementById("app").innerHTML=`<section class="hero"><h1>Admin Dashboard</h1><p>Control Entrance and Mock examinations, student performance, PASS/FAILED status, submitted time and results.</p></section><div class="grid"><div class="card"><h3>Students</h3><div id="dashStudents" class="bigscore">—</div></div><div class="card"><h3>Entrance Attempts</h3><div id="dashEntrance" class="bigscore">—</div></div><div class="card"><h3>Mock Attempts</h3><div id="dashMock" class="bigscore">—</div></div><div class="card"><h3>Average Performance</h3><div id="dashAverage" class="bigscore">—</div></div></div><div class="grid" style="margin-top:14px"><div class="card"><h2>Students & Results</h2><button class="primary" onclick="page='adminStudents';render()">Manage Students</button></div><div class="card"><h2>Exam Upload</h2><button class="primary" onclick="page='admin';render()">Manage Entrance & Mock Files</button></div></div><div class="card" style="margin-top:14px"><h2>Latest Results</h2><div id="dashLatest">Loading…</div></div>`;
+  document.getElementById("app").innerHTML=`<section class="hero"><h1>Admin Dashboard</h1><p>Control Entrance and Mock examinations, student performance, PASS/FAILED status, submitted time and results.</p></section><div class="grid"><div class="card"><h3>Students</h3><div id="dashStudents" class="bigscore">—</div></div><div class="card"><h3>Entrance Attempts</h3><div id="dashEntrance" class="bigscore">—</div></div><div class="card"><h3>Mock Attempts</h3><div id="dashMock" class="bigscore">—</div></div><div class="card"><h3>Average Performance</h3><div id="dashAverage" class="bigscore">—</div></div></div><div class="grid" style="margin-top:14px"><div class="card"><h2>Student Approvals</h2><p class="muted">Review Flask registrations, approve accounts, and issue permanent Student Codes.</p><button class="primary" onclick="window.location.href='/admin'">Open Approval Console</button></div><div class="card"><h2>Students & Results</h2><button class="primary" onclick="page='adminStudents';render()">Manage Students</button></div><div class="card"><h2>Exam Upload</h2><button class="primary" onclick="page='admin';render()">Manage Entrance & Mock Files</button></div></div><div class="card" style="margin-top:14px"><h2>Top Performer by Current Exam</h2><div id="dashTopPerformers">Loading…</div></div><div class="card" style="margin-top:14px"><h2>Latest Results</h2><div id="dashLatest">Loading…</div></div>`;
  try{
   const sts=await syncStudentsFromCloud();let rs=[];
   if(db&&online&&await ensureFirebaseAuth()){const sn=await db.collection("results").get();rs=sn.docs.map(d=>({...d.data(),id:d.id}))}else rs=results;
@@ -1606,6 +1616,16 @@ adminDashboard=async function(){
   document.getElementById("dashEntrance").textContent=rs.filter(r=>r.examType==="entrance"||!r.examType).length;
   document.getElementById("dashMock").textContent=rs.filter(r=>r.examType==="mock").length;
   document.getElementById("dashAverage").textContent=(rs.length?rs.reduce((a,r)=>a+Number(r.score||0),0)/rs.length:0).toFixed(1)+"%";
+  const currentIds=new Set();
+  ["entrance","mock"].forEach(type=>Object.values(examPackages[type]||{}).forEach(exam=>{if(exam?.id)currentIds.add(String(exam.id))}));
+  const bestByExam=new Map();
+  rs.filter(r=>!r.examId||currentIds.has(String(r.examId))).forEach(r=>{
+    const key=`${r.examType||"entrance"}|${r.subject||"General"}|${r.examId||r.subject||"exam"}`;
+    const previous=bestByExam.get(key);
+    if(!previous||Number(r.score||r.percent||0)>Number(previous.score||previous.percent||0))bestByExam.set(key,r);
+  });
+  const topRows=[...bestByExam.values()].sort((a,b)=>Number(b.score||b.percent||0)-Number(a.score||a.percent||0));
+  document.getElementById("dashTopPerformers").innerHTML=topRows.length?`<div style="overflow:auto"><table class="table"><tr><th>Exam</th><th>Type</th><th>Top Student</th><th>Highest Score</th></tr>${topRows.map(r=>`<tr><td>${esc(r.subject||"General")}</td><td>${esc(r.examType||"entrance")}</td><td>${esc(r.studentName||r.studentCode||"—")}</td><td>${Number(r.score??r.percent??0).toFixed(1)}%</td></tr>`).join("")}</table></div>`:"<p class='muted'>No current exam results yet.</p>";
   rs.sort((a,b)=>String(b.submittedAt||"").localeCompare(String(a.submittedAt||"")));
   document.getElementById("dashLatest").innerHTML=rs.length?`<div style="overflow:auto"><table class="table"><tr><th>Student</th><th>Type</th><th>Subject</th><th>Score</th><th>Status</th><th>Time Used</th></tr>${rs.slice(0,30).map(r=>`<tr><td>${esc(r.studentName||"—")}<div class="small muted">${esc(r.studentCode||"")}</div></td><td>${esc(r.examType||"entrance")}</td><td>${esc(r.subject||"—")}</td><td>${Number(r.score||0).toFixed(1)}%</td><td>${Number(r.score||0)>=50?"PASS":"FAILED"}</td><td>${esc(r.timeUsed||"—")}</td></tr>`).join("")}</table></div>`:"<p class='muted'>No results yet.</p>";
  }catch(e){document.getElementById("dashLatest").textContent="Could not load dashboard: "+e.message}
@@ -1633,8 +1653,12 @@ function getLocalMockLast(subject){
 function setLocalMockLast(subject,submittedAt){
   try{localStorage.setItem(mockCooldownKey(subject),JSON.stringify({submittedAt}))}catch(e){}
 }
-async function getMockLastSubmit(subject){
-  let last=getLocalMockLast(subject);
+async function getMockLastSubmit(subject, examId){
+  let last=examId?0:getLocalMockLast(subject);
+  results.filter(r=>r.studentCode===student.code&&r.subject===subject&&r.examType==="mock"&&(!examId||String(r.examId||"")===String(examId))).forEach(r=>{
+    const submittedAt=r.submittedAt?new Date(r.submittedAt).getTime():0;
+    if(submittedAt>last)last=submittedAt;
+  });
   if(db&&online&&student.code){
     try{
       if(await ensureFirebaseAuth()){
@@ -1643,7 +1667,9 @@ async function getMockLastSubmit(subject){
           .where("subject","==",subject)
           .where("examType","==","mock").get();
         snap.forEach(d=>{
-          const r=d.data(),t=r.submittedAt?new Date(r.submittedAt).getTime():0;
+          const r=d.data();
+          if(examId&&String(r.examId||"")!==String(examId))return;
+          const t=r.submittedAt?new Date(r.submittedAt).getTime():0;
           if(t>last)last=t;
         });
       }
@@ -1651,8 +1677,8 @@ async function getMockLastSubmit(subject){
   }
   return last;
 }
-async function getMockCooldown(subject){
-  const last=await getMockLastSubmit(subject);
+async function getMockCooldown(subject, examId){
+  const last=await getMockLastSubmit(subject, examId);
   if(!last)return 0;
   return Math.max(0,3600000-(Date.now()-last));
 }
@@ -1663,21 +1689,21 @@ function cooldownFmt(ms){
   return (h?String(h).padStart(2,"0")+":":"")+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
 }
 
-/* Mock page now enforces the one-hour retake limit. */
+/* Mock retakes are allowed; rankings use the highest score for each exam package. */
 async function mockExamPage(){
   const rows=[];
   for(const s of SUBJECTS){
     const e=getPackage("mock",s);
     const r=results.filter(x=>x.studentCode===student.code&&x.subject===s&&x.examType==="mock")
                    .sort((a,b)=>new Date(b.submittedAt||0)-new Date(a.submittedAt||0))[0];
-    const cooldown=r?await getMockCooldown(s):0;
+    const cooldown=r?await getMockCooldown(s,e?.id):0;
     rows.push(`
       <div class="subject">
         <div>
           <strong>${s}</strong>
           <div class="muted small">${esc(e?.title||"Not installed")} • ${e?.questions?.length||0} questions</div>
           ${r?`<div class="subjectSubmitted">✓ ${esc(r.status||"SUBMITTED")} • ${Number(r.percent??r.score??0).toFixed(1)}%</div>`:""}
-          ${cooldown>0?`<div class="muted small" style="margin-top:5px">Retake available in <b id="cool-${s.replace(/\W+/g,'-')}">${cooldownFmt(cooldown)}</b></div>`:""}
+          ${cooldown>0?`<div class="muted small" style="margin-top:5px">Retake available in <b>${cooldownFmt(cooldown)}</b></div>`:(r?`<div class="muted small" style="margin-top:5px">Highest score is used for this Mock exam ranking.</div>`:"")}
         </div>
         <button class="primary" ${!e?.questions?.length||cooldown>0?"disabled":""}
           onclick="startExamV2('${s}','mock')">
@@ -1688,29 +1714,29 @@ async function mockExamPage(){
   document.getElementById("app").innerHTML=`
     <section class="hero"><h1>Mock Examination</h1>
       <p>Each subject is independent. After submission, the complete result and explanations appear immediately.</p>
-      <p class="muted small">A submitted subject cannot be retaken for <b>1 hour</b>.</p>
+      <p class="muted small">You may retake a Mock exam. The highest score you achieve for each uploaded exam is the Top Student score.</p>
     </section>
     <div class="card">${rows.join("")}</div>`;
 }
 
-/* Start exam: block Mock retakes for exactly one hour. */
+/* Start exam: both exam types may be retaken after the result is shown. */
 async function startExamV2(subject,type){
   if(!student.code||!student.name){toast("Please log in with your Student Code and Name.");return}
   const raw=getPackage(type,subject);
   if(!raw){toast("No "+type+" exam package for "+subject);return}
 
+  const e=normalizeExam(JSON.parse(JSON.stringify(raw)),type);
   if(type==="mock"){
-    const cooldown=await getMockCooldown(subject);
-    if(cooldown>0){
-      toast("Retake is locked. You can retake this subject after "+cooldownFmt(cooldown)+".");
+    const cooldown=await getMockCooldown(subject,e.id);
+    if(cooldown>0){toast("Retake is locked for this uploaded Mock exam for "+cooldownFmt(cooldown)+".");return;}
+  }
+  if(type==="entrance"){
+    const currentAttempt=results.find(r=>r.studentCode===student.code&&r.subject===subject&&r.examType==="entrance"&&String(r.examId||"")===String(e.id||""));
+    if(currentAttempt&&!localStorage.getItem("ev_entrance_result_viewed_"+currentAttempt.id)){
+      showEntranceResultV2(currentAttempt);
       return;
     }
   }
-  if(type==="entrance"&&await hasCompletedSubjectType(subject,"entrance")){
-    toast("This Entrance subject is already submitted.");return
-  }
-
-  const e=normalizeExam(JSON.parse(JSON.stringify(raw)),type);
   examState={
     subject,e,examType:type,idx:0,answers:Array(e.questions.length).fill(null),
     marked:[],left:e.duration,start:Date.now(),startedAt:new Date().toISOString()
@@ -1782,8 +1808,12 @@ async function finishExamV2(timeout=false){
     showMockResultV2(r);
     return;
   }
-  page="weeklyExam";render();
-  toast(timeout?"Time finished — Entrance subject submitted.":"Entrance subject submitted.");
+  showEntranceResultV2(r);
+}
+
+function showEntranceResultV2(result){
+  localStorage.setItem("ev_entrance_result_viewed_"+result.id,"1");
+  showMockResultV2(result);
 }
 
 /* Complete Mock result screen */
@@ -1902,7 +1932,7 @@ async function downloadMockResultImage(){
     canvas.toBlob(blob=>{
       const u=URL.createObjectURL(blob),a=document.createElement("a");
       a.href=u;
-      a.download=`EduVault_Mock_Result_${student.code||"Student"}.png`;
+      a.download=`EduVault_${window.currentMockResult?.examType==="entrance"?"Entrance":"Mock"}_Result_${student.code||"Student"}.png`;
       document.body.appendChild(a);a.click();a.remove();
       setTimeout(()=>URL.revokeObjectURL(u),2000);
     },"image/png");
@@ -1934,7 +1964,8 @@ async function downloadMockResultPDF(){
     pageIf(30);doc.setFont("helvetica","bold");doc.setFontSize(15);doc.text(txt,margin,y);y+=22;
   }
 
-  doc.setFont("helvetica","bold");doc.setFontSize(22);doc.text("EDUVAULT — MOCK EXAMINATION RESULT",margin,y);y+=28;
+  const examLabel=String(r.examType||"mock").toLowerCase()==="entrance"?"ENTRANCE EXAMINATION":"MOCK EXAMINATION";
+  doc.setFont("helvetica","bold");doc.setFontSize(22);doc.text(`EDUVAULT — ${examLabel} RESULT`,margin,y);y+=28;
   text(`Student: ${student.name}`,11,true);
   text(`Student Code: ${student.code}`,10);
   text(`Subject: ${r.subject}`,10);
@@ -1959,7 +1990,7 @@ async function downloadMockResultPDF(){
   });
 
   const safe=(student.code||"Student").replace(/[^\w-]/g,"_");
-  doc.save(`EduVault_Mock_Result_${safe}.pdf`);
+  doc.save(`EduVault_${examLabel.startsWith("ENTRANCE")?"Entrance":"Mock"}_Result_${safe}.pdf`);
 }
 function stripHtml(s){
   const d=document.createElement("div");d.innerHTML=String(s??"");

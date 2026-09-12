@@ -26,6 +26,14 @@ def init_db():
                 role TEXT NOT NULL DEFAULT 'student',
                 telegram_id TEXT,
                 is_verified INTEGER DEFAULT 0,
+                first_name TEXT,
+                last_name TEXT,
+                profile_photo TEXT,
+                student_code TEXT UNIQUE,
+                account_status TEXT NOT NULL DEFAULT 'ACTIVE',
+                registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                approved_at TIMESTAMP,
+                rejected_at TIMESTAMP,
                 streak_count INTEGER DEFAULT 0,
                 last_activity TEXT,
                 daily_goal_mins INTEGER DEFAULT 30
@@ -239,6 +247,14 @@ def init_db():
 
         # --- Add missing columns if they don't exist ---
         pg_migrations = [
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT;",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT;",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo TEXT;",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS student_code TEXT UNIQUE;",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS account_status TEXT NOT NULL DEFAULT 'ACTIVE';",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP;",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMP;",
             "ALTER TABLE exams ADD COLUMN IF NOT EXISTS resource_id INTEGER REFERENCES resources(id) ON DELETE SET NULL;",
             "ALTER TABLE exams ADD COLUMN IF NOT EXISTS school_name TEXT;",
             "ALTER TABLE exams ADD COLUMN IF NOT EXISTS academic_year TEXT;",
@@ -296,6 +312,14 @@ def init_db():
                 role TEXT NOT NULL DEFAULT 'student',
                 telegram_id TEXT,
                 is_verified INTEGER DEFAULT 0,
+                first_name TEXT,
+                last_name TEXT,
+                profile_photo TEXT,
+                student_code TEXT UNIQUE,
+                account_status TEXT NOT NULL DEFAULT 'ACTIVE',
+                registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                approved_at TIMESTAMP,
+                rejected_at TIMESTAMP,
                 streak_count INTEGER DEFAULT 0,
                 last_activity TEXT,
                 daily_goal_mins INTEGER DEFAULT 30
@@ -455,6 +479,14 @@ def init_db():
 
         # Local SQLite Migrations
         sqlite_migrations = [
+            ("users", "ADD COLUMN first_name TEXT"),
+            ("users", "ADD COLUMN last_name TEXT"),
+            ("users", "ADD COLUMN profile_photo TEXT"),
+            ("users", "ADD COLUMN student_code TEXT"),
+            ("users", "ADD COLUMN account_status TEXT NOT NULL DEFAULT 'ACTIVE'"),
+            ("users", "ADD COLUMN registered_at TIMESTAMP"),
+            ("users", "ADD COLUMN approved_at TIMESTAMP"),
+            ("users", "ADD COLUMN rejected_at TIMESTAMP"),
             ("exams", "ADD COLUMN resource_id INTEGER REFERENCES resources(id) ON DELETE SET NULL"),
             ("exams", "ADD COLUMN school_name TEXT"),
             ("exams", "ADD COLUMN academic_year TEXT"),
@@ -481,6 +513,10 @@ def init_db():
                 cursor.execute(f"ALTER TABLE {table} {action};")
             except sqlite3.OperationalError:
                 pass
+
+        cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_student_code ON users(student_code) WHERE student_code IS NOT NULL")
+        cursor.execute("UPDATE users SET account_status = 'ACTIVE' WHERE account_status IS NULL OR account_status = ''")
+        cursor.execute("UPDATE users SET registered_at = CURRENT_TIMESTAMP WHERE registered_at IS NULL")
 
         # Seed Default Administrator for SQLite
         cursor.execute("SELECT * FROM users WHERE username = 'admin'")

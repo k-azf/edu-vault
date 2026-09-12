@@ -1,7 +1,30 @@
 {% extends 'base.html' %}
 {% block content %}
+{% if not exam_access_granted %}
+<section class="max-w-lg mx-auto px-6 py-16">
+    <div class="bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900 rounded-3xl shadow-xl p-6 sm:p-8">
+        <span class="text-[10px] font-black uppercase tracking-widest text-amber-600">Exam identity check</span>
+        <h1 class="text-2xl font-black text-slate-900 dark:text-white mt-2">Verify your student account</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Enter the full name registered on your approved account and the Student Code issued by an administrator. Students cannot create or edit their own code.</p>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, msg in messages %}<div class="mt-4 p-3 rounded-xl text-xs font-semibold bg-red-100 text-red-800">{{ msg }}</div>{% endfor %}
+          {% endif %}
+        {% endwith %}
+        <form method="POST" action="{{ url_for('verify_exam_identity', exam_id=exam_id) }}" class="space-y-4 mt-6">
+            <label class="block text-xs font-bold text-slate-500">Full Name
+                <input name="full_name" required autocomplete="name" class="mt-1 w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-white" />
+            </label>
+            <label class="block text-xs font-bold text-slate-500">Student Code
+                <input name="student_code" required pattern="ST[0-9]{3,}" autocomplete="off" placeholder="Issued by administrator" class="mt-1 w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-white" />
+            </label>
+            <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider p-4 rounded-xl">Verify and enter exam</button>
+        </form>
+    </div>
+</section>
+{% endif %}
 <!-- Exam Interface with Sidebar -->
-<div class="exam-shell grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-screen relative">
+<div class="exam-shell grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-screen relative{% if not exam_access_granted %} hidden{% endif %}">
 
     <!-- Left Sidebar: Question Navigator -->
     <aside class="lg:col-span-3 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 p-6 flex flex-col justify-between lg:sticky lg:top-20 lg:h-[calc(100vh-5rem)]">
@@ -54,6 +77,7 @@
 
 <script>
     const examId = "{{ exam_id }}";
+    const examAccessGranted = {{ 'true' if exam_access_granted else 'false' }};
     let timeLeft = 0;
     let timerId;
     let totalQuestions = 0;
@@ -63,7 +87,7 @@
     let examDurationSeconds = 0;
     const submittedAnswers = {};
 
-    Promise.all([
+    if (examAccessGranted) Promise.all([
         fetch('/api/exams').then(res => res.json()),
         fetch(`/api/exams/${examId}/questions`).then(res => res.json())
     ])
