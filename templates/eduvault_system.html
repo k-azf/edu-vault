@@ -1213,7 +1213,7 @@ async function deleteStudent(id,code){
 
 function admin(){
  document.getElementById("app").innerHTML=`<section class="hero"><h1>Exam Files</h1><p>Import a prepared EduVault exam HTML file without changing this main system.</p></section>
- <div class="card"><h2>Import exam HTML</h2><p class="muted">The exam HTML must contain a JSON block like <b>&lt;script id="eduvault-exam-data" type="application/json"&gt;...&lt;/script&gt;</b>. The imported exam replaces only that subject in this device.</p>
+ <div class="card"><h2>Import exam HTML</h2><p class="muted">The exam HTML must contain a JSON block like <b>&lt;script id="eduvault-exam-data" type="application/json"&gt;...&lt;/script&gt;</b>. Imported exams are saved online for all student devices when internet is available.</p>
  <div class="field"><label>Select exam HTML file</label><input id="examfile" type="file" accept=".html,.htm"></div><button class="primary" onclick="importExam()">Import</button></div>
  <div class="card" style="margin-top:14px"><h2>Current packages</h2>${SUBJECTS.map(s=>`<div class="subject"><div><b>${s}</b><div class="small muted">${esc(exams[s]?.title||"Not installed")} • ${exams[s]?.questions?.length||0} questions</div></div><span class="pill">${exams[s]?.id||"—"}</span></div>`).join("")}
  <div class="row"><button class="danger" onclick="resetExams()">Reset demo exams</button></div></div>`;
@@ -1222,7 +1222,16 @@ async function importExam(){
  let f=document.getElementById("examfile").files[0];if(!f){toast("Choose an HTML file");return}
  try{let text=await f.text(),doc=new DOMParser().parseFromString(text,"text/html"),el=doc.getElementById("eduvault-exam-data");if(!el)throw Error("Missing eduvault-exam-data");
   let e=JSON.parse(el.textContent.trim());if(!e.subject||!e.questions?.length)throw Error("Exam needs subject and questions");
-  exams[e.subject]=e;save(LS.exams,exams);toast(e.subject+" exam imported");render();
+  exams[e.subject]=e;save(LS.exams,exams);
+  if(typeof normalizeExam==="function"&&typeof setPackage==="function"){
+   const sharedExam=normalizeExam({...e},"entrance");
+   setPackage("entrance",sharedExam);
+   if(typeof publishExamPackageCloud==="function"){
+    const synced=await publishExamPackageCloud("entrance",sharedExam);
+    toast(synced?e.subject+" exam imported and synced online":e.subject+" exam imported locally; sync unavailable");
+   }else toast(e.subject+" exam imported");
+  }else toast(e.subject+" exam imported locally");
+  render();
  }catch(err){toast("Import failed: "+err.message)}
 }
 function resetExams(){exams=SAMPLE_EXAMS;save(LS.exams,exams);toast("Demo exams restored");render()}
@@ -2057,7 +2066,10 @@ async function syncExamPackagesCloud(){
     const snap=await db.collection("examPackages").get();
     let changed=false;
     snap.forEach(d=>{const x=d.data()||{};if(x.type&&x.subject&&x.exam){examPackages[x.type]=examPackages[x.type]||{};const local=examPackages[x.type][x.subject];if(!local||String(x.updatedAt||"")>String(local.updatedAt||"")){examPackages[x.type][x.subject]=normalizeExam(x.exam,x.type);examPackages[x.type][x.subject].updatedAt=x.updatedAt||"";changed=true;}}});
-    if(changed)EVU.savePackages(examPackages);
+    if(changed){
+      EVU.savePackages(examPackages);
+      if(!examState)render();
+    }
   }catch(e){console.warn("Exam package cloud sync failed",e)}
 }
 async function publishExamPackageCloud(type,e){
