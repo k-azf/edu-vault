@@ -395,6 +395,24 @@ def admin_required(function):
     return decorated_function
 
 
+def unified_account_required(function):
+    @wraps(function)
+    def decorated_function(*args, **kwargs):
+        if not session.get('unified_account_id'):
+            return jsonify({"error": "Unified System login is required."}), 401
+        return function(*args, **kwargs)
+    return decorated_function
+
+
+def unified_admin_required(function):
+    @wraps(function)
+    def decorated_function(*args, **kwargs):
+        if session.get('unified_role') != 'admin':
+            return jsonify({"error": "Unified System administrator access is required."}), 403
+        return function(*args, **kwargs)
+    return decorated_function
+
+
 def normalize_person_name(value):
     return re.sub(r"\s+", " ", (value or "").strip())
 
@@ -405,6 +423,18 @@ def valid_person_name(value):
 
 def valid_username(value):
     return bool(re.fullmatch(r"[a-z0-9](?:[a-z0-9_.-]{1,28}[a-z0-9])?", value or ""))
+
+
+def unified_account_dict(row):
+    account = dict(row)
+    account.pop('password_hash', None)
+    account['name'] = normalize_person_name(
+        f"{account.get('first_name') or ''} {account.get('last_name') or ''}"
+    )
+    account['code'] = account.get('student_code') or ''
+    account['studentCode'] = account.get('student_code') or ''
+    account['studentName'] = account['name']
+    return account
 
 
 def get_user_by_id(user_id):
@@ -770,6 +800,176 @@ def profile_photo(filename):
         return "Not found", 404
     return send_from_directory(PROFILE_PHOTO_FOLDER, filename)
 
+
+@app.route('/api/unified/login', methods=['POST'])
+def unified_login():
+    data = request.get_json(silent=True) or request.form
+    username = str(data.get('username') or '').strip().lower()
+    password = str(data.get('password') or '')
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    cursor.execute(f"SELECT * FROM unified_accounts WHERE username = {param}", (username,))
+    account = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not account or not check_password_hash(account['password_hash'], password):
+        return jsonify({"success": False, "error": "Invalid Unified System username or password."}), 401
+    if account['account_status'] != 'ACTIVE':
+        return jsonify({"success": False, "error": "This Unified System account is not active."}), 403
+    session['unified_account_id'] = account['id']
+    session['unified_role'] = account['role']
+    return jsonify({"success": True, "role": account['role'], "account": unified_account_dict(account)})
+
+
+@app.route('/api/unified/logout', methods=['POST'])
+def unified_logout():
+    session.pop('unified_account_id', None)
+    session.pop('unified_role', None)
+    return jsonify({"success": True})
+
+
+@app.route('/api/unified/me', methods=['GET'])
+@unified_account_required
+def unified_me():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    cursor.execute(f"SELECT * FROM unified_accounts WHERE id = {param}", (session['unified_account_id'],))
+    account = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not account:
+        return jsonify({"error": "Unified System account not found."}), 404
+    return jsonify(unified_account_dict(account))
+
+
+def validate_unified_account_payload(data, require_password=False):
+    username = str(data.get('username') or '').strip().lower()
+    first_name = normalize_person_name(data.get('first_name') or '')
+    last_name = normalize_person_name(data.get('last_name') or '')
+    password = str(data.get('password') or '')
+    if not valid_username(username):
+        raise ValueError("Username must be 3-30 lowercase characters.")
+    if not valid_person_name(first_name) or not valid_person_name(last_name):
+        raise ValueError("Enter a valid first and last name.")
+    if require_password and (len(password) < 8 or not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password)):
+        raise ValueError("Password must be at least 8 characters and include a letter and a number.")
+    return username, first_name, last_name, password
+
+
+@app.route('/api/unified/students', methods=['GET'])
+@unified_admin_required
+def unified_students():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM unified_accounts WHERE role = 'student' ORDER BY id")
+    accounts = [unified_account_dict(row) for row in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+    return jsonify(accounts)
+
+
+@app.route('/api/unified/students', methods=['POST'])
+@unified_admin_required
+def create_unified_student():
+    data = request.get_json(silent=True) or {}
+    try:
+        username, first_name, last_name, password = validate_unified_account_payload(data, True)
+        code = str(data.get('student_code') or next_student_code_for_unified()).strip().upper()
+        age = int(data.get('age')) if str(data.get('age') or '').strip() else None
+    except (ValueError, TypeError) as error:
+        return jsonify({"success": False, "error": str(error)}), 400
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    try:
+        cursor.execute(f"""INSERT INTO unified_accounts
+            (username, password_hash, role, first_name, last_name, student_code, sex, age, stream)
+            VALUES ({param}, {param}, 'student', {param}, {param}, {param}, {param}, {param}, {param})""",
+            (username, generate_password_hash(password), first_name, last_name, code,
+             str(data.get('sex') or ''), age, str(data.get('stream') or 'Natural Sc.')))
+        conn.commit()
+        cursor.execute(f"SELECT * FROM unified_accounts WHERE username = {param}", (username,))
+        account = cursor.fetchone()
+        return jsonify({"success": True, "account": unified_account_dict(account)}), 201
+    except Exception as error:
+        conn.rollback()
+        return jsonify({"success": False, "error": "Username or student code is already registered."}), 409
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def next_student_code_for_unified():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT student_code FROM unified_accounts WHERE student_code IS NOT NULL")
+    highest = 0
+    for row in cursor.fetchall():
+        match = re.fullmatch(r"ST(\d+)", str(row['student_code'] or '').upper())
+        if match:
+            highest = max(highest, int(match.group(1)))
+    cursor.close()
+    conn.close()
+    return f"ST{highest + 1:03d}"
+
+
+@app.route('/api/unified/students/<int:account_id>', methods=['PUT'])
+@unified_account_required
+def update_unified_student(account_id):
+    if session.get('unified_role') != 'admin' and account_id != session.get('unified_account_id'):
+        return jsonify({"error": "You can edit only your own account."}), 403
+    data = request.get_json(silent=True) or {}
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    try:
+        fields = ['first_name', 'last_name', 'sex', 'age', 'stream']
+        values = [normalize_person_name(data.get('first_name') or ''), normalize_person_name(data.get('last_name') or ''), str(data.get('sex') or ''), int(data['age']) if str(data.get('age') or '').strip() else None, str(data.get('stream') or 'Natural Sc.')]
+        if not valid_person_name(values[0]) or not valid_person_name(values[1]):
+            return jsonify({"error": "Enter a valid first and last name."}), 400
+        if session.get('unified_role') == 'admin' and data.get('username'):
+            fields.insert(0, 'username')
+            values.insert(0, str(data['username']).strip().lower())
+        if data.get('password'):
+            password = str(data['password'])
+            if len(password) < 8 or not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
+                return jsonify({"error": "Password must be at least 8 characters and include a letter and a number."}), 400
+            fields.append('password_hash')
+            values.append(generate_password_hash(password))
+        assignments = ', '.join(f"{field} = {param}" for field in fields)
+        values.append(account_id)
+        cursor.execute(f"UPDATE unified_accounts SET {assignments}, updated_at = CURRENT_TIMESTAMP WHERE id = {param} AND role = 'student'", values)
+        if cursor.rowcount != 1:
+            return jsonify({"error": "Student account not found."}), 404
+        conn.commit()
+        cursor.execute(f"SELECT * FROM unified_accounts WHERE id = {param}", (account_id,))
+        return jsonify({"success": True, "account": unified_account_dict(cursor.fetchone())})
+    except (ValueError, TypeError):
+        conn.rollback()
+        return jsonify({"error": "Invalid account data."}), 400
+    except Exception:
+        conn.rollback()
+        return jsonify({"error": "Username is already registered."}), 409
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route('/api/unified/students/<int:account_id>', methods=['DELETE'])
+@unified_admin_required
+def delete_unified_student(account_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    param = get_param_style()
+    cursor.execute(f"DELETE FROM unified_accounts WHERE id = {param} AND role = 'student'", (account_id,))
+    conn.commit()
+    deleted = cursor.rowcount == 1
+    cursor.close()
+    conn.close()
+    return jsonify({"success": deleted, "error": None if deleted else "Student account not found."}), (200 if deleted else 404)
+
 # ============================================
 # AUTHENTICATION ROUTES
 # ============================================
@@ -781,7 +981,6 @@ def signup():
         last_name = normalize_person_name(request.form.get('last_name'))
         username = request.form.get('username', '').strip().lower()
         password = request.form.get('password', '')
-        photo = request.files.get('profile_photo')
 
         if not valid_person_name(first_name) or not valid_person_name(last_name):
             flash("Enter a valid first and last name using 2 to 50 letters.", "error")
@@ -792,12 +991,6 @@ def signup():
         if len(password) < 8 or not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
             flash("Password must be at least 8 characters and include a letter and a number.", "error")
             return render_template('signup.html')
-        try:
-            profile_photo_name = save_profile_photo(photo)
-        except ValueError as error:
-            flash(str(error), "error")
-            return render_template('signup.html')
-        
         conn = get_db_connection()
         cursor = conn.cursor()
         param = get_param_style()
@@ -808,15 +1001,13 @@ def signup():
                      account_status, is_verified, registered_at)
                     VALUES ({param}, {param}, {param}, {param}, {param}, {param}, {param}, {param}, CURRENT_TIMESTAMP)''',
                 (username, generate_password_hash(password), 'student', first_name, last_name,
-                 profile_photo_name, 'PENDING_APPROVAL', 0)
+                 None, 'PENDING_APPROVAL', 0)
             )
             conn.commit()
             flash("Registration submitted. An administrator must approve your account before you can log in.", "success")
             return redirect(url_for('login'))
         except Exception:
             conn.rollback()
-            if os.path.exists(os.path.join(PROFILE_PHOTO_FOLDER, profile_photo_name)):
-                os.remove(os.path.join(PROFILE_PHOTO_FOLDER, profile_photo_name))
             flash("That username is already registered. Choose another username.", "error")
         finally:
             cursor.close()
@@ -867,21 +1058,11 @@ def index():
     return render_template('index.html', username=session.get('username'), role=session.get('role'))
 
 @app.route('/eduvault-system')
-@login_required
 def eduvault_system():
-    student_profile = None
-    if session.get('role') == 'student':
-        user = get_user_by_id(session['user_id'])
-        if is_active_student(user):
-            student_profile = {
-                'code': user['student_code'],
-                'name': normalize_person_name(f"{user['first_name']} {user['last_name']}"),
-                'photo': url_for('profile_photo', filename=user['profile_photo']) if user['profile_photo'] else '',
-            }
     return render_template(
         'eduvault_system.html',
-        flask_role=session.get('role', ''),
-        flask_student=student_profile,
+        flask_role='',
+        flask_student=None,
     )
 
 @app.route('/resources')

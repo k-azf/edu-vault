@@ -20,7 +20,7 @@
             {% endfor %}
           {% endif %}
         {% endwith %}
-        <form action="{{ url_for('signup') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+        <form action="{{ url_for('signup') }}" method="POST" class="space-y-4">
             <div class="grid sm:grid-cols-2 gap-4">
                 <label class="block text-xs font-bold text-slate-500">First Name
                     <input name="first_name" required minlength="2" maxlength="50" pattern="[A-Za-z][A-Za-z' -]{1,49}" autocomplete="given-name" class="mt-1 w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-white" />
@@ -34,10 +34,6 @@
             </label>
             <label class="block text-xs font-bold text-slate-500">Password
                 <input name="password" required minlength="8" type="password" autocomplete="new-password" placeholder="At least 8 characters with a number" class="mt-1 w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-white" />
-            </label>
-            <label class="block text-xs font-bold text-slate-500">3x4 Profile Photograph
-                <input name="profile_photo" required type="file" accept="image/jpeg,image/png,image/webp" class="mt-1 w-full p-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-white" />
-                <span class="block mt-1 text-[11px] font-normal text-slate-400">JPG, PNG, or WEBP. Portrait 3x4 shape, minimum 150x200 pixels, maximum 6 MB.</span>
             </label>
             <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider p-4 rounded-xl">Submit Registration</button>
         </form>

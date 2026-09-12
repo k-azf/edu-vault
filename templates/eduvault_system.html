@@ -378,6 +378,8 @@ main{padding-top:18px}
 <div class="app"><main id="app"></main><div class="footer">EduVault Entrance Exam • Student Examination System</div></div>
 <div id="toast" class="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="{{ url_for("static", filename="js/firebase-rest-shim.js") }}"></script>
 <script>
 /* =========================
@@ -549,9 +551,14 @@ function profile(){
    reader.readAsDataURL(file);
  });
 }
-function saveProfile(){
+async function saveProfile(){
  const photo=window._eduVaultPendingPhoto || student.photo || "";
  student={code:document.getElementById("pcode").value.trim(),name:document.getElementById("pname").value.trim(),sex:document.getElementById("psex").value,age:document.getElementById("pagev").value,stream:document.getElementById("pstream").value.trim(),photo:photo};
+ if(window.eduVaultRole==="student" && window.eduVaultAccountId){
+   const parts=student.name.split(/\s+/);
+   const response=await fetch('/api/unified/students/'+window.eduVaultAccountId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({first_name:parts.shift()||student.name,last_name:parts.join(' ')||'Student',sex:student.sex,age:student.age,stream:student.stream})});
+   if(!response.ok){const error=await response.json();toast(error.error||"Profile update failed");return;}
+ }
  window._eduVaultPendingPhoto=null;
  save(LS.student,student);toast("Profile saved");render();
 }
@@ -753,7 +760,7 @@ async function weekly(){
      <div class="finalResultBody">
        <div class="finalInfo">${infoRows.map(x=>`<div class="finalInfoRow"><span class="finalInfoLabel">${esc(x[0])}</span><span class="finalInfoValue">${esc(x[1])}</span></div>`).join("")}</div>
        <div class="finalScoreGrid">
-         <div class="finalScoreBox"><div class="finalScoreLabel">TOTAL</div><div class="finalScoreValue">${total.toFixed(2)}</div></div>
+         <div class="finalScoreBox"><div class="finalScoreLabel">TOTAL / 600</div><div class="finalScoreValue">${total.toFixed(2)} / 600</div></div>
          <div class="finalScoreBox"><div class="finalScoreLabel">AVG</div><div class="finalScoreValue">${avg.toFixed(2)}</div></div>
        </div>
        <div class="finalSubjects">${subjectRows}</div>
@@ -801,7 +808,38 @@ async function downloadEntranceExplanationPDF(){
   try{
     app.innerHTML=wrap.innerHTML; if(nav)nav.style.display="none";if(footer)footer.style.display="none";
     if(window.EduVaultDesktop?.printToPDF){const r=await window.EduVaultDesktop.printToPDF();if(r?.saved)toast("Entrance explanations PDF saved");else if(!r?.canceled)toast("PDF save failed");return;}
-    if(window.jspdf?.jsPDF){toast("Use the desktop version for native PDF saving.");return;}
+    if(window.jspdf?.jsPDF){
+      const {jsPDF}=window.jspdf;
+      const doc=new jsPDF({unit:"pt",format:"a4"});
+      const margin=40, pageHeight=842, maxWidth=515;
+      let y=margin;
+      const addText=(value,size=10,bold=false)=>{
+        doc.setFont("helvetica",bold?"bold":"normal");doc.setFontSize(size);
+        const lines=doc.splitTextToSize(String(value||""),maxWidth);
+        if(y+lines.length*14>pageHeight-45){doc.addPage();y=margin;}
+        doc.text(lines,margin,y);y+=lines.length*14;
+      };
+      addText("EDUVAULT - ENTRANCE EXAMINATION RESULT",18,true);
+      addText(`Student: ${student.name||""}`,11,true);
+      addText(`Student Code: ${student.code||""}`,10);
+      const total=rows.reduce((sum,r)=>sum+Number(r.score||0),0);
+      addText(`Total: ${total.toFixed(2)} / ${rows.length*100}`,11,true);
+      addText(`Average: ${(total/rows.length).toFixed(2)}%`,11,true);
+      rows.forEach(r=>{
+        y+=8;addText(`${r.subject} - ${Number(r.percent||0).toFixed(2)}%`,12,true);
+        (r.questionResults||[]).forEach((d,i)=>{
+          addText(`Question ${d.number||i+1}: ${stripHtml(d.question)}`,10,true);
+          addText(`Your answer: ${stripHtml(d.selectedAnswer||"Not answered")}`,9);
+          addText(`Correct answer: ${stripHtml(d.correctAnswer||"")}`,9);
+          addText(`Explanation: ${stripHtml(d.explanation||"No explanation provided.")}`,9);
+          y+=5;
+        });
+      });
+      doc.save(`EduVault_Entrance_Result_${(student.code||"Student").replace(/[^a-z0-9_-]/gi,"_")}.pdf`);
+      toast("Entrance explanations PDF downloaded");
+      return;
+    }
+    toast("PDF generator is not available. Check your internet connection and try again.");
   }catch(e){console.error(e);toast("Could not create explanations PDF");}
   finally{app.innerHTML=oldApp;if(nav)nav.style.display=oldNav||"";if(footer)footer.style.display=oldFooter||"";wrap.remove()}
 }
@@ -936,14 +974,16 @@ async function adminStudents(){
     <p class="muted">Students are stored in Firebase Firestore and mirrored locally for reliable login/offline use.</p>
     <div class="grid">
       <div>
-        <div class="field"><label>Student Code *</label><input id="newStudentCode" autocomplete="off" placeholder="e.g. EV-001"></div>
-        <div class="field"><label>Username / Full Name *</label><input id="newStudentName" autocomplete="off" placeholder="Student username"></div>
+        <div class="field"><label>Student Code</label><input id="newStudentCode" autocomplete="off" placeholder="Generated if empty"></div>
+        <div class="field"><label>First Name *</label><input id="newStudentFirstName" autocomplete="given-name"></div>
+        <div class="field"><label>Last Name *</label><input id="newStudentLastName" autocomplete="family-name"></div>
+        <div class="field"><label>Username *</label><input id="newStudentUsername" autocomplete="username"></div>
         <div class="field"><label>Sex</label><select id="newStudentSex"><option value="">Select</option><option>MALE</option><option>FEMALE</option></select></div>
       </div>
       <div>
         <div class="field"><label>Age</label><input id="newStudentAge" type="number" min="1" max="100" placeholder="Age"></div>
         <div class="field"><label>Stream</label><input id="newStudentStream" value="Natural Sc." placeholder="Stream"></div>
-        <div class="field"><label>Photo (optional)</label><input id="newStudentPhoto" type="file" accept="image/*"></div>
+        <div class="field"><label>Password *</label><input id="newStudentPassword" type="password" minlength="8" autocomplete="new-password"></div>
       </div>
     </div>
     <button class="primary" type="button" onclick="addStudent()">Add Student</button>
@@ -960,6 +1000,23 @@ async function adminStudents(){
 async function loadAdminStudents(){
   const box=document.getElementById("adminStudentsTable");
   if(!box)return;
+  try{
+    const response=await fetch('/api/unified/students');
+    if(!response.ok)throw new Error((await response.json()).error||'Could not load students');
+    const list=await response.json();
+    window._adminStudents=list;
+    document.getElementById("adminStudentCount").textContent=list.length;
+    document.getElementById("adminAttemptCount").textContent=0;
+    document.getElementById("adminAverage").textContent="0.0%";
+    const draw=()=>{
+      const term=(document.getElementById("studentSearch")?.value||"").toLowerCase().trim();
+      const filtered=list.filter(s=>String(s.name||"").toLowerCase().includes(term)||String(s.username||"").toLowerCase().includes(term)||String(s.code||"").toLowerCase().includes(term));
+      box.innerHTML=filtered.length?`<div style="overflow:auto"><table class="table"><tr><th>Student</th><th>Username</th><th>Code</th><th>Action</th></tr>${filtered.map(s=>`<tr><td><b>${esc(s.name)}</b></td><td>${esc(s.username)}</td><td>${esc(s.code)}</td><td><button class="secondary" onclick="editStudent('${esc(s.code)}')">Edit</button> <button class="danger" onclick="deleteStudent('${esc(s.id)}','${esc(s.code)}')">Delete</button></td></tr>`).join("")}</table></div>`:'<p class="muted">No students found.</p>';
+    };
+    document.getElementById("studentSearch").oninput=draw; draw(); return;
+  }catch(e){
+    box.innerHTML=`<div class="error">Could not load student records: ${esc(e.message)}</div>`; return;
+  }
   try{
     let list=[];
     try{
@@ -1049,21 +1106,17 @@ async function addStudent(){
   if(!window.EduVaultAccess?.requireAdmin())return;
   const msg=document.getElementById("addStudentMsg");
   const code=document.getElementById("newStudentCode").value.trim();
-  const name=document.getElementById("newStudentName").value.trim();
-  if(!code||!name){msg.textContent="Student code and username/full name are required.";return;}
+  const first_name=document.getElementById("newStudentFirstName").value.trim();
+  const last_name=document.getElementById("newStudentLastName").value.trim();
+  const username=document.getElementById("newStudentUsername").value.trim().toLowerCase();
+  const password=document.getElementById("newStudentPassword").value;
+  if(!first_name||!last_name||!username||!password){msg.textContent="First name, last name, username, and password are required.";return;}
   try{
-    if(!(await ensureFirebaseAuth())) throw new Error("Firebase Authentication is not ready");
-    const list=await getCloudStudents();
-    if(list.some(x=>String(x.code||x.studentCode||x.id).toLowerCase()===code.toLowerCase())){
-      msg.textContent="This student code is already registered.";return;
-    }
-    const photo=await readPhotoFile(document.getElementById("newStudentPhoto"));
-    const studentRecord={code,studentCode:code,name,studentName:name,sex:document.getElementById("newStudentSex").value||"",age:document.getElementById("newStudentAge").value||"",stream:document.getElementById("newStudentStream").value.trim()||"Natural Sc.",photo};
-    await ensureStudentInCloud(studentRecord);
-    saveRegisteredStudents([...list,studentRecord]);
+    const response=await fetch('/api/unified/students',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({student_code:code,first_name,last_name,username,password,sex:document.getElementById("newStudentSex").value||"",age:document.getElementById("newStudentAge").value||"",stream:document.getElementById("newStudentStream").value.trim()||"Natural Sc."})});
+    const data=await response.json(); if(!response.ok)throw new Error(data.error||'Could not create account');
     toast("Student added successfully");
-    document.getElementById("newStudentCode").value="";document.getElementById("newStudentName").value="";document.getElementById("newStudentAge").value="";document.getElementById("newStudentSex").value="";document.getElementById("newStudentPhoto").value="";
-    msg.textContent="✓ Student saved to Firebase.";
+    document.getElementById("newStudentCode").value="";document.getElementById("newStudentFirstName").value="";document.getElementById("newStudentLastName").value="";document.getElementById("newStudentUsername").value="";document.getElementById("newStudentPassword").value="";document.getElementById("newStudentAge").value="";document.getElementById("newStudentSex").value="";
+    msg.textContent="Student account saved.";
     await loadAdminStudents();
   }catch(e){
     console.error("Add student failed",e);
@@ -1130,22 +1183,13 @@ async function saveEditedStudent(code){
   if(!window.EduVaultAccess?.requireAdmin())return;
   const msg=document.getElementById("editStudentMsg");
   try{
-    if(!(await ensureFirebaseAuth())) throw new Error("Firebase Authentication is not ready");
     const name=document.getElementById("editStudentName").value.trim();
     if(!name){toast("Username/full name is required");return;}
-    const photo=await readPhotoFile(document.getElementById("editStudentPhoto"));
     const current=(window._adminStudents||[]).find(x=>(x.studentCode||x.code||x.id)===code)||{};
-    const update={code,studentCode:code,name,studentName:name,sex:document.getElementById("editStudentSex").value||"",age:document.getElementById("editStudentAge").value||"",stream:document.getElementById("editStudentStream").value.trim()||"Natural Sc.",updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
-    if(photo)update.photo=photo;
-    else if(current.photo)update.photo=current.photo;
-    await db.collection("students").doc(code).set(update,{merge:true});
-    const list=getRegisteredStudents();
-    const i=list.findIndex(x=>String(x.code||x.studentCode||"")===String(code));
-    const localRecord={...current,...update,photo:update.photo||current.photo||""};
-    if(i>=0)list[i]=localRecord; else list.push(localRecord);
-    saveRegisteredStudents(list);
+    const parts=name.split(/\s+/); const response=await fetch('/api/unified/students/'+current.id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({first_name:parts.shift()||name,last_name:parts.join(' ')||'Student',sex:document.getElementById("editStudentSex").value||"",age:document.getElementById("editStudentAge").value||"",stream:document.getElementById("editStudentStream").value.trim()||"Natural Sc."})});
+    const data=await response.json(); if(!response.ok)throw new Error(data.error||'Could not update account');
     toast("Student updated successfully");
-    if(msg)msg.textContent="✓ Changes saved to Firebase.";
+    if(msg)msg.textContent="Changes saved.";
     await adminStudents();
   }catch(e){
     console.error("Update student failed",e);
@@ -1158,20 +1202,8 @@ async function deleteStudent(id,code){
   if(!window.EduVaultAccess?.requireAdmin())return;
   if(!confirm("Delete this student record and ALL of this student's cloud exam results? This cannot be undone."))return;
   try{
-    if(!db)throw new Error("Firebase is not available");
-    if(!(await ensureFirebaseAuth())) throw new Error("Firebase Authentication is not ready");
-    const studentDocId=String(id||code||"");
-    if(studentDocId) await db.collection("students").doc(studentDocId).delete();
-    const snap=await db.collection("results").where("studentCode","==",code).get();
-    const batch=db.batch();
-    snap.forEach(d=>batch.delete(d.ref));
-    await batch.commit();
-    saveRegisteredStudents(getRegisteredStudents().filter(x=>String(x.code||x.studentCode||"")!==String(code)));
-    if(student && String(student.code||"")===String(code)){
-      student=null;
-      sessionStorage.removeItem("eduVaultStudentCode");
-    }
-    toast("Student and cloud results deleted successfully");
+    const response=await fetch('/api/unified/students/'+id,{method:'DELETE'}); const data=await response.json(); if(!response.ok)throw new Error(data.error||'Could not delete account');
+    toast("Student account deleted successfully");
     await adminStudents();
   }catch(e){
     console.error("Delete student failed",e);
@@ -1214,7 +1246,7 @@ setTimeout(syncPending,1500);
   <div class="roleBox">
     <div class="mark" style="margin-bottom:12px">EV</div>
     <h1 class="roleTitle">EduVault</h1>
-    <p class="roleSub">Your EduVault account is already authenticated. Students must verify the Student Code issued by an administrator before entering the examination workspace.</p>
+    <p class="roleSub">Sign in with your separate Unified System account. Students use the Student Code issued by the administrator inside the examination workspace.</p>
     <div class="roleBtns">
       <button class="roleBtn" id="studentRoleBtn" type="button">🎓 Student</button>
       <button class="roleBtn admin" id="adminRoleBtn" type="button">🛡️ Admin</button>
@@ -1222,12 +1254,12 @@ setTimeout(syncPending,1500);
 
     <div id="studentPanel" class="rolePanel" hidden>
       <div class="field">
-        <label for="studentCodeInput">Student Code</label>
-        <input id="studentCodeInput" autocomplete="off" placeholder="Enter Student Code">
+        <label for="studentCodeInput">Password</label>
+        <input id="studentCodeInput" type="password" autocomplete="current-password" placeholder="Enter password">
       </div>
       <div class="field">
-        <label for="studentUsernameInput">Full Name</label>
-        <input id="studentUsernameInput" autocomplete="name" placeholder="Enter your full name">
+        <label for="studentUsernameInput">Username</label>
+        <input id="studentUsernameInput" autocomplete="username" placeholder="Enter username">
       </div>
       <button class="primary" id="studentEnterBtn" type="button">Enter as Student</button>
       <p id="studentMsg" class="muted small" style="margin-top:10px"></p>
@@ -1260,13 +1292,14 @@ setTimeout(syncPending,1500);
   const adminPanel=document.getElementById("adminPanel");
   const adminMsg=document.getElementById("adminMsg");
 
-  function enter(role,code){
+  function enter(role,code,account){
     sessionStorage.setItem("eduVaultRole",role);
     if(code) sessionStorage.setItem("eduVaultStudentCode",code);
     gate.style.display="none";
     document.getElementById("roleLogout").hidden=false;
     window.eduVaultRole=role;
     window.eduVaultStudentCode=sessionStorage.getItem("eduVaultStudentCode")||"";
+    window.eduVaultAccountId=account?.id||null;
     document.querySelectorAll(".adminOnly").forEach(el=>el.hidden=role!=="admin");
     document.querySelectorAll(".studentOnly").forEach(el=>el.hidden=role!=="student");
     window.dispatchEvent(new CustomEvent("eduvault:role-ready",{detail:{role,studentCode:window.eduVaultStudentCode}}));
@@ -1282,29 +1315,33 @@ setTimeout(syncPending,1500);
   };
 
   document.getElementById("studentEnterBtn").onclick=async function(){
-    const code=document.getElementById("studentCodeInput").value.trim();
     const username=document.getElementById("studentUsernameInput").value.trim();
+    const password=document.getElementById("studentCodeInput").value;
     const msg=document.getElementById("studentMsg");
-    if(!code||!username){msg.textContent="Please enter Student Code and full name.";return;}
+    if(!username||!password){msg.textContent="Please enter username and password.";return;}
     this.disabled=true; this.textContent="Checking…"; msg.textContent="";
     try{
-      const response=await fetch('/api/verify-student-identity',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({full_name:username,student_code:code})});
+      const response=await fetch('/api/unified/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
       const result=await response.json();
       if(!response.ok||!result.success){msg.textContent=result.error||"Student identity verification failed.";return;}
-      student={...student,...result.student,code:result.student.code,name:result.student.name};
+      student={...student,...result.account,code:result.account.code,name:result.account.name};
       save(LS.student,student);
-      enter("student",result.student.code); page="home"; render();
+      enter("student",result.account.code,result.account); page="home"; render();
     }catch(e){console.error("Student login failed",e);msg.textContent="Could not verify student: "+e.message;}
     finally{this.disabled=false;this.textContent="Enter as Student";}
   };
 
-  document.getElementById("adminEnterBtn").onclick=function(){
-    if(SERVER_ROLE==="admin"){
-      adminMsg.textContent="";
-      enter("admin",""); page="adminDashboard"; render();
-    }else{
-      adminMsg.textContent="Administrator access requires an approved Flask admin session.";
-    }
+  document.getElementById("adminEnterBtn").onclick=async function(){
+    const username=document.getElementById("adminUsernameInput").value.trim();
+    const password=document.getElementById("adminPasswordInput").value;
+    if(!username||!password){adminMsg.textContent="Enter administrator username and password.";return;}
+    this.disabled=true;
+    try{
+      const response=await fetch('/api/unified/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
+      const result=await response.json();
+      if(!response.ok||result.role!=="admin")throw new Error(result.error||"Administrator login failed.");
+      enter("admin","",result.account); page="adminDashboard"; render();
+    }catch(e){adminMsg.textContent=e.message}finally{this.disabled=false}
   };
 
   document.getElementById("adminPasswordInput").addEventListener("keydown",function(e){
@@ -1312,8 +1349,7 @@ setTimeout(syncPending,1500);
   });
 
   document.getElementById("roleLogout").onclick=function(){
-    sessionStorage.clear();
-    location.reload();
+    fetch('/api/unified/logout',{method:'POST'}).finally(()=>{sessionStorage.clear();location.reload()});
   };
 
   window.EduVaultAccess={
@@ -1327,20 +1363,7 @@ setTimeout(syncPending,1500);
     }
   };
 
-    if(SERVER_ROLE==="admin"){
-      enter("admin",""); page="adminDashboard"; render();
-    } else if(SERVER_ROLE==="student"){
-      studentPanel.hidden=true; adminPanel.hidden=true;
-      if(SERVER_STUDENT?.code){
-        student={...student,...SERVER_STUDENT};
-        save(LS.student,student);
-        enter("student",SERVER_STUDENT.code);
-        page="home";
-        render();
-      } else {
-        studentPanel.hidden=false;
-      }
-    }
+    studentPanel.hidden=false;
 })();
 </script>
 
@@ -1484,7 +1507,9 @@ async function weeklyExam(){
    const previous=latest.get(result.subject);
    if(!previous||String(result.submittedAt||"")>String(previous.submittedAt||""))latest.set(result.subject,result);
  });
- document.getElementById("app").innerHTML=`<section class="hero"><h1>Entrance Examination</h1><p>Submit an entrance subject, view the result, and retake it whenever you need. The highest score for the current entrance package remains the top performance until the next upload.</p></section><div class="card">${SUBJECTS.map(s=>{const e=getPackage("entrance",s),r=latest.get(s);return `<div class="subject"><div><strong>${s}</strong><div class="muted small">${esc(e?.title||"Not installed")} • ${e?.questions?.length||0} questions</div>${r?`<div class="subjectSubmitted">Last result: ${Number(r.percent??r.score??0).toFixed(1)}% • Retake available</div>`:""}</div><button class="primary" ${!e?.questions?.length?"disabled":""} onclick="startExamV2('${s}','entrance')">${r?"Retake Entrance":"Start"}</button></div>`}).join("")}</div>`;
+ const allCompleted=SUBJECTS.every(s=>latest.has(s));
+ const finalViewed=localStorage.getItem("ev_entrance_final_result_viewed_"+String(student.code||""))==="1";
+ document.getElementById("app").innerHTML=`<section class="hero"><h1>Entrance Examination</h1><p>${allCompleted?"All 6 subjects are submitted. View the final result before retaking any subject.":"Submit all 6 subjects. Subject results remain hidden until the complete entrance examination is submitted."}</p></section><div class="card">${SUBJECTS.map(s=>{const e=getPackage("entrance",s),r=latest.get(s),canRetake=allCompleted&&finalViewed;return `<div class="subject"><div><strong>${s}</strong><div class="muted small">${esc(e?.title||"Not installed")} • ${e?.questions?.length||0} questions</div>${r?`<div class="subjectSubmitted">✓ Submitted${canRetake?" • Retake available":" • Waiting for final result"}</div>`:""}</div><button class="primary" ${!e?.questions?.length||r&&!canRetake?"disabled":""} onclick="startExamV2('${s}','entrance')">${r?(canRetake?"Retake Entrance":"Submitted"):"Start"}</button></div>`}).join("")}<div style="text-align:center;margin-top:18px">${allCompleted&&!finalViewed?`<button class="primary" onclick="page='weekly';render()">View Final Result</button>`:""}${!allCompleted?`<p class="muted small">${latest.size} / ${SUBJECTS.length} subjects submitted</p>`:""}</div></div>`;
 }
 async function mockExamPage(){
  const mine=new Map(getTypeResults("mock").map(r=>[r.subject,r]));
@@ -1732,10 +1757,8 @@ async function startExamV2(subject,type){
   }
   if(type==="entrance"){
     const currentAttempt=results.find(r=>r.studentCode===student.code&&r.subject===subject&&r.examType==="entrance"&&String(r.examId||"")===String(e.id||""));
-    if(currentAttempt&&!localStorage.getItem("ev_entrance_result_viewed_"+currentAttempt.id)){
-      showEntranceResultV2(currentAttempt);
-      return;
-    }
+    const finalViewed=localStorage.getItem("ev_entrance_final_result_viewed_"+String(student.code||""))==="1";
+    if(currentAttempt&&!finalViewed){toast("Submit all 6 subjects and view the final result before retaking.");return;}
   }
   examState={
     subject,e,examType:type,idx:0,answers:Array(e.questions.length).fill(null),
@@ -1808,12 +1831,22 @@ async function finishExamV2(timeout=false){
     showMockResultV2(r);
     return;
   }
-  showEntranceResultV2(r);
+  const entranceResults=results.filter(x=>x.studentCode===student.code&&x.examType==="entrance");
+  const completedSubjects=new Set(entranceResults.map(x=>x.subject));
+  if(completedSubjects.size===SUBJECTS.length){
+    page="weekly";
+    await weekly();
+    toast("All 6 subjects submitted. Final result unlocked.");
+  }else{
+    page="weeklyExam";
+    render();
+    toast(timeout?"Time finished — subject submitted":"Subject submitted. Continue to the next subject.");
+  }
 }
 
 function showEntranceResultV2(result){
-  localStorage.setItem("ev_entrance_result_viewed_"+result.id,"1");
-  showMockResultV2(result);
+  page="weekly";
+  weekly();
 }
 
 /* Complete Mock result screen */

@@ -244,6 +244,23 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS unified_accounts (
+                id SERIAL PRIMARY KEY,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'student',
+                first_name TEXT NOT NULL,
+                last_name TEXT NOT NULL,
+                student_code TEXT UNIQUE,
+                sex TEXT,
+                age INTEGER,
+                stream TEXT DEFAULT 'Natural Sc.',
+                account_status TEXT NOT NULL DEFAULT 'ACTIVE',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        ''')
 
         # --- Add missing columns if they don't exist ---
         pg_migrations = [
@@ -291,6 +308,25 @@ def init_db():
                 INSERT INTO users (username, password_hash, role, is_verified) 
                 VALUES (%s, %s, %s, %s)
             ''', ("admin", generate_password_hash("admin123"), "admin", 1))
+
+        cursor.execute("SELECT 1 FROM unified_accounts WHERE username = %s", ("admin",))
+        if not cursor.fetchone():
+            cursor.execute('''
+                INSERT INTO unified_accounts
+                    (username, password_hash, role, first_name, last_name)
+                VALUES (%s, %s, %s, %s, %s)
+            ''', ("admin", generate_password_hash("admin123"), "admin", "Unified", "Admin"))
+
+        for number in range(1, 5):
+            username = f"student{number}"
+            display_number = ("One", "Two", "Three", "Four")[number - 1]
+            cursor.execute("SELECT 1 FROM unified_accounts WHERE username = %s", (username,))
+            if not cursor.fetchone():
+                cursor.execute('''
+                    INSERT INTO unified_accounts
+                        (username, password_hash, role, first_name, last_name, student_code)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                ''', (username, generate_password_hash("student123"), "student", "Student", display_number, f"ST{number:03d}"))
 
         conn.commit()
         cursor.close()
@@ -475,6 +511,21 @@ def init_db():
                 attachment_type TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+            CREATE TABLE IF NOT EXISTS unified_accounts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'student',
+                first_name TEXT NOT NULL,
+                last_name TEXT NOT NULL,
+                student_code TEXT UNIQUE,
+                sex TEXT,
+                age INTEGER,
+                stream TEXT DEFAULT 'Natural Sc.',
+                account_status TEXT NOT NULL DEFAULT 'ACTIVE',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
         ''')
 
         # Local SQLite Migrations
@@ -525,6 +576,25 @@ def init_db():
                 INSERT INTO users (username, password_hash, role, is_verified) 
                 VALUES (?, ?, ?, ?)
             ''', ("admin", generate_password_hash("admin123"), "admin", 1))
+
+        cursor.execute("SELECT 1 FROM unified_accounts WHERE username = ?", ("admin",))
+        if not cursor.fetchone():
+            cursor.execute('''
+                INSERT INTO unified_accounts
+                    (username, password_hash, role, first_name, last_name)
+                VALUES (?, ?, ?, ?, ?)
+            ''', ("admin", generate_password_hash("admin123"), "admin", "Unified", "Admin"))
+
+        for number in range(1, 5):
+            username = f"student{number}"
+            display_number = ("One", "Two", "Three", "Four")[number - 1]
+            cursor.execute("SELECT 1 FROM unified_accounts WHERE username = ?", (username,))
+            if not cursor.fetchone():
+                cursor.execute('''
+                    INSERT INTO unified_accounts
+                        (username, password_hash, role, first_name, last_name, student_code)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (username, generate_password_hash("student123"), "student", "Student", display_number, f"ST{number:03d}"))
 
         conn.commit()
         conn.close()
