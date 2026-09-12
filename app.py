@@ -64,7 +64,7 @@ def get_gemini_client():
 classification_retry_after = 0.0
 
 from init_db import init_db
-from ranking import calculate_exam_top_performers, calculate_rankings
+from ranking import calculate_entrance_top_performers, calculate_exam_top_performers, calculate_rankings
 
 try:
     init_db()
@@ -1437,8 +1437,8 @@ def get_rankings():
         except ValueError:
             return jsonify({"error": "Invalid exam_id."}), 400
     cursor.execute(f'''
-        SELECT r.id, r.user_id, r.exam_id, u.username, r.score, r.total_questions,
-               r.accuracy, r.date_attempted, e.title AS exam_title,
+         SELECT r.id, r.user_id, r.exam_id, u.username, r.score, r.total_questions,
+             r.accuracy, r.date_attempted, e.title AS exam_title, e.subject,
                CASE WHEN LOWER(e.resource_type) LIKE '%entrance%' OR LOWER(e.category) LIKE '%entrance%'
                     THEN 'entrance' ELSE 'mock' END AS exam_type
         FROM user_results r
@@ -1452,6 +1452,7 @@ def get_rankings():
     conn.close()
     response = calculate_rankings(rows, current_user_id=session['user_id'])
     response['top_performers_by_exam'] = calculate_exam_top_performers(rows)
+    response['entrance_top_performers'] = calculate_entrance_top_performers(rows)
     return jsonify(response)
 
 @app.route('/api/results/submit', methods=['POST'])

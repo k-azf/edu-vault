@@ -93,15 +93,7 @@ def calculate_exam_top_performers(result_rows):
         candidate = dict(row)
         candidate["performance"] = round(_performance_percent(candidate), 2)
         current = best_by_exam.get(exam_id)
-        if current is None or (
-            candidate["performance"],
-            str(candidate.get("date_attempted") or ""),
-            int(candidate.get("id") or 0),
-        ) > (
-            current["performance"],
-            str(current.get("date_attempted") or ""),
-            int(current.get("id") or 0),
-        ):
+        if current is None or candidate["performance"] > current["performance"]:
             best_by_exam[exam_id] = candidate
 
     performers = []
@@ -118,3 +110,43 @@ def calculate_exam_top_performers(result_rows):
             "attempted_at": result.get("date_attempted"),
         })
     return sorted(performers, key=lambda item: (-item["score"], str(item["exam_title"]).casefold()))
+
+
+def calculate_entrance_top_performers(result_rows, required_subjects=6, limit=3):
+    """Rank students by their best scores across the six Entrance subjects."""
+    by_student = defaultdict(dict)
+    for row in result_rows:
+        if row.get("exam_type") != "entrance":
+            continue
+        user_id = row.get("user_id")
+        subject = row.get("subject") or row.get("exam_title") or row.get("exam_id")
+        if user_id is None or subject is None:
+            continue
+        performance = round(_performance_percent(row), 2)
+        current = by_student[user_id].get(str(subject))
+        if current is None or performance > current["performance"]:
+            by_student[user_id][str(subject)] = {
+                "performance": performance,
+                "row": dict(row),
+            }
+
+    leaders = []
+    for user_id, subjects in by_student.items():
+        if len(subjects) < required_subjects:
+            continue
+        scores = [item["performance"] for item in subjects.values()]
+        first = next(iter(subjects.values()))["row"]
+        total_score = round(sum(scores), 2)
+        leaders.append({
+            "student_id": user_id,
+            "username": first.get("username") or "Student",
+            "score": total_score,
+            "total_marks": required_subjects * 100,
+            "average_score": round(total_score / required_subjects, 2),
+            "subjects_completed": len(subjects),
+        })
+
+    leaders.sort(key=lambda item: (-item["score"], str(item["username"]).casefold(), int(item["student_id"])))
+    for position, leader in enumerate(leaders[:limit], start=1):
+        leader["rank"] = position
+    return leaders[:limit]

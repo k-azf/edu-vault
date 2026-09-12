@@ -76,12 +76,19 @@
             <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6">
                 <div>
                     <span class="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400">REAL PERFORMANCE LEADERBOARD</span>
-                    <h2 class="text-2xl font-black text-white mt-2">Top 3 Students</h2>
+                    <h2 class="text-2xl font-black text-white mt-2">Entrance and Mock Top Performers</h2>
                 </div>
-                <p class="text-xs text-slate-400 max-w-sm">Rankings update from stored examination results after every submission.</p>
+                <p class="text-xs text-slate-400 max-w-sm">The leader changes only when a higher score is submitted.</p>
             </div>
-            <div id="top-students-list" class="grid md:grid-cols-3 gap-4" aria-live="polite">
-                <p class="text-xs text-slate-400">Loading performance rankings...</p>
+            <div class="grid lg:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="text-sm font-black uppercase tracking-widest text-amber-300 mb-3">Top Performer of Entrance Exam</h3>
+                    <div id="entrance-top-performers" class="space-y-3" aria-live="polite"><p class="text-xs text-slate-400">Loading Entrance ranking...</p></div>
+                </div>
+                <div>
+                    <h3 class="text-sm font-black uppercase tracking-widest text-cyan-300 mb-3">Top Performer of Mock Exam</h3>
+                    <div id="mock-top-performers" class="space-y-3" aria-live="polite"><p class="text-xs text-slate-400">Loading Mock ranking...</p></div>
+                </div>
             </div>
             <p id="current-student-rank" class="hidden mt-5 text-sm text-slate-300"></p>
         </div>
@@ -791,29 +798,31 @@
         fetch('/api/rankings')
             .then(res => res.ok ? res.json() : Promise.reject(new Error('Unable to load rankings')))
             .then(data => {
-                const list = document.getElementById('top-students-list');
+                const entranceList = document.getElementById('entrance-top-performers');
+                const mockList = document.getElementById('mock-top-performers');
                 const current = document.getElementById('current-student-rank');
-                if (!data.top_students?.length) {
-                    list.innerHTML = '<p class="text-xs text-slate-400 md:col-span-3">No student examination results are available yet.</p>';
-                    return;
-                }
-                list.innerHTML = data.top_students.map(student => `
-                    <div class="border ${student.rank === 1 ? 'border-amber-400/70 bg-amber-500/10' : 'border-slate-700 bg-slate-950/60'} rounded-2xl p-5">
+                const entrance = data.entrance_top_performers || [];
+                const mocks = (data.top_performers_by_exam || []).filter(exam => exam.exam_type === 'mock');
+                const card = (student, score, label, detail) => `
+                    <div class="border ${student.rank === 1 ? 'border-amber-400/70 bg-amber-500/10' : 'border-slate-700 bg-slate-950/60'} rounded-2xl p-4">
                         <div class="flex items-center justify-between gap-3">
-                            <span class="text-xs font-black uppercase tracking-widest ${student.rank === 1 ? 'text-amber-300' : 'text-slate-400'}">Top ${student.rank}</span>
-                            <span class="text-lg font-black ${student.rank === 1 ? 'text-amber-300' : 'text-white'}">${student.latest_score.toFixed(2)}%</span>
+                            <span class="text-xs font-black uppercase tracking-widest ${student.rank === 1 ? 'text-amber-300' : 'text-slate-400'}">Top ${student.rank || 1}</span>
+                            <span class="text-lg font-black ${student.rank === 1 ? 'text-amber-300' : 'text-white'}">${Number(score).toFixed(2)}${label}</span>
                         </div>
-                        <h3 class="text-lg font-extrabold text-white mt-3 truncate">${escapeRankingHtml(student.username)}</h3>
-                        <p class="text-[11px] text-slate-400 mt-1">Latest performance · ${student.attempt_count} attempt${student.attempt_count === 1 ? '' : 's'}</p>
+                        <h3 class="text-lg font-extrabold text-white mt-2 truncate">${escapeRankingHtml(student.username)}</h3>
+                        <p class="text-[11px] text-slate-400 mt-1">${escapeRankingHtml(detail)}</p>
                     </div>
-                `).join('');
+                `;
+                entranceList.innerHTML = entrance.length ? entrance.map(student => card(student, student.score, ` / ${student.total_marks}`, `${student.subjects_completed} of 6 subjects completed`)).join('') : '<p class="text-xs text-slate-400">No complete Entrance results yet.</p>';
+                mockList.innerHTML = mocks.length ? mocks.map(exam => card(exam, exam.score, '%', exam.exam_title)).join('') : '<p class="text-xs text-slate-400">No Mock results yet.</p>';
                 if (data.current_student && data.current_student.rank > 3) {
                     current.textContent = `Your current rank: #${data.current_student.rank}`;
                     current.classList.remove('hidden');
                 }
             })
             .catch(error => {
-                document.getElementById('top-students-list').innerHTML = '<p class="text-xs text-slate-400 md:col-span-3">Rankings are temporarily unavailable.</p>';
+                document.getElementById('entrance-top-performers').innerHTML = '<p class="text-xs text-slate-400">Rankings are temporarily unavailable.</p>';
+                document.getElementById('mock-top-performers').innerHTML = '<p class="text-xs text-slate-400">Rankings are temporarily unavailable.</p>';
                 console.error('Error fetching rankings:', error);
             });
     }
