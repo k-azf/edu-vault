@@ -1,4 +1,3 @@
-# init_db.py - Full updated version
 import os
 import sqlite3
 from werkzeug.security import generate_password_hash
@@ -14,7 +13,7 @@ def init_db():
         # --- SUPABASE / POSTGRESQL ---
         import psycopg2
         print("Connecting to Cloud Database (Supabase / PostgreSQL)...")
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg2.connect(DATABASE_URL, connect_timeout=10)
         cursor = conn.cursor()
 
         # 1. Users Table
@@ -292,6 +291,29 @@ def init_db():
             ,"ALTER TABLE pending_exams ADD COLUMN IF NOT EXISTS school_name TEXT;"
             ,"ALTER TABLE pending_exams ADD COLUMN IF NOT EXISTS instructions TEXT;"
             ,"ALTER TABLE pending_questions ADD COLUMN IF NOT EXISTS source_year TEXT;"
+            ,"ALTER TABLE resources ADD COLUMN IF NOT EXISTS unit_number INTEGER;"
+            ,"ALTER TABLE pending_questions ADD COLUMN IF NOT EXISTS question_number INTEGER;"
+            ,"ALTER TABLE pending_questions ADD COLUMN IF NOT EXISTS option_a TEXT;"
+            ,"ALTER TABLE pending_questions ADD COLUMN IF NOT EXISTS option_b TEXT;"
+            ,"ALTER TABLE pending_questions ADD COLUMN IF NOT EXISTS option_c TEXT;"
+            ,"ALTER TABLE pending_questions ADD COLUMN IF NOT EXISTS option_d TEXT;"
+            ,"ALTER TABLE pending_questions ADD COLUMN IF NOT EXISTS correct_answer TEXT;"
+            ,"ALTER TABLE pending_questions ADD COLUMN IF NOT EXISTS explanation TEXT;"
+            ,"ALTER TABLE pending_questions ADD COLUMN IF NOT EXISTS passage_text TEXT;"
+            ,"ALTER TABLE pending_questions ADD COLUMN IF NOT EXISTS diagram_instruction TEXT;"
+            ,"ALTER TABLE pending_questions ADD COLUMN IF NOT EXISTS unit_number TEXT;"
+            ,"ALTER TABLE pending_questions ADD COLUMN IF NOT EXISTS unit_title TEXT;"
+            ,"ALTER TABLE pending_questions ADD COLUMN IF NOT EXISTS section_number TEXT;"
+            ,"ALTER TABLE pending_questions ADD COLUMN IF NOT EXISTS section_title TEXT;"
+            ,"ALTER TABLE pending_questions ADD COLUMN IF NOT EXISTS topic_title TEXT;"
+            ,"ALTER TABLE pending_questions ADD COLUMN IF NOT EXISTS subtopic TEXT;"
+            ,"ALTER TABLE pending_questions ADD COLUMN IF NOT EXISTS confidence TEXT;"
+            ,"ALTER TABLE pending_questions ADD COLUMN IF NOT EXISTS classification_reason TEXT;"
+            ,"ALTER TABLE pending_questions ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';"
+            ,"ALTER TABLE questions ADD COLUMN IF NOT EXISTS passage_text TEXT;"
+            ,"ALTER TABLE questions ADD COLUMN IF NOT EXISTS diagram_instruction TEXT;"
+            ,"ALTER TABLE questions ADD COLUMN IF NOT EXISTS curriculum_section_id INTEGER;"
+            ,"ALTER TABLE questions ADD COLUMN IF NOT EXISTS curriculum_topic_id INTEGER;"
         ]
         for query in pg_migrations:
             try:
@@ -368,6 +390,7 @@ def init_db():
                 resource_type TEXT NOT NULL CHECK (resource_type IN ('Textbook', 'Teacher Guide', 'Worksheet', 'Exam', 'Entrance Exam', 'Model Exam', 'School Exam', 'Notes')),
                 subject TEXT NOT NULL,
                 grade INTEGER NOT NULL,
+                unit_number INTEGER,
                 unit_title TEXT,
                 section_number TEXT,
                 section_title TEXT,
@@ -556,8 +579,31 @@ def init_db():
             ("pending_exams", "ADD COLUMN school_name TEXT"),
             ("pending_exams", "ADD COLUMN instructions TEXT"),
             ("pending_questions", "ADD COLUMN source_year TEXT"),
+            ("pending_questions", "ADD COLUMN question_number INTEGER"),
+            ("pending_questions", "ADD COLUMN option_a TEXT"),
+            ("pending_questions", "ADD COLUMN option_b TEXT"),
+            ("pending_questions", "ADD COLUMN option_c TEXT"),
+            ("pending_questions", "ADD COLUMN option_d TEXT"),
+            ("pending_questions", "ADD COLUMN correct_answer TEXT"),
+            ("pending_questions", "ADD COLUMN explanation TEXT"),
+            ("pending_questions", "ADD COLUMN passage_text TEXT"),
+            ("pending_questions", "ADD COLUMN diagram_instruction TEXT"),
+            ("pending_questions", "ADD COLUMN unit_number TEXT"),
+            ("pending_questions", "ADD COLUMN unit_title TEXT"),
+            ("pending_questions", "ADD COLUMN section_number TEXT"),
+            ("pending_questions", "ADD COLUMN section_title TEXT"),
+            ("pending_questions", "ADD COLUMN topic_title TEXT"),
+            ("pending_questions", "ADD COLUMN subtopic TEXT"),
+            ("pending_questions", "ADD COLUMN confidence TEXT"),
+            ("pending_questions", "ADD COLUMN classification_reason TEXT"),
+            ("pending_questions", "ADD COLUMN status TEXT DEFAULT 'pending'"),
+            ("resources", "ADD COLUMN unit_number INTEGER"),
             ("questions", "ADD COLUMN question_number INTEGER"),
             ("questions", "ADD COLUMN source_year TEXT"),
+            ("questions", "ADD COLUMN passage_text TEXT"),
+            ("questions", "ADD COLUMN diagram_instruction TEXT"),
+            ("questions", "ADD COLUMN curriculum_section_id INTEGER"),
+            ("questions", "ADD COLUMN curriculum_topic_id INTEGER"),
         ]
         for table, action in sqlite_migrations:
             try:

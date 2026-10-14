@@ -1,4 +1,3 @@
-# app.py - Complete Updated Version with AI Tutor Memory
 import os
 import json
 import time
@@ -549,11 +548,11 @@ def parse_pdf_with_ai(pdf_path, subject_name, grade_number):
             time.sleep(1.5)
             uploaded_file = client.files.get(name=uploaded_file.name)
         prompt = f"""
-Read the complete Ethiopian entrance exam PDF. Return JSON only and extract every question in original order.
-Preserve question_number and source_year exactly as printed. Classify each question only against this textbook
-curriculum JSON; never invent a unit, section, topic, or subtopic.
+Read the complete Ethiopian exam PDF. Return JSON only and extract every question in original order.
+Preserve question_number and source_year exactly as printed. Do not classify questions in this extraction step;
+set all curriculum classification fields to null. Classification is performed afterward in small batches against
+our official curriculum, so the extraction remains focused and supports exams with around 100 questions.
 Subject: {subject_name}; Grade: {grade_number}
-Curriculum: {json.dumps(curriculum, ensure_ascii=False)}
 Schema: {{"school_name": null, "department": "{subject_name}", "academic_year": null,
 "instructions": null, "questions": [{{"question_number": 1, "source_year": null, "question": "",
 "A": "", "B": "", "C": "", "D": "", "correct": "A", "explanation": "",
@@ -1813,6 +1812,191 @@ def get_worksheets():
     return get_resources_by_type('Worksheet')
 
 # ============================================
+# BATCH CURRICULUM CLASSIFICATION
+# ============================================
+def _normalise_question_text(value):
+    """Stable comparison key for detecting duplicate questions without changing display text."""
+    return re.sub(r"\s+", " ", re.sub(r"[^\w\s]", " ", str(value or "").casefold())).strip()
+
+
+def classify_questions_in_batches(questions, subject_name, grade_number, batch_size=20):
+    """Classify missing question labels in batches to avoid one Gemini call per question.
+
+    Existing valid classifications are preserved. On quota/API failure, questions are retained
+    with Low confidence rather than failing the upload.
+    """
+    global classification_retry_after
+    results = {}
+    pending = []
+    for index, question in enumerate(questions):
+        has_classification = (
+            question.get("unit_number") not in (None, "") and
+            question.get("unit_title") not in (None, "")
+        )
+        if has_classification:
+            results[index] = {
+                "unit_number": question.get("unit_number"),
+                "unit_title": question.get("unit_title"),
+                "section_number": question.get("section_number"),
+                "section_title": question.get("section_title"),
+                "topic_title": question.get("topic_title"),
+                "subtopic": question.get("subtopic"),
+                "confidence": question.get("confidence") or "Low",
+                "reason": question.get("reason") or "Classification supplied with extracted question"
+            }
+        else:
+            pending.append((index, question))
+
+    if not pending:
+        return results
+
+    if not get_gemini_client() or time.time() < classification_retry_after:
+        for index, _ in pending:
+            results[index] = {"confidence": "Low", "reason": "AI unavailable; question saved for later classification"}
+        return results
+
+    curriculum = get_curriculum_outline(subject_name, grade_number)
+    if not curriculum:
+        for index, _ in pending:
+            results[index] = {"confidence": "Low", "reason": f"No curriculum found for {subject_name} Grade {grade_number}"}
+        return results
+
+    # Use previously classified questions as few-shot examples when available; examples are prompt-only
+    # and are never inserted as new exam questions.
+    examples = []
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        param = get_param_style()
+        cursor.execute(f"""
+            SELECT pq.question_text, pq.unit_number, pq.unit_title, pq.section_number,
+                   pq.section_title, pq.topic_title, pq.subtopic
+            FROM pending_questions pq
+            JOIN pending_exams pe ON pe.id = pq.pending_exam_id
+            WHERE pe.subject = {param} AND pe.grade = {param}
+              AND pq.unit_title IS NOT NULL AND pq.question_text IS NOT NULL
+            ORDER BY pq.id DESC LIMIT 4
+        """, (subject_name, grade_number))
+        examples = [dict(row) for row in cursor.fetchall()]
+        cursor.close()
+        conn.close()
+    except Exception as sample_error:
+        print(f"DEBUG: Could not load classification examples: {sample_error}")
+
+    curriculum_json = json.dumps(curriculum, ensure_ascii=False)
+    examples_json = json.dumps(examples, ensure_ascii=False)
+    for start in range(0, len(pending), max(1, batch_size)):
+        batch = pending[start:start + max(1, batch_size)]
+        if time.time() < classification_retry_after:
+            for index, _ in batch:
+                results[index] = {"confidence": "Low", "reason": "Gemini quota cooldown; saved for manual/retry classification"}
+            continue
+        payload = []
+        for index, question in batch:
+            payload.append({
+                "index": index,
+                "question": question.get("question") or question.get("question_text") or "",
+                "passage_text": question.get("passage_text") or None
+            })
+        prompt = f"""
+You are an expert Ethiopian New Curriculum exam classifier for {subject_name}, Grade {grade_number}.
+Classify each supplied question using ONLY the official curriculum below. Use the examples as reasoning
+examples only; they are not questions to add to the exam. Never invent curriculum units or labels.
+Return JSON only in this exact shape: {{"classifications":[{{"index":0,"unit_number":"1",
+"unit_title":"exact official title","section_number":"1.1","section_title":"exact official title",
+"topic_title":"exact topic or null","subtopic":"exact subtopic or null","confidence":"High|Medium|Low",
+"reason":"brief reason"}}]}}.
+Rules:
+- Return exactly one classification for each input index, preserving its index.
+- Select the closest official unit/section/topic. Copy names and numbers exactly from the curriculum.
+- If no precise match exists, use the best supported unit, set confidence Low, and explain uncertainty.
+- Do not answer the exam question; classify only.
+Official curriculum JSON:
+{curriculum_json}
+Previously classified reference examples (prompt-only; do not output them):
+{examples_json}
+Questions to classify:
+{json.dumps(payload, ensure_ascii=False)}
+"""
+        last_error = None
+        response_data = None
+        for model_name in ("gemini-flash-latest", "gemini-2.0-flash"):
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json", temperature=0.1
+                    )
+                )
+                if not response or not response.text:
+                    raise ValueError("AI returned an empty classification response")
+                response_data = json.loads(response.text)
+                break
+            except Exception as error:
+                last_error = error
+                error_text = str(error).upper()
+                if "429" in error_text or "RESOURCE_EXHAUSTED" in error_text:
+                    retry_match = re.search(r"retryDelay['\"]?:\s*['\"]?([0-9.]+)s", str(error))
+                    classification_retry_after = time.time() + (float(retry_match.group(1)) if retry_match else 60.0)
+                    break
+                if not any(code in error_text for code in ("503", "UNAVAILABLE", "NOT FOUND", "404")):
+                    break
+        items = (response_data or {}).get("classifications", []) if isinstance(response_data, dict) else response_data
+        if not isinstance(items, list):
+            items = []
+        by_index = {item.get("index"): item for item in items if isinstance(item, dict) and item.get("index") is not None}
+        valid_units = {str(row.get("unit_number")): row for row in curriculum}
+        for index, _ in batch:
+            item = by_index.get(index)
+            if not item:
+                results[index] = {"confidence": "Low", "reason": f"Batch classification unavailable: {last_error or 'no matching result'}"}
+                continue
+            # Guard against invented unit numbers and titles that are not in the curriculum.
+            unit_key = str(item.get("unit_number")) if item.get("unit_number") is not None else None
+            valid_rows = [row for row in curriculum if unit_key and str(row.get("unit_number")) == unit_key]
+            valid_titles = {str(row.get("unit_title") or row.get("title") or "") for row in valid_rows}
+            unit_title = item.get("unit_title")
+            if not valid_rows or (unit_title and unit_title not in valid_titles):
+                results[index] = {"confidence": "Low", "reason": "AI label did not match official curriculum; needs review"}
+                continue
+            official_unit_title = valid_rows[0].get("unit_title") or valid_rows[0].get("title")
+            section_number = item.get("section_number")
+            section_title = item.get("section_title")
+            section_rows = [row for row in valid_rows if row.get("section_number") is not None]
+            matched_sections = [row for row in section_rows if
+                str(row.get("section_number")) == str(section_number) and
+                (not section_title or str(row.get("section_title")) == str(section_title))]
+            if section_rows and not matched_sections:
+                section_number = section_title = None
+                confidence = "Low"
+                reason = "Unit matched; section label was not an exact curriculum match and needs review"
+                topic_title = subtopic = None
+            else:
+                confidence = item.get("confidence") if item.get("confidence") in ("High", "Medium", "Low") else "Low"
+                reason = item.get("reason") or "Batch-classified against official curriculum"
+                topic_title = item.get("topic_title")
+                subtopic = item.get("subtopic")
+                if matched_sections:
+                    official_topics = {str(row.get("topic_title")) for row in matched_sections if row.get("topic_title")}
+                    if topic_title and official_topics and str(topic_title) not in official_topics:
+                        topic_title = subtopic = None
+                        confidence = "Low"
+                        reason = "Unit and section matched; topic label needs curriculum review"
+            results[index] = {
+                "unit_number": valid_rows[0].get("unit_number"),
+                "unit_title": official_unit_title,
+                "section_number": section_number,
+                "section_title": section_title,
+                "topic_title": topic_title,
+                "subtopic": subtopic,
+                "confidence": confidence,
+                "reason": reason
+            }
+    return results
+
+
+# ============================================
 # SMART UPLOAD ENGINE WITH CLASSIFICATION
 # ============================================
 
@@ -1892,35 +2076,37 @@ def upload_engine():
             pending_exam_id = cursor.lastrowid
         conn.commit()
 
+        saved_count = 0
         classified_count = 0
         error_count = 0
-        
+        # Classify in batches (20 questions per request) instead of one API request per question.
+        batch_classifications = classify_questions_in_batches(questions, subject, grade, batch_size=20)
+        # Within one upload, keep only the last occurrence of an exact duplicate. This lets a
+        # corrected/re-entered question replace an earlier copy without adding sample questions.
+        last_occurrence = {}
+        for q_index, q_item in enumerate(questions):
+            q_key = _normalise_question_text(q_item.get('question') or q_item.get('question_text', ''))
+            if q_key:
+                last_occurrence[q_key] = q_index
+        duplicate_indices = {
+            q_index for q_index, q_item in enumerate(questions)
+            if (lambda k: bool(k) and last_occurrence.get(k) != q_index)(
+                _normalise_question_text(q_item.get('question') or q_item.get('question_text', ''))
+            )
+        }
         for idx, q in enumerate(questions):
             try:
                 q_text = q.get('question') or q.get('question_text', '')
                 if not q_text:
                     continue
+                if idx in duplicate_indices:
+                    print(f"DEBUG: Skipping duplicate question at upload position {idx + 1}; latest copy retained.")
+                    continue
 
-                # The full-PDF parser already classifies each question against the
-                # textbook curriculum. Only call the per-question fallback when
-                # an imported JSON question has no classification fields.
-                if any(q.get(field) for field in (
-                    'unit_number', 'unit_title', 'section_number', 'section_title',
-                    'topic_title', 'subtopic'
-                )):
-                    classification = {
-                        'unit_number': q.get('unit_number'),
-                        'unit_title': q.get('unit_title'),
-                        'section_number': q.get('section_number'),
-                        'section_title': q.get('section_title'),
-                        'topic_title': q.get('topic_title'),
-                        'subtopic': q.get('subtopic'),
-                        'confidence': q.get('confidence', 'Low'),
-                        'reason': q.get('reason', 'Classified during full PDF extraction')
-                    }
-                else:
-                    classification = classify_question_with_curriculum(q_text, subject, grade)
-                
+                classification = batch_classifications.get(idx, {
+                    'confidence': 'Low', 'reason': 'Classification not available; saved for review'
+                })
+                # Prefer a supplied classification only if the batch helper preserved it.
                 opt_a = fix_latex_string(q.get('A') or q.get('option_a', ''))
                 opt_b = fix_latex_string(q.get('B') or q.get('option_b', ''))
                 opt_c = fix_latex_string(q.get('C') or q.get('option_c', ''))
@@ -1959,7 +2145,9 @@ def upload_engine():
                     classification.get('reason', 'Auto-classified'),
                     'pending'
                 ))
-                classified_count += 1
+                saved_count += 1
+                if classification.get('unit_number') not in (None, '') and classification.get('unit_title'):
+                    classified_count += 1
                 
             except Exception as q_error:
                 error_count += 1
@@ -1972,9 +2160,11 @@ def upload_engine():
 
         return jsonify({
             "success": True,
-            "message": f"✅ File processed! {classified_count} questions extracted and classified. {error_count} errors.",
+            "message": f"File processed: {saved_count} questions saved, {classified_count} classified to a curriculum unit; {len(duplicate_indices)} duplicate copies skipped; {error_count} errors.",
             "pending_exam_id": pending_exam_id,
-            "total_questions": len(questions),
+            "total_questions": len(questions) - len(duplicate_indices),
+            "saved_questions": saved_count,
+            "duplicates_skipped": len(duplicate_indices),
             "classified": classified_count,
             "errors": error_count
         })
@@ -2174,6 +2364,7 @@ def approve_pending_exam(pending_exam_id):
                 LIMIT 1
             """, (
                 pending_exam['subject'], pending_exam['grade'],
+                pq['unit_number'] or pq['unit_title'],
                 pq['unit_number'] or pq['unit_title']
             ))
             unit = cursor.fetchone()
@@ -2188,7 +2379,9 @@ def approve_pending_exam(pending_exam_id):
                            OR LOWER(TRIM(title)) = LOWER(TRIM({param})))
                     LIMIT 1
                 """, (
-                    unit_id, pq['section_number'] or pq['section_title']
+                    unit_id,
+                    pq['section_number'] or pq['section_title'],
+                    pq['section_number'] or pq['section_title']
                 ))
                 section = cursor.fetchone()
                 if section:
@@ -3177,8 +3370,10 @@ def seed_curriculum_file(file_path):
                                     INSERT INTO curriculum_topics (section_id, topic_title, subtopic)
                                     VALUES ({param}, {param}, {param})
                                     ON CONFLICT (section_id, topic_title, subtopic) DO NOTHING
+                                    RETURNING id
                                 """, (section_id, topic_title, subtopic))
-                                counts['topics'] += 1
+                                if cursor.fetchone():
+                                    counts['topics'] += 1
 
         conn.commit()
         return counts
@@ -3190,19 +3385,92 @@ def seed_curriculum_file(file_path):
         conn.close()
 
 
-def seed_databasejson_folder():
+def seed_databasejson_folder(force=False):
+    """Seed curriculum JSON files and resume safely after an interrupted startup.
+
+    Each successfully imported file is tracked by filename, size, and modification time.
+    Startup skips unchanged files; the Admin endpoint uses force=True to re-import all files.
+    """
     folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Databasejson')
+    empty_totals = {'files': 0, 'subjects': 0, 'grades': 0, 'units': 0, 'sections': 0, 'topics': 0}
     if not os.path.isdir(folder):
-        return {'files': 0, 'subjects': 0, 'grades': 0, 'units': 0, 'sections': 0, 'topics': 0}
+        return empty_totals
+
+    json_files = [
+        name for name in sorted(os.listdir(folder))
+        if name.lower().endswith('.json') and os.path.isfile(os.path.join(folder, name))
+    ]
+    if not json_files:
+        return empty_totals
+
+    # SQLite and PostgreSQL both support this portable table definition.
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS curriculum_seed_files (
+                file_name TEXT PRIMARY KEY,
+                file_size BIGINT NOT NULL,
+                modified_ns BIGINT NOT NULL,
+                seeded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.commit()
+    finally:
+        cursor.close()
+        conn.close()
+
     totals = {'files': 0, 'subjects': 0, 'grades': 0, 'units': 0, 'sections': 0, 'topics': 0}
-    for file_name in sorted(os.listdir(folder)):
-        if not file_name.lower().endswith('.json'):
-            continue
-        counts = seed_curriculum_file(os.path.join(folder, file_name))
+    print(f"[Edu-Vault] Curriculum seeding started: {len(json_files)} JSON files found.", flush=True)
+    for file_index, file_name in enumerate(json_files, start=1):
+        file_path = os.path.join(folder, file_name)
+        stat = os.stat(file_path)
+        print(f"[Edu-Vault] Checking file {file_index}/{len(json_files)}: {file_name}", flush=True)
+
+        if not force:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            try:
+                param = get_param_style()
+                cursor.execute(
+                    f"SELECT file_size, modified_ns FROM curriculum_seed_files WHERE file_name = {param}",
+                    (file_name,)
+                )
+                prior = cursor.fetchone()
+                if prior and prior['file_size'] == stat.st_size and prior['modified_ns'] == stat.st_mtime_ns:
+                    continue
+            finally:
+                cursor.close()
+                conn.close()
+
+        print(f"[Edu-Vault] Importing {file_name}...", flush=True)
+        counts = seed_curriculum_file(file_path)
+        print(f"[Edu-Vault] Finished {file_name}: {counts}", flush=True)
+
+        # Mark a file only after its curriculum transaction completed successfully.
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            param = get_param_style()
+            cursor.execute(f"""
+                INSERT INTO curriculum_seed_files (file_name, file_size, modified_ns, seeded_at)
+                VALUES ({param}, {param}, {param}, CURRENT_TIMESTAMP)
+                ON CONFLICT (file_name) DO UPDATE SET
+                    file_size = {param}, modified_ns = {param}, seeded_at = CURRENT_TIMESTAMP
+            """, (file_name, stat.st_size, stat.st_mtime_ns, stat.st_size, stat.st_mtime_ns))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            cursor.close()
+            conn.close()
+
         totals['files'] += 1
         for key in totals:
             if key != 'files':
                 totals[key] += counts[key]
+
     return totals
 
 @app.route('/api/admin/seed_curriculum', methods=['POST'])
@@ -3219,7 +3487,7 @@ def seed_curriculum():
                 if os.path.exists(temp_path):
                     os.remove(temp_path)
         else:
-            counts = seed_databasejson_folder()
+            counts = seed_databasejson_folder(force=True)
         return jsonify({"success": True, "message": "Curriculum seeded from Databasejson.", "counts": counts})
         
     except Exception as e:
@@ -3264,13 +3532,137 @@ except Exception as e:
 
 try:
     databasejson_counts = seed_databasejson_folder()
-    print(f"Databasejson curriculum seeded: {databasejson_counts}")
+    print(f"Databasejson curriculum seeded: {databasejson_counts}", flush=True)
 except Exception as e:
     print(f"Databasejson seeding error: {e}")
 
 # ============================================
-# MAIN ENTRY POINT
+# Unified Exam System: shared SQL persistence
 # ============================================
+UNIFIED_COLLECTIONS = {'results', 'students', 'examFiles', 'examPackages', 'examSchedules', 'examArchive'}
+
+def ensure_unified_exam_table(conn):
+    """Create the generic record table in the same active Edu-Vault SQL database."""
+    cur = conn.cursor()
+    cur.execute("""CREATE TABLE IF NOT EXISTS unified_exam_records (
+        collection_name TEXT NOT NULL, record_id TEXT NOT NULL, payload TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (collection_name, record_id))""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS unified_exam_files (
+        file_id TEXT PRIMARY KEY, filename TEXT NOT NULL, content_type TEXT,
+        file_data BYTEA NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+    conn.commit()
+    cur.close()
+
+@app.route('/api/unified-exam/health', methods=['GET'])
+def unified_exam_health():
+    conn = None
+    try:
+        conn = get_db_connection(); ensure_unified_exam_table(conn); cur = conn.cursor(); cur.execute('SELECT 1'); cur.close()
+        return jsonify({'success': True, 'database': 'Edu-Vault SQL', 'driver': 'postgresql' if is_postgres() else 'sqlite'})
+    except Exception as e:
+        print(f'Unified exam database health check failed: {e}')
+        return jsonify({'success': False, 'error': 'Edu-Vault database is unavailable'}), 503
+    finally:
+        if conn is not None: conn.close()
+
+@app.route('/api/unified-exam/records/<collection_name>', methods=['GET'])
+def unified_exam_list_records(collection_name):
+    if collection_name not in UNIFIED_COLLECTIONS: return jsonify({'error': 'Unsupported record collection'}), 404
+    conn = None
+    try:
+        conn = get_db_connection(); ensure_unified_exam_table(conn); param = get_param_style(); cur = conn.cursor()
+        cur.execute(f'SELECT record_id, payload FROM unified_exam_records WHERE collection_name = {param} ORDER BY updated_at DESC', (collection_name,))
+        records = []
+        for row in cur.fetchall():
+            rid = row['record_id'] if hasattr(row, 'keys') else row[0]
+            raw = row['payload'] if hasattr(row, 'keys') else row[1]
+            try: payload = json.loads(raw)
+            except Exception: payload = {}
+            records.append({'id': rid, 'data': payload})
+        cur.close(); return jsonify({'records': records})
+    except Exception as e:
+        print(f'Unified exam record list failed ({collection_name}): {e}')
+        return jsonify({'error': 'Could not read exam records'}), 500
+    finally:
+        if conn is not None: conn.close()
+
+@app.route('/api/unified-exam/records/<collection_name>/<path:record_id>', methods=['PUT', 'DELETE'])
+def unified_exam_record(collection_name, record_id):
+    if collection_name not in UNIFIED_COLLECTIONS: return jsonify({'error': 'Unsupported record collection'}), 404
+    conn = None
+    try:
+        conn = get_db_connection(); ensure_unified_exam_table(conn); param = get_param_style(); cur = conn.cursor()
+        if request.method == 'DELETE':
+            cur.execute(f'DELETE FROM unified_exam_records WHERE collection_name = {param} AND record_id = {param}', (collection_name, record_id))
+            conn.commit(); cur.close(); return jsonify({'success': True, 'deleted': True})
+        body = request.get_json(silent=True) or {}; incoming = body.get('data')
+        if not isinstance(incoming, dict): return jsonify({'error': 'Record data must be a JSON object'}), 400
+        if body.get('merge'):
+            cur.execute(f'SELECT payload FROM unified_exam_records WHERE collection_name = {param} AND record_id = {param}', (collection_name, record_id))
+            old = cur.fetchone()
+            if old:
+                raw = old['payload'] if hasattr(old, 'keys') else old[0]
+                try: prior = json.loads(raw)
+                except Exception: prior = {}
+                prior.update(incoming); incoming = prior
+        payload = json.dumps(incoming, ensure_ascii=False, separators=(',', ':'))
+        sql = f"INSERT INTO unified_exam_records (collection_name, record_id, payload, updated_at) VALUES ({param}, {param}, {param}, CURRENT_TIMESTAMP) ON CONFLICT (collection_name, record_id) DO UPDATE SET payload = excluded.payload, updated_at = CURRENT_TIMESTAMP"
+        cur.execute(sql, (collection_name, record_id, payload)); conn.commit(); cur.close()
+        return jsonify({'success': True, 'id': record_id})
+    except Exception as e:
+        print(f'Unified exam record save failed ({collection_name}/{record_id}): {e}')
+        if conn is not None:
+            try: conn.rollback()
+            except Exception: pass
+        return jsonify({'error': 'Could not save exam record'}), 500
+    finally:
+        if conn is not None: conn.close()
+
+@app.route('/api/unified-exam/files', methods=['POST'])
+def unified_exam_upload_file():
+    uploaded = request.files.get('file')
+    if not uploaded or not uploaded.filename:
+        return jsonify({'error': 'Choose a file to upload'}), 400
+    content = uploaded.read(MAX_FILE_SIZE + 1)
+    if len(content) > MAX_FILE_SIZE:
+        return jsonify({'error': 'File exceeds the 16 MB upload size limit'}), 413
+    safe_name = secure_filename(uploaded.filename) or 'exam-file'
+    file_id = uuid.uuid4().hex
+    conn = None
+    try:
+        conn = get_db_connection(); ensure_unified_exam_table(conn); param = get_param_style(); cur = conn.cursor()
+        cur.execute(f"INSERT INTO unified_exam_files (file_id, filename, content_type, file_data) VALUES ({param}, {param}, {param}, {param})",
+                    (file_id, safe_name, uploaded.mimetype or 'application/octet-stream', content))
+        conn.commit(); cur.close()
+        public_url = url_for('unified_exam_download_file', filename=file_id)
+        return jsonify({'success': True, 'url': public_url, 'name': safe_name, 'path': file_id})
+    except Exception as e:
+        print(f'Unified exam file upload failed: {e}')
+        if conn is not None:
+            try: conn.rollback()
+            except Exception: pass
+        return jsonify({'error': 'Could not store the uploaded file in the Edu-Vault database'}), 500
+    finally:
+        if conn is not None: conn.close()
+
+@app.route('/api/unified-exam/files/<path:filename>', methods=['GET'])
+def unified_exam_download_file(filename):
+    conn = None
+    try:
+        conn = get_db_connection(); ensure_unified_exam_table(conn); param = get_param_style(); cur = conn.cursor()
+        cur.execute(f'SELECT filename, content_type, file_data FROM unified_exam_files WHERE file_id = {param}', (filename,))
+        row = cur.fetchone(); cur.close()
+        if not row: return jsonify({'error': 'File not found'}), 404
+        name = row['filename'] if hasattr(row, 'keys') else row[0]
+        mime = row['content_type'] if hasattr(row, 'keys') else row[1]
+        data = row['file_data'] if hasattr(row, 'keys') else row[2]
+        return send_file(BytesIO(bytes(data)), mimetype=mime or 'application/octet-stream', as_attachment=False, download_name=name)
+    except Exception as e:
+        print(f'Unified exam file download failed: {e}')
+        return jsonify({'error': 'Could not retrieve uploaded file'}), 500
+    finally:
+        if conn is not None: conn.close()
 
 if __name__ == '__main__':
     if not os.path.exists('uploads'):

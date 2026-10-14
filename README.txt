@@ -1,15 +1,21 @@
-EDUVAULT EXAM SYSTEM — ADD-ON ONLY
+EDU-VAULT — UNIFIED EXAM SYSTEM DATABASE UPDATE
 
-Copy ONLY these additions into your existing EduVault Flask project:
+Unified Exam System now stores its online records in the same SQL database used by the main Edu-Vault Flask application.
+postgresql://postgres.avhddkggzxpiabimbbpf:%25KayoAlemu4694%25@aws-1-eu-west-1.pooler.supabase.com:6543/postgres
+Database selection:
+- Production: set DATABASE_URL to the existing PostgreSQL/Supabase connection string.
+- Local development: when DATABASE_URL is not set, the app uses data/exams.db (SQLite).
+- The table unified_exam_records is created automatically on first API use. It stores examPackages, examSchedules, examFiles, students and results records.
+- Uploaded exam PDFs are stored as binary data in the same SQL database and served by the Flask app, so cross-device access does not depend on an ephemeral local uploads folder.
 
-1. templates/eduvault_system.html -> existing templates/
-2. static/js/firebase-rest-shim.js -> existing static/js/
-3. Add app_route_addition.txt to your existing app.py
-4. Add index_link_addition.html to the existing index/navigation where you want
-   the new section to appear.
+Run locally:
+1. Install requirements.txt.
+2. Configure environment variables in your own .env file (see .env.example).
+3. Run: python app.py
+4. Open /eduvault-system.
+5. Check GET /api/unified-exam/health to confirm the database connection.
 
-Do NOT replace your existing index.html, app.py, requirements.txt, database,
-or other project files.
+Important migration note:
+This update removes the previous external cloud database integration. It does not automatically fetch historical cloud records because no data export or service credentials were provided. Export the old collections before shutting down the old service, then import those records into the new SQL table if you need the historical cloud data. New and updated exam records will use Edu-Vault SQL going forward.
 
-The new system opens at:
-http://127.0.0.1:5000/eduvault-system
+Security note: before public production use, ensure the existing admin/student authorization is enforced server-side for Unified Exam System write APIs and apply appropriate upload access controls.

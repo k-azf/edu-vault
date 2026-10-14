@@ -230,8 +230,11 @@
 
             const filtered = allWorksheets.filter(item => {
                 const matchesGrade = (selectedGrade === "all") || (String(item.grade) === String(selectedGrade));
-                const matchesSubject = (selectedSubject === "all") || (item.subject.toLowerCase() === selectedSubject.toLowerCase());
-                const matchesSearch = !query || item.title.toLowerCase().includes(query) || item.subject.toLowerCase().includes(query) || (item.school_name && item.school_name.toLowerCase().includes(query));
+                const itemSubject = String(item.subject || '');
+                const itemTitle = String(item.title || 'Untitled worksheet');
+                const itemSchool = String(item.school_name || item.description || '');
+                const matchesSubject = (selectedSubject === "all") || (itemSubject.toLowerCase() === selectedSubject.toLowerCase());
+                const matchesSearch = !query || itemTitle.toLowerCase().includes(query) || itemSubject.toLowerCase().includes(query) || itemSchool.toLowerCase().includes(query);
 
                 return matchesGrade && matchesSubject && matchesSearch;
             });
@@ -259,22 +262,30 @@
 
             grid.innerHTML = "";
             filtered.forEach(ws => {
+                const worksheetUrl = safeWorksheetUrl(ws.pdf_url || ws.file_url || ws.download_url);
+                const title = escapeHtml(ws.title || 'Untitled worksheet');
+                const subject = escapeHtml(ws.subject || 'General');
+                const schoolName = escapeHtml(ws.school_name || ws.description || 'Ethiopian National Curriculum');
+                const grade = escapeHtml(ws.grade ?? '—');
+                const action = worksheetUrl
+                    ? `<a href="${worksheetUrl}" target="_blank" rel="noopener noreferrer" class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-extrabold px-4 py-2.5 rounded-xl transition shadow-md shadow-purple-600/20 flex items-center gap-1"><span>Open Worksheet</span><span>↗</span></a>`
+                    : `<span class="text-[10px] font-bold text-amber-400" title="No file URL is available for this worksheet">File not available</span>`;
                 grid.innerHTML += `
                     <div class="group relative bg-slate-900/90 border border-slate-800 hover:border-purple-500/60 p-6 rounded-2xl transition-all duration-300 flex flex-col justify-between shadow-xl hover:-translate-y-1">
                         <div class="space-y-3">
                             <div class="flex items-center justify-between">
                                 <span class="bg-purple-500/10 border border-purple-500/30 text-purple-400 text-[9px] font-black tracking-widest px-2.5 py-0.5 rounded uppercase">
-                                    Grade ${ws.grade} • ${ws.subject}
+                                    Grade ${grade} • ${subject}
                                 </span>
                                 <span class="text-[10px] text-slate-400 font-bold">
-                                    📝 ${ws.questions_count || 30} Questions
+                                    📄 Worksheet resource
                                 </span>
                             </div>
                             <h3 class="text-base font-extrabold text-white group-hover:text-purple-300 transition-colors leading-snug">
-                                ${ws.title}
+                                ${title}
                             </h3>
                             <p class="text-[11px] text-slate-400">
-                                📍 ${ws.school_name || "Ethiopian National Curriculum"}
+                                📍 ${schoolName}
                             </p>
                         </div>
 
@@ -282,14 +293,29 @@
                             <a href="/tutor" class="text-[11px] font-bold text-slate-400 hover:text-white flex items-center gap-1 transition">
                                 <span>🤖 Solve with AI</span>
                             </a>
-                            <a href="/exam/${ws.id}" class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-extrabold px-4 py-2.5 rounded-xl transition shadow-md shadow-purple-600/20 flex items-center gap-1">
-                                <span>Practice</span>
-                                <span>→</span>
-                            </a>
+                            ${action}
                         </div>
                     </div>
                 `;
             });
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[char]));
+        }
+
+        function safeWorksheetUrl(value) {
+            if (!value || typeof value !== 'string' || value === '#') return '';
+            const trimmed = value.trim();
+            if (trimmed.startsWith('/')) return escapeHtml(trimmed);
+            try {
+                const parsed = new URL(trimmed, window.location.origin);
+                return ['http:', 'https:'].includes(parsed.protocol) ? escapeHtml(parsed.href) : '';
+            } catch (_) {
+                return '';
+            }
         }
 
         // Pill UI Handler

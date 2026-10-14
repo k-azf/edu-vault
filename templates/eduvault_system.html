@@ -380,21 +380,12 @@ main{padding-top:18px}
 
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="{{ url_for("static", filename="js/firebase-rest-shim.js") }}"></script>
+<script src="{{ url_for("static", filename="js/unified-db-shim.js") }}"></script>
 <script>
 /* =========================
    EDUVAULT CONFIGURATION
    ========================= */
-const firebaseConfig={
- apiKey:"AIzaSyAewxg7D6yPPMp8yMdLRXuCLGqcEbEPVBc",
- authDomain:"eduvault-ef5c6.firebaseapp.com",
- projectId:"eduvault-ef5c6",
- storageBucket:"eduvault-ef5c6.firebasestorage.app",
- messagingSenderId:"128977894230",
- appId:"1:128977894230:web:38f7214b3b8c3486e774f7",
- measurementId:"G-9WTCWH73XF"
-};
-window.__EDUVAULT_FIREBASE_CONFIG__=firebaseConfig;
+// Unified Exam System uses the same Edu-Vault SQL database as the main application.
 const SUBJECTS=["Mathematics","Biology","Physics","Chemistry","English","SAT"];
 const DAILY_ORDER=["Mathematics","Biology","Physics","Chemistry","English","SAT"];
 const DAYS=["Monday","Tuesday","Wednesday","Thursday","Friday"];
@@ -416,43 +407,11 @@ function saveRegisteredStudents(list){save(LS.students,list);}
 
 
 let db=null, auth=null, online=navigator.onLine;
-let firebaseInitialized=false;
-let firebaseAuthPromise=null;
-
+let databaseInitialized=false;
 try{
-  if(typeof firebase === "undefined") throw new Error("Firebase SDK is not loaded");
-  firebase.initializeApp(firebaseConfig);
-  auth=firebase.auth();
-  db=firebase.firestore();
-  firebaseInitialized=true;
-  // Offline cache is helpful, but failure here must not block the application.
-  db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
-}catch(e){
-  console.error("Firebase initialization failed:",e);
-  firebaseInitialized=false;
-}
-
-// The EduVault app has its own student/admin login UI. Anonymous Firebase Auth
-// supplies a Firebase identity so Firestore Rules can safely require request.auth.
-async function ensureFirebaseAuth(){
-  if(!firebaseInitialized || !db || !auth || !navigator.onLine){
-    return false;
-  }
-  if(auth.currentUser) return true;
-  if(firebaseAuthPromise) return firebaseAuthPromise;
-  firebaseAuthPromise=(async()=>{
-    try{
-      await auth.signInAnonymously();
-      return !!auth.currentUser;
-    }catch(e){
-      console.error("Firebase Authentication failed:",e);
-      return false;
-    }finally{
-      firebaseAuthPromise=null;
-    }
-  })();
-  return firebaseAuthPromise;
-}
+  db=evDB(); auth=evAuth(); databaseInitialized=true;
+}catch(e){console.error("Edu-Vault database initialization failed:",e);databaseInitialized=false;}
+async function ensureDatabaseReady(){return !!(databaseInitialized && db && navigator.onLine)}
 
 const SAMPLE_EXAMS={
  "Mathematics":{id:"math-demo-v1",title:"Mathematics Mock — Week 1",duration:90,questions:[
@@ -491,7 +450,7 @@ function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
 function toast(s){let t=document.getElementById("toast");t.textContent=s;t.style.display="block";clearTimeout(window._toast);window._toast=setTimeout(()=>t.style.display="none",2500)}
 function setNet(){let el=document.getElementById("net");el.textContent=online?"● Online":"● Offline";el.className="status "+(online?"":"offline")}
-window.addEventListener("online",async()=>{online=true;setNet();await ensureFirebaseAuth();syncPending()});
+window.addEventListener("online",async()=>{online=true;setNet();await ensureDatabaseReady();syncPending()});
 window.addEventListener("offline",()=>{online=false;setNet()});
 setNet();
 
@@ -516,7 +475,7 @@ function home(){
 }
 
 function profile(){
- document.getElementById("app").innerHTML=`<div class="card"><h2>Student Profile</h2><p class="muted">This information is saved on this device. Your exam scores can also sync to Firebase when internet is available.</p>
+ document.getElementById("app").innerHTML=`<div class="card"><h2>Student Profile</h2><p class="muted">Profile details are saved on this device. Exam scores sync to the Edu-Vault server database when internet is available.</p>
  <div class="grid"><div>
  <div class="field"><label>Student code issued by administrator</label><input id="pcode" value="${esc(student.code)}" readonly aria-readonly="true"></div>
  <div class="field"><label>Full name *</label><input id="pname" value="${esc(student.name)}"></div>
@@ -568,7 +527,7 @@ async function hasCompletedSubject(subject){
  if(localDone)return true;
  if(db&&online&&student.code){
   try{
-   if(!(await ensureFirebaseAuth())) return false;
+   if(!(await ensureDatabaseReady())) return false;
    const query=db.collection("results").where("studentCode","==",student.code).where("subject","==",subject).get();
    const snap=await Promise.race([query,new Promise((_,reject)=>setTimeout(()=>reject(new Error("completion check timeout")),3500))]);
    return snap.docs.some(d=>{const r=d.data()||{};return !r.examType || r.examType==="entrance";});
@@ -694,8 +653,8 @@ async function finishExam(timeout=false){
 async function queueCloud(r){
  if(!db||!online)return;
  try{
-   if(!(await firebaseReady)) return;
-   await db.collection("results").doc(r.id).set({...r,createdAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+   if(!(await ensureDatabaseReady())) return;
+   await db.collection("results").doc(r.id).set({...r,createdAt:EvFieldValue.serverTimestamp()},{merge:true});
    let i=results.findIndex(x=>x.id===r.id);
    if(i>=0){results[i].synced=true;save(LS.results,results);}
  }catch(e){console.warn("Cloud result save failed",e)}
@@ -844,34 +803,17 @@ async function downloadEntranceExplanationPDF(){
   finally{app.innerHTML=oldApp;if(nav)nav.style.display=oldNav||"";if(footer)footer.style.display=oldFooter||"";wrap.remove()}
 }
 
-async function firebaseResultsStatus(){
-  try{
-    if(!navigator.onLine) return "Firebase: offline";
-    if(typeof firebase === "undefined") return "Firebase: SDK not loaded";
-    if(!firebaseInitialized || !db || !auth) return "Firebase: initialization failed";
-    const authOk=await Promise.race([
-      ensureFirebaseAuth(),
-      new Promise(resolve=>setTimeout(()=>resolve(false),7000))
-    ]);
-    if(!authOk) return "Firebase Auth: sign-in failed";
-    const timeout = new Promise((_,reject)=>setTimeout(()=>reject(new Error("timeout")),7000));
-    await Promise.race([db.collection("results").limit(1).get(),timeout]);
-    return "Firebase Firestore: connected";
-  }catch(e){
-    console.warn("Firebase status check failed:", e);
-    if(e && e.code === "permission-denied") return "Firebase Firestore: permission denied — check Rules";
-    if(e && e.code === "failed-precondition") return "Firebase Firestore: unavailable — check Firestore setup";
-    if(e && e.code === "unavailable") return "Firebase Firestore: unavailable/offline";
-    if(e && e.message === "timeout") return "Firebase Firestore: timeout";
-    return "Firebase Firestore: unavailable";
-  }
+async function databaseResultsStatus(){
+  if(!navigator.onLine) return "Edu-Vault database: offline";
+  try { const response=await fetch("/api/unified-exam/health",{cache:"no-store"}); return response.ok ? "Edu-Vault SQL database: connected" : "Edu-Vault database: unavailable"; }
+  catch(e){ return "Edu-Vault database: unavailable"; }
 }
 
-async function updateFirebaseStatus(){
-  const el = document.getElementById("firebaseStatus");
+async function updateDatabaseStatus(){
+  const el = document.getElementById("databaseStatus");
   if(!el) return;
-  el.textContent = "Firebase Firestore: checking…";
-  const status=await firebaseResultsStatus();
+  el.textContent = "Edu-Vault SQL database: checking…";
+  const status=await databaseResultsStatus();
   el.textContent = status;
   el.style.background = status.includes("connected") ? "#ecfdf5" : "#fff7ed";
   el.style.color = status.includes("connected") ? "#047857" : "#9a3412";
@@ -881,7 +823,7 @@ async function adminDashboard(){
  if(!window.EduVaultAccess?.requireAdmin())return;
  document.getElementById("app").innerHTML=`
  <section class="hero"><h1>Admin Dashboard</h1>
-<div id="firebaseStatus" style="margin:10px 0;padding:10px;border-radius:10px;background:#eef7ff;font-weight:600;">Firebase Firestore: checking…</div><p>Manage students and monitor examination performance, Started, Submitted and Time Used.</p></section>
+<div id="databaseStatus" style="margin:10px 0;padding:10px;border-radius:10px;background:#eef7ff;font-weight:600;">Edu-Vault SQL database: checking…</div><p>Manage students and monitor examination performance, Started, Submitted and Time Used.</p></section>
  <div class="grid">
   <div class="card"><h3>👥 All Students</h3><div id="dashStudents" class="bigscore">—</div><p class="muted">Registered students</p></div>
   <div class="card"><h3>📝 Total Attempts</h3><div id="dashAttempts" class="bigscore">—</div><p class="muted">Submitted examinations</p></div>
@@ -893,10 +835,10 @@ async function adminDashboard(){
   <div class="card"><h2>📝 Exam Files</h2><p class="muted">Import or reset exam packages.</p><button class="secondary" onclick="page='admin';render()">Manage Exam Files</button></div>
  </div>
  <div class="card" style="margin-top:14px"><h2>Latest Submitted Exams</h2><div id="dashLatest" class="muted">Loading…</div></div>`;
- updateFirebaseStatus();
+ updateDatabaseStatus();
  try{
-  if(!db)throw new Error("Firebase is not available");
-  if(!(await ensureFirebaseAuth())) throw new Error("Firebase Authentication is not ready");
+  if(!db)throw new Error("Edu-Vault server is not available");
+  if(!(await ensureDatabaseReady())) throw new Error("Edu-Vault database is not ready");
   const [localStudents,rs]=await Promise.all([
     Promise.resolve(getRegisteredStudents()),
     db.collection("results").get()
@@ -918,7 +860,7 @@ async function adminDashboard(){
 
 async function getCloudStudents(){
   if(!db || !online) return [];
-  if(!(await ensureFirebaseAuth())) throw new Error("Firebase Authentication is not ready");
+  if(!(await ensureDatabaseReady())) throw new Error("Edu-Vault database is not ready");
   const snap=await db.collection("students").get();
   return snap.docs.map(d=>{
     const x=d.data()||{};
@@ -944,7 +886,7 @@ async function syncStudentsFromCloud(){
 
 async function ensureStudentInCloud(student){
   if(!db || !online) return false;
-  if(!(await ensureFirebaseAuth())) throw new Error("Firebase Authentication is not ready");
+  if(!(await ensureDatabaseReady())) throw new Error("Edu-Vault database is not ready");
   const code=String(student.code||student.studentCode||"").trim();
   if(!code) throw new Error("Student code is required");
   await db.collection("students").doc(code).set({
@@ -956,7 +898,7 @@ async function ensureStudentInCloud(student){
     age:student.age||"",
     stream:student.stream||"Natural Sc.",
     ...(student.photo?{photo:student.photo}:{}),
-    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+    updatedAt:EvFieldValue.serverTimestamp()
   },{merge:true});
   return true;
 }
@@ -971,7 +913,7 @@ async function adminStudents(){
   </div>
   <div class="card" style="margin-top:14px">
     <h2>➕ Add Student</h2>
-    <p class="muted">Students are stored in Firebase Firestore and mirrored locally for reliable login/offline use.</p>
+    <p class="muted">Student records are stored in the Edu-Vault SQL database and cached locally for offline use.</p>
     <div class="grid">
       <div>
         <div class="field"><label>Student Code</label><input id="newStudentCode" autocomplete="off" placeholder="Generated if empty"></div>
@@ -1026,8 +968,8 @@ async function loadAdminStudents(){
         saveRegisteredStudents(list);
       }else{
         list=getRegisteredStudents().map(x=>({...x,id:x.code,studentCode:x.code}));
-        // Seed the existing local students into Firestore so Edit/Delete work for them too.
-        if(db&&online && await ensureFirebaseAuth()){
+        // Seed existing local students into the Edu-Vault SQL database so Edit/Delete work for them too.
+        if(db&&online && await ensureDatabaseReady()){
           for(const s of list) await ensureStudentInCloud(s);
         }
       }
@@ -1039,7 +981,7 @@ async function loadAdminStudents(){
     let attempts=[];
     if(db&&online){
       try{
-        if(!(await ensureFirebaseAuth())) throw new Error("Firebase Authentication is not ready");
+        if(!(await ensureDatabaseReady())) throw new Error("Edu-Vault database is not ready");
         const resultSnap=await db.collection("results").get();
         resultSnap.forEach(d=>attempts.push({...d.data(),id:d.id}));
       }catch(e){console.warn("Could not load cloud results",e);}
@@ -1236,7 +1178,7 @@ async function importExam(){
 }
 function resetExams(){exams=SAMPLE_EXAMS;save(LS.exams,exams);toast("Demo exams restored");render()}
 
-async function syncPendingLegacy(){if(!db||!online)return;if(!(await ensureFirebaseAuth()))return;for(const r of results.filter(x=>!x.synced)){try{await db.collection("results").doc(r.id).set({...r,createdAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});r.synced=true}catch(e){}}save(LS.results,results)}
+async function syncPendingLegacy(){if(!db||!online)return;if(!(await ensureDatabaseReady()))return;for(const r of results.filter(x=>!x.synced)){try{await db.collection("results").doc(r.id).set({...r,createdAt:EvFieldValue.serverTimestamp()},{merge:true});r.synced=true}catch(e){}}save(LS.results,results)}
 render();
 setTimeout(syncPending,1500);
 </script>
@@ -1389,7 +1331,7 @@ setTimeout(syncPending,1500);
    registered-student verification, and exam-time reporting. */
 </script>
 
-<!-- ===== EDUVAULT MOCK + EXAM FORMAT + FIREBASE STORAGE UPGRADE ===== -->
+<!-- ===== EDUVAULT MOCK + EXAM FORMAT + SERVER FILE STORAGE UPGRADE ===== -->
 <style>
 .mockResultWrap{max-width:760px;margin:0 auto;padding-bottom:28px}
 .mockResultCard{background:#fff;color:#172033;border-radius:26px;overflow:hidden;box-shadow:0 20px 55px rgba(0,0,0,.28)}
@@ -1440,7 +1382,7 @@ const EVU = {
 };
 let examPackages=EVU.loadPackages();
 let storage=null;
-try{ if(typeof firebase!=="undefined"&&firebaseInitialized) storage=firebase.storage(); }catch(e){console.warn("Firebase Storage unavailable",e)}
+try{ if(typeof evStorage!=="undefined"&&databaseInitialized) storage=evStorage(); }catch(e){console.warn("Edu-Vault file storage unavailable",e)}
 
 function getPackage(type,subject){return (examPackages[type]||{})[subject]}
 function setPackage(type,e){examPackages[type]=examPackages[type]||{};examPackages[type][e.subject]=e;EVU.savePackages(examPackages)}
@@ -1449,7 +1391,7 @@ async function hasCompletedSubjectType(subject,type){
   if(results.some(r=>r.studentCode===student.code&&r.subject===subject&&r.examType===type))return true;
   if(db&&online&&student.code){
     try{
-      if(!(await ensureFirebaseAuth()))return false;
+      if(!(await ensureDatabaseReady()))return false;
       const snap=await db.collection("results").where("studentCode","==",student.code).where("subject","==",subject).where("examType","==",type).get();
       return !snap.empty;
     }catch(e){console.warn(e)}
@@ -1603,7 +1545,7 @@ function adminExamFiles(){
  <div class="card" style="margin-top:14px"><h2>Installed Exam Packages</h2><div id="packageList"></div></div>`;
  drawPackages();
 }
-function uploadForm(type){return `<div class="field"><label>Subject</label><select id="${type}Subject">${SUBJECTS.map(s=>`<option>${s}</option>`).join("")}</select></div><div class="field"><label>Exam file (.html, .json, .pdf)</label><input id="${type}File" type="file" accept=".html,.htm,.json,.pdf"></div><div class="field"><label>Or paste exam JSON</label><input id="${type}Json" placeholder="Optional JSON exam package"></div><button class="primary" onclick="uploadExamPackage('${type}')">Upload ${type==="mock"?"Mock":"Entrance"} Exam</button><p class="muted small">PDF is uploaded to Firebase Storage for cross-device access. For full question extraction, upload a structured EduVault HTML/JSON package generated from the PDF.</p>`}
+function uploadForm(type){return `<div class="field"><label>Subject</label><select id="${type}Subject">${SUBJECTS.map(s=>`<option>${s}</option>`).join("")}</select></div><div class="field"><label>Exam file (.html, .json, .pdf)</label><input id="${type}File" type="file" accept=".html,.htm,.json,.pdf"></div><div class="field"><label>Or paste exam JSON</label><input id="${type}Json" placeholder="Optional JSON exam package"></div><button class="primary" onclick="uploadExamPackage('${type}')">Upload ${type==="mock"?"Mock":"Entrance"} Exam</button><p class="muted small">PDF files are uploaded to the Edu-Vault server for cross-device access. For full question extraction, upload a structured EduVault HTML/JSON package generated from the PDF.</p>`}
 async function uploadExamPackage(type){
  const subject=document.getElementById(type+"Subject").value,file=document.getElementById(type+"File").files[0],raw=document.getElementById(type+"Json").value.trim();
  try{
@@ -1614,17 +1556,17 @@ async function uploadExamPackage(type){
   else if(file&&/\.pdf$/i.test(file.name)){
     const url=await uploadExamPdf(file,type,subject);
     e={id:"pdf-"+Date.now(),subject,title:file.name,duration:3600,examType:type,instructions:"Read the instructions carefully.",questions:[],sections:[],sourcePdf:url};
-    toast("PDF stored in Firebase. Upload its generated structured HTML/JSON package to activate questions.");
+    toast("PDF stored on the Edu-Vault server. Upload its generated structured HTML/JSON package to activate questions.");
   } else throw Error("Choose a supported file or paste JSON");
   e.subject=subject;e.examType=type;e=normalizeExam(e,type);setPackage(type,e);toast(subject+" "+type+" exam saved.");drawPackages();
  }catch(err){toast("Upload failed: "+err.message)}
 }
 async function uploadExamPdf(file,type,subject){
- if(!storage)throw Error("Firebase Storage is not available");
- if(!(await ensureFirebaseAuth()))throw Error("Firebase authentication is not ready");
+ if(!storage)throw Error("Edu-Vault file storage is not available");
+ if(!(await ensureDatabaseReady()))throw Error("Edu-Vault database is not available");
  const path=`examFiles/${type}/${subject}/${Date.now()}_${file.name.replace(/[^a-z0-9._-]/gi,"_")}`;
  const ref=storage.ref().child(path);await ref.put(file);const url=await ref.getDownloadURL();
- if(db)await db.collection("examFiles").doc(`${type}_${subject}`).set({type,subject,name:file.name,path,url,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+ if(db)await db.collection("examFiles").doc(`${type}_${subject}`).set({type,subject,name:file.name,path,url,updatedAt:EvFieldValue.serverTimestamp()},{merge:true});
  return url;
 }
 function drawPackages(){
@@ -1634,7 +1576,7 @@ function drawPackages(){
 async function deleteExamPackage(type,subject){
  if(!confirm(`Delete ${subject} ${type} exam package?`))return;
  delete examPackages[type][subject];EVU.savePackages(examPackages);
- try{if(db&&await ensureFirebaseAuth())await db.collection("examFiles").doc(`${type}_${subject}`).delete()}catch(e){}
+ try{if(db&&await ensureDatabaseReady())await db.collection("examFiles").doc(`${type}_${subject}`).delete()}catch(e){}
  toast("Exam package deleted.");drawPackages();
 }
 
@@ -1645,7 +1587,7 @@ adminDashboard=async function(){
   document.getElementById("app").innerHTML=`<section class="hero"><h1>Admin Dashboard</h1><p>Control Entrance and Mock examinations, student performance, PASS/FAILED status, submitted time and results.</p></section><div class="grid"><div class="card"><h3>Students</h3><div id="dashStudents" class="bigscore">—</div></div><div class="card"><h3>Entrance Attempts</h3><div id="dashEntrance" class="bigscore">—</div></div><div class="card"><h3>Mock Attempts</h3><div id="dashMock" class="bigscore">—</div></div><div class="card"><h3>Average Performance</h3><div id="dashAverage" class="bigscore">—</div></div></div><div class="grid" style="margin-top:14px"><div class="card"><h2>Student Approvals</h2><p class="muted">Review Flask registrations, approve accounts, and issue permanent Student Codes.</p><button class="primary" onclick="window.location.href='/admin'">Open Approval Console</button></div><div class="card"><h2>Students & Results</h2><button class="primary" onclick="page='adminStudents';render()">Manage Students</button></div><div class="card"><h2>Exam Upload</h2><button class="primary" onclick="page='admin';render()">Manage Entrance & Mock Files</button></div></div><div class="card" style="margin-top:14px"><h2>Top Performer by Current Exam</h2><div id="dashTopPerformers">Loading…</div></div><div class="card" style="margin-top:14px"><h2>Latest Results</h2><div id="dashLatest">Loading…</div></div>`;
  try{
   const sts=await syncStudentsFromCloud();let rs=[];
-  if(db&&online&&await ensureFirebaseAuth()){const sn=await db.collection("results").get();rs=sn.docs.map(d=>({...d.data(),id:d.id}))}else rs=results;
+  if(db&&online&&await ensureDatabaseReady()){const sn=await db.collection("results").get();rs=sn.docs.map(d=>({...d.data(),id:d.id}))}else rs=results;
   document.getElementById("dashStudents").textContent=sts.length;
   document.getElementById("dashEntrance").textContent=rs.filter(r=>r.examType==="entrance"||!r.examType).length;
   document.getElementById("dashMock").textContent=rs.filter(r=>r.examType==="mock").length;
@@ -1695,7 +1637,7 @@ async function getMockLastSubmit(subject, examId){
   });
   if(db&&online&&student.code){
     try{
-      if(await ensureFirebaseAuth()){
+      if(await ensureDatabaseReady()){
         const snap=await db.collection("results")
           .where("studentCode","==",student.code)
           .where("subject","==",subject)
@@ -2062,7 +2004,7 @@ function scheduleSort(a,b){return String(a.dateTime||"").localeCompare(String(b.
 async function syncExamPackagesCloud(){
   if(!db||!online)return;
   try{
-    if(!(await ensureFirebaseAuth()))return;
+    if(!(await ensureDatabaseReady()))return;
     const snap=await db.collection("examPackages").get();
     let changed=false;
     snap.forEach(d=>{const x=d.data()||{};if(x.type&&x.subject&&x.exam){examPackages[x.type]=examPackages[x.type]||{};const local=examPackages[x.type][x.subject];if(!local||String(x.updatedAt||"")>String(local.updatedAt||"")){examPackages[x.type][x.subject]=normalizeExam(x.exam,x.type);examPackages[x.type][x.subject].updatedAt=x.updatedAt||"";changed=true;}}});
@@ -2074,15 +2016,15 @@ async function syncExamPackagesCloud(){
 }
 async function publishExamPackageCloud(type,e){
   if(!db||!online)return false;
-  try{if(!(await ensureFirebaseAuth()))return false;const id=`${type}_${e.subject}`;const updatedAt=new Date().toISOString();await db.collection("examPackages").doc(id).set({type,subject:e.subject,exam:e,updatedAt},{merge:true});return true}catch(err){console.warn("Exam package publish failed",err);return false}
+  try{if(!(await ensureDatabaseReady()))return false;const id=`${type}_${e.subject}`;const updatedAt=new Date().toISOString();await db.collection("examPackages").doc(id).set({type,subject:e.subject,exam:e,updatedAt},{merge:true});return true}catch(err){console.warn("Exam package publish failed",err);return false}
 }
 async function syncSchedulesCloud(){
   if(!db||!online)return;
-  try{if(!(await ensureFirebaseAuth()))return;const snap=await db.collection("examSchedules").get();const local=loadSchedules();const map=new Map(local.map(x=>[x.id,x]));snap.forEach(d=>{const x={...(d.data()||{}),id:d.id};map.set(x.id,x)});saveSchedules([...map.values()].sort(scheduleSort));}catch(e){console.warn("Schedule sync failed",e)}
+  try{if(!(await ensureDatabaseReady()))return;const snap=await db.collection("examSchedules").get();const local=loadSchedules();const map=new Map(local.map(x=>[x.id,x]));snap.forEach(d=>{const x={...(d.data()||{}),id:d.id};map.set(x.id,x)});saveSchedules([...map.values()].sort(scheduleSort));}catch(e){console.warn("Schedule sync failed",e)}
 }
 async function publishScheduleCloud(s){
   if(!db||!online)return false;
-  try{if(!(await ensureFirebaseAuth()))return false;await db.collection("examSchedules").doc(s.id).set({...s,updatedAt:new Date().toISOString()},{merge:true});return true}catch(e){console.warn("Schedule publish failed",e);return false}
+  try{if(!(await ensureDatabaseReady()))return false;await db.collection("examSchedules").doc(s.id).set({...s,updatedAt:new Date().toISOString()},{merge:true});return true}catch(e){console.warn("Schedule publish failed",e);return false}
 }
 function addScheduleNav(){
   const nav=document.querySelector("nav");if(!nav||document.getElementById("scheduleNav"))return;
@@ -2105,16 +2047,152 @@ async function saveExamScheduleAdmin(){
  const s={id:crypto.randomUUID?crypto.randomUUID():"sch_"+Date.now(),type:document.getElementById("schType").value,subject:document.getElementById("schSubject").value,grade:document.getElementById("schGrade").value.trim()||"Grade 11",dateTime:new Date(dt).toISOString(),location:document.getElementById("schLocation").value.trim()||"To be announced",active:true,updatedAt:new Date().toISOString()};
  const arr=loadSchedules();arr.push(s);saveSchedules(arr.sort(scheduleSort));const cloud=await publishScheduleCloud(s);toast(cloud?"Schedule published and synced online":"Schedule saved locally; it will sync when online");adminSchedulePage();
 }
-async function deleteExamScheduleAdmin(id){if(!confirm("Delete this examination schedule?"))return;saveSchedules(loadSchedules().filter(x=>x.id!==id));try{if(db&&online&&await ensureFirebaseAuth())await db.collection("examSchedules").doc(id).delete()}catch(e){}adminSchedulePage();}
+async function deleteExamScheduleAdmin(id){if(!confirm("Delete this examination schedule?"))return;saveSchedules(loadSchedules().filter(x=>x.id!==id));try{if(db&&online&&await ensureDatabaseReady())await db.collection("examSchedules").doc(id).delete()}catch(e){}adminSchedulePage();}
 const _ev3OriginalUpload=window.uploadExamPackage;
 window.uploadExamPackage=async function(type){await _ev3OriginalUpload(type);try{const subject=document.getElementById(type+"Subject")?.value,e=getPackage(type,subject);if(e){const ok=await publishExamPackageCloud(type,e);if(ok)toast(type+" exam uploaded and synced to online student devices");}}catch(e){console.warn(e)}};
 const _ev3OriginalDelete=window.deleteExamPackage;
-window.deleteExamPackage=async function(type,subject){await _ev3OriginalDelete(type,subject);try{if(db&&online&&await ensureFirebaseAuth())await db.collection("examPackages").doc(`${type}_${subject}`).delete()}catch(e){}};
+window.deleteExamPackage=async function(type,subject){await _ev3OriginalDelete(type,subject);try{if(db&&online&&await ensureDatabaseReady())await db.collection("examPackages").doc(`${type}_${subject}`).delete()}catch(e){}};
 const _ev3Render=window.render;
 window.render=function(){addScheduleNav();if(page==="examSchedule")return examSchedulePage();if(page==="adminSchedule")return adminSchedulePage();return _ev3Render();};
 window.downloadEntranceExplanationPDF=downloadEntranceExplanationPDF;
 window.addEventListener("online",()=>{setTimeout(()=>{syncExamPackagesCloud();syncSchedulesCloud()},1200)});
 setTimeout(()=>{addScheduleNav();syncExamPackagesCloud();syncSchedulesCloud();},1200);
 </script>
+
+<script id="eduvault-v4-performance-history">
+/* Edu-Vault V4: durable exam history, all-six-subject entrance cycles, best-score leaderboard. */
+const EV4={archiveKey:"ev_exam_archive_v4",cycleViewPrefix:"ev_entrance_cycle_viewed_",entranceCooldownMs:5*60*1000};
+window.evArchivedExams=load(EV4.archiveKey)||[];
+function ev4CyclePackages(){
+ const ids={}; for(const subject of SUBJECTS){const e=getPackage("entrance",subject);ids[subject]=e?.id?String(e.id):"";} return ids;
+}
+function ev4CycleId(){const ids=ev4CyclePackages();if(SUBJECTS.some(s=>!ids[s]))return "";return SUBJECTS.map(s=>s+":"+ids[s]).join("||");}
+function ev4ResultsFor(studentCode){return results.filter(r=>String(r.studentCode||"")===String(studentCode||"")&&String(r.examType||"")==="entrance"&&r.cycleId);}
+async function ev4SyncMyResults(){
+ if(db&&online&&student?.code){try{if(await ensureDatabaseReady()){const snap=await db.collection("results").where("studentCode","==",student.code).get();const map=new Map(results.map(r=>[String(r.id),r]));snap.forEach(d=>map.set(String(d.id),{...d.data(),id:d.id,synced:true}));results=[...map.values()];save(LS.results,results);}}catch(e){console.warn("Result sync failed",e)}}
+ return results;
+}
+function ev4CompletedCycles(studentCode){
+ const grouped=new Map();ev4ResultsFor(studentCode).forEach(r=>{if(!grouped.has(r.cycleId))grouped.set(r.cycleId,[]);grouped.get(r.cycleId).push(r)});
+ return [...grouped.entries()].map(([cycleId,rows])=>({cycleId,rows,subjects:new Set(rows.map(r=>r.subject)),lastAt:Math.max(...rows.map(r=>new Date(r.submittedAt||0).getTime()||0)),packageIds:rows.find(r=>r.cyclePackageIds)?.cyclePackageIds||{}})).filter(x=>SUBJECTS.every(s=>x.subjects.has(s))).sort((a,b)=>b.lastAt-a.lastAt);
+}
+function ev4AllSixAreNew(activeIds,previous){return !!previous&&SUBJECTS.every(s=>activeIds[s]&&previous.packageIds[s]&&String(activeIds[s])!==String(previous.packageIds[s]));}
+function ev4ViewedKey(cycleId){return EV4.cycleViewPrefix+String(student?.code||"")+"_"+cycleId;}
+function ev4HasViewed(cycleId){return localStorage.getItem(ev4ViewedKey(cycleId))==="1";}
+function ev4MarkViewed(cycleId){if(cycleId)localStorage.setItem(ev4ViewedKey(cycleId),"1");}
+
+/* Every upload becomes a new immutable version; only the active pointer changes. */
+const ev4PreviousUpload=window.uploadExamPackage;
+window.uploadExamPackage=async function(type){
+ await ev4PreviousUpload(type);
+ const subject=document.getElementById(type+"Subject")?.value;let e=getPackage(type,subject);
+ if(!e||!Array.isArray(e.questions)||!e.questions.length)return;
+ const now=new Date().toISOString();
+ e=JSON.parse(JSON.stringify(e));e.id=`${type}-${String(subject).replace(/[^a-z0-9]/gi,'-')}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;e.examType=type;e.uploadedAt=now;e.versionId=e.id;
+ setPackage(type,e);
+ const archive={id:e.id,versionId:e.id,type,subject,exam:e,title:e.title||`${subject} ${type}`,uploadedAt:now,questionCount:e.questions.length};
+ const key=`${type}|${subject}|${e.id}`;window.evArchivedExams=[archive,...window.evArchivedExams.filter(x=>`${x.type}|${x.subject}|${x.versionId||x.id}`!==key)];save(EV4.archiveKey,window.evArchivedExams);
+ try{if(db&&online&&await ensureDatabaseReady()){
+   await db.collection("examArchive").doc(`${type}_${subject}_${e.id}`).set(archive);
+   await db.collection("examPackages").doc(`${type}_${subject}`).set({type,subject,exam:e,updatedAt:now,activeVersionId:e.id},{merge:true});
+   toast(`${subject} ${type} exam version saved. Earlier versions are preserved.`);
+ }else toast(`${subject} saved locally. Connect to the server to publish it for all students.`)}catch(err){console.warn("Exam version publish failed",err);toast("Saved locally; server sync failed: "+err.message)}
+ drawPackages();
+};
+
+async function ev4SyncArchive(){
+ if(db&&online){try{if(await ensureDatabaseReady()){
+   const map=new Map(window.evArchivedExams.map(x=>[String(x.versionId||x.id),x]));
+   const snap=await db.collection("examArchive").get();snap.forEach(d=>{const raw=d.data()||{},x={...raw,id:raw.id||d.id};if(x.exam&&x.type&&x.subject)map.set(String(x.versionId||x.id),x)});
+   /* Backfill the currently active packages so exams uploaded before this update also remain available. */
+   const activeSnap=await db.collection("examPackages").get();
+   for(const d of activeSnap.docs){const x=d.data()||{};if(!x.type||!x.subject||!x.exam)continue;const exam=x.exam,versionId=String(exam.id||x.activeVersionId||`${x.type}_${x.subject}`);if(!map.has(versionId)){const archive={id:versionId,versionId,type:x.type,subject:x.subject,exam,title:exam.title||`${x.subject} ${x.type}`,uploadedAt:x.updatedAt||new Date().toISOString(),questionCount:(exam.questions||[]).length};map.set(versionId,archive);try{await db.collection("examArchive").doc(`${x.type}_${x.subject}_${versionId}`).set(archive)}catch(writeErr){console.warn("Could not backfill archive version",writeErr)}}}
+   window.evArchivedExams=[...map.values()].sort((a,b)=>String(b.uploadedAt||"").localeCompare(String(a.uploadedAt||"")));save(EV4.archiveKey,window.evArchivedExams);
+ }}catch(e){console.warn("Archive sync failed",e)}}
+ return window.evArchivedExams;
+}
+async function ev4StartArchived(versionId){
+ if(!student?.code||!student?.name){toast("Please log in with your Student Code and Name.");return}
+ const list=await ev4SyncArchive();const a=list.find(x=>String(x.versionId||x.id)===String(versionId));if(!a?.exam){toast("Archived exam is unavailable");return}
+ const e=normalizeExam(JSON.parse(JSON.stringify(a.exam)),"practice");e.archiveType=a.type;e.archiveVersionId=a.versionId||a.id;e.title=a.title||e.title;
+ examState={subject:a.subject,e,examType:"practice",practiceSourceType:a.type,archiveVersionId:e.archiveVersionId,idx:0,answers:Array(e.questions.length).fill(null),marked:[],left:e.duration,start:Date.now(),startedAt:new Date().toISOString(),cycleId:"",cyclePackageIds:{}};
+ renderQuestionV2();
+}
+function ev4ArchivePage(){
+ const list=window.evArchivedExams||[];
+ document.getElementById("app").innerHTML=`<section class="hero"><h1>Past Exam Library</h1><p>Previous uploads stay available for current and newly registered students. Practice attempts here do not replace official entrance results or leaderboard scores.</p></section><div class="card"><div class="field"><label>Filter by exam type</label><select id="ev4ArchiveFilter" onchange="ev4RenderArchiveRows()"><option value="all">All exams</option><option value="mock">Mock exams</option><option value="entrance">Entrance exams</option></select></div><div id="ev4ArchiveRows"></div></div>`;
+ ev4RenderArchiveRows();ev4SyncArchive();
+}
+function ev4RenderArchiveRows(){
+ const box=document.getElementById("ev4ArchiveRows");if(!box)return;const filter=document.getElementById("ev4ArchiveFilter")?.value||"all";const list=(window.evArchivedExams||[]).filter(x=>filter==="all"||x.type===filter);
+ box.innerHTML=list.length?list.map(x=>`<div class="subject"><div style="min-width:0;flex:1"><strong>${esc(x.title||x.exam?.title||x.subject||"Past Exam")}</strong><div class="muted small">${esc(String(x.type||"").toUpperCase())} • ${esc(x.subject||"")} • ${x.questionCount||x.exam?.questions?.length||0} questions</div><div class="muted small">Uploaded: ${x.uploadedAt?new Date(x.uploadedAt).toLocaleString():"Date unavailable"}</div></div><button class="primary" onclick="ev4StartArchived('${esc(x.versionId||x.id)}')">Practice</button></div>`).join(""):`<p class="muted">No archived exams found yet. Previously uploaded exams will appear here after sync.</p>`;
+}
+
+/* Replace entrance controls with versioned cycle checks; every subject must be a new version. */
+weeklyExam=async function(){
+ await ev4SyncMyResults();const ids=ev4CyclePackages(),cycleId=ev4CycleId();const mine=ev4ResultsFor(student.code);const current=mine.filter(r=>r.cycleId===cycleId);const bySubject=new Map();current.forEach(r=>{const old=bySubject.get(r.subject);if(!old||new Date(r.submittedAt||0)>new Date(old.submittedAt||0))bySubject.set(r.subject,r)});
+ const completed=SUBJECTS.every(s=>bySubject.has(s));const prior=ev4CompletedCycles(student.code).find(x=>x.cycleId!==cycleId);const allNew=!prior||ev4AllSixAreNew(ids,prior);const lastAt=prior?.lastAt||0;const cooldown=Math.max(0,EV4.entranceCooldownMs-(Date.now()-lastAt));const viewed=completed&&ev4HasViewed(cycleId);
+ document.getElementById("app").innerHTML=`<section class="hero"><h1>Entrance Examination</h1><p>Each official attempt is a complete set of six subject versions. Your previous results remain in your history.</p></section><div class="card">${SUBJECTS.map(s=>{const e=getPackage("entrance",s),r=bySubject.get(s);return `<div class="subject"><div><strong>${esc(s)}</strong><div class="muted small">${esc(e?.title||"Not installed")} • ${e?.questions?.length||0} questions</div>${r?`<div class="subjectSubmitted">✓ Submitted • ${Number(r.score||0).toFixed(1)}%</div>`:""}</div><button class="primary" ${!e?.questions?.length||r||!cycleId?"disabled":""} onclick="startExamV2('${s}','entrance')">${r?"Submitted":"Start"}</button></div>`}).join("")}<div style="margin-top:18px;text-align:center"><p class="muted small">${bySubject.size} / 6 subjects submitted for this exam version set.</p>${completed&&!viewed?`<button class="primary" onclick="page='weekly';render()">View Final Result</button>`:""}${prior&&!allNew?`<p class="muted">To retake the official entrance exam, upload a new version for all six subjects. One or more subjects still use a previous version.</p>`:""}${prior&&allNew&&cooldown>0?`<p class="muted">Next official attempt unlocks in ${cooldownFmt(cooldown)}.</p>`:""}</div></div>`;
+};
+
+/* The final result is scoped to one cycle, not mixed with old exam versions. */
+const ev4OriginalWeekly=weekly;
+weekly=async function(){
+ await ev4SyncMyResults();const cycleId=ev4CycleId();const mine=ev4ResultsFor(student.code).filter(r=>r.cycleId===cycleId);const bySubject={};mine.forEach(r=>{const p=bySubject[r.subject];if(!p||new Date(r.submittedAt||0)>new Date(p.submittedAt||0))bySubject[r.subject]=r});
+ if(!SUBJECTS.every(s=>bySubject[s])){toast("Submit all six subjects in this exam version set first.");page="weeklyExam";render();return;}
+ ev4MarkViewed(cycleId);
+ const total=SUBJECTS.reduce((sum,s)=>sum+Number(bySubject[s].score||0),0),avg=total/SUBJECTS.length;
+ document.getElementById("app").innerHTML=`<div class="finalResultWrap"><div class="finalResultCard" id="finalResultCard"><div class="finalResultHead">${student.photo?`<img class="finalResultPhoto" src="${esc(student.photo)}" alt="Student photo">`:`<div class="finalResultPhotoEmpty">👤</div>`}<div class="finalResultName">${esc(student.name||"Student")}</div><div class="finalResultUni">EDU-VAULT ENTRANCE EXAM</div></div><div class="finalResultBody"><div class="finalInfo">${[["Student Code",student.code||"—"],["Stream",student.stream||"Natural Sc."],["Exam Set",cycleId.slice(0,42)+"…"]].map(x=>`<div class="finalInfoRow"><span class="finalInfoLabel">${esc(x[0])}</span><span class="finalInfoValue">${esc(x[1])}</span></div>`).join("")}</div><h3>Subject Results</h3>${SUBJECTS.map(s=>`<div class="finalSubjectRow"><span class="finalSubjectName">${esc(s)}</span><span class="finalSubjectScore">${Number(bySubject[s].score||0).toFixed(2)}%</span></div>`).join("")}<div class="finalScoreTotal"><h2>Average: ${avg.toFixed(2)}%</h2></div></div></div><button class="primary" style="width:100%;margin-top:12px" onclick="page='weeklyExam';render()">Continue</button></div>`;
+};
+
+/* Entrance attempts are tied to a cycle; mock scores can be repeated, but history is retained. */
+startExamV2=async function(subject,type){
+ if(!student?.code||!student?.name){toast("Please log in with your Student Code and Name.");return}
+ const raw=getPackage(type,subject);if(!raw){toast("No "+type+" exam package for "+subject);return}const e=normalizeExam(JSON.parse(JSON.stringify(raw)),type);
+ if(type==="mock"){const cooldown=await getMockCooldown(subject,e.id);if(cooldown>0){toast("Retake is locked for this Mock exam for "+cooldownFmt(cooldown)+".");return}}
+ let cycleId="",cyclePackageIds={};
+ if(type==="entrance"){
+   await ev4SyncMyResults();cycleId=ev4CycleId();cyclePackageIds=ev4CyclePackages();if(!cycleId){toast("Admin must upload valid exams for all six subjects first.");return}
+   const own=ev4ResultsFor(student.code),current=own.filter(r=>r.cycleId===cycleId);if(current.some(r=>r.subject===subject)){toast("You have already submitted this subject in the current entrance exam set.");return}
+   const prior=ev4CompletedCycles(student.code).find(x=>x.cycleId!==cycleId);
+   if(prior){if(!ev4HasViewed(prior.cycleId)){toast("View your previous final result before starting another official entrance attempt.");return}
+     if(!ev4AllSixAreNew(cyclePackageIds,prior)){toast("A new official entrance attempt requires new exam versions for all six subjects. Some subjects still use the previous version.");return}
+     const remaining=EV4.entranceCooldownMs-(Date.now()-prior.lastAt);if(remaining>0){toast("Please wait "+cooldownFmt(remaining)+" before starting the new entrance exam.");return}
+   }
+ }
+ examState={subject,e,examType:type,idx:0,answers:Array(e.questions.length).fill(null),marked:[],left:e.duration,start:Date.now(),startedAt:new Date().toISOString(),cycleId,cyclePackageIds};renderQuestionV2();
+};
+
+/* Save each attempt; leaderboard later chooses the best score per immutable exam version. */
+finishExamV2=async function(timeout=false){
+ if(!examState)return;clearInterval(window.examTimer);saveAnsV2();const st=examState,e=st.e;const details=buildQuestionResults(st);const correct=details.reduce((n,q)=>n+(q.isCorrect?1:0),0),unanswered=details.filter(q=>q.selectedIndex===null).length,incorrect=details.length-correct-unanswered;const percent=details.length?+(correct/details.length*100).toFixed(2):0;const used=Math.max(0,Math.min(e.duration,Math.round((Date.now()-st.start)/1000)));const submittedAt=new Date().toISOString();
+ const resultType=st.examType==="practice"?"practice":st.examType;
+ const r={id:crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2),studentCode:student.code,studentName:student.name,studentPhoto:student.photo||"",subject:st.subject,examId:e.id||st.archiveVersionId||"",examType:resultType,sourceExamType:st.practiceSourceType||"",archiveVersionId:st.archiveVersionId||"",cycleId:st.cycleId||"",cyclePackageIds:st.cyclePackageIds||{},correct,total:details.length,incorrect,unanswered,score:percent,percent,startedAt:st.startedAt,submittedAt,timeUsedSeconds:used,timeUsed:fmt(used),timeRemainingSeconds:Math.max(0,e.duration-used),timeRemaining:fmt(Math.max(0,e.duration-used)),allowedTime:fmt(e.duration),status:percent>=50?"PASS":"FAILED",timeout:!!timeout,synced:false,questionResults:details};
+ results.unshift(r);save(LS.results,results);if(resultType==="mock")setLocalMockLast(st.subject,submittedAt);await queueCloud(r);examState=null;
+ if(resultType==="mock"||resultType==="practice"){showMockResultV2(r);return}
+ const done=ev4ResultsFor(student.code).filter(x=>x.cycleId===r.cycleId);const subjects=new Set(done.map(x=>x.subject));if(subjects.size===SUBJECTS.length){page="weekly";await weekly();toast("All six subjects submitted. Your final result is unlocked.")}else{page="weeklyExam";render();toast(timeout?"Time finished — subject submitted.":"Subject submitted. Continue to the next subject.")}
+};
+
+/* Archive menu and active exam history. */
+function ev4AddArchiveNav(){const nav=document.querySelector("nav");if(!nav||document.getElementById("ev4ArchiveNav"))return;const b=document.createElement("button");b.id="ev4ArchiveNav";b.dataset.page="examArchive";b.className="studentOnly";b.textContent="Past Exams";b.onclick=()=>{page="examArchive";render()};nav.insertBefore(b,nav.querySelector('[data-page="profile"]')||null);}
+const ev4BaseRender=window.render;
+window.render=function(){ev4AddArchiveNav();if(page==="examArchive")return ev4ArchivePage();return ev4BaseRender();};
+
+/* Admin Top Performer: calculate the best score for each exact uploaded exam version. */
+const ev4BaseAdminDashboard=adminDashboard;
+adminDashboard=async function(){
+ await ev4BaseAdminDashboard();
+ const ev4TopBox=document.getElementById("dashTopPerformers");if(ev4TopBox?.closest(".card")?.querySelector("h2"))ev4TopBox.closest(".card").querySelector("h2").textContent="Top Performer by Exam Version (Highest Score)";
+ try{if(!db||!online||!(await ensureDatabaseReady()))throw new Error("Database offline");const snap=await db.collection("results").get();const all=[];snap.forEach(d=>all.push({...d.data(),id:d.id}));const archives=await ev4SyncArchive();const active=[];for(const type of ["entrance","mock"])for(const subject of SUBJECTS){const e=getPackage(type,subject);if(e)active.push({type,subject,exam:e})}
+   const versions=new Map();active.forEach(x=>versions.set(String(x.exam.id),x));archives.forEach(x=>{if(x.exam)versions.set(String(x.versionId||x.id),{type:x.type,subject:x.subject,exam:x.exam,archived:true})});
+   const best=new Map();all.filter(r=>r.examType==="mock"||r.examType==="entrance").forEach(r=>{const k=`${r.examType}|${r.subject}|${r.examId||"legacy"}`;const old=best.get(k);if(!old||Number(r.score??r.percent??0)>Number(old.score??old.percent??0))best.set(k,r)});
+   const rows=[...best.entries()].map(([key,r])=>{const v=versions.get(String(r.examId));return {key,r,title:v?.exam?.title||r.examTitle||r.subject||"Exam",type:r.examType||"entrance",subject:r.subject||"",archived:!!v?.archived}}).sort((a,b)=>Number(b.r.score??b.r.percent??0)-Number(a.r.score??a.r.percent??0));
+   const box=document.getElementById("dashTopPerformers");if(box)box.innerHTML=rows.length?`<div style="overflow:auto"><table class="table"><tr><th>Exam</th><th>Type</th><th>Top Performer</th><th>Highest Score</th><th>Submitted</th></tr>${rows.map(x=>`<tr><td>${esc(x.title)}<div class="muted small">${esc(x.subject)}${x.archived?" • Past exam":""}</div></td><td>${esc(x.type)}</td><td>${esc(x.r.studentName||x.r.studentCode||"—")}<div class="muted small">${esc(x.r.studentCode||"")}</div></td><td><strong>${Number(x.r.score??x.r.percent??0).toFixed(2)}%</strong></td><td>${x.r.submittedAt?new Date(x.r.submittedAt).toLocaleString():"—"}</td></tr>`).join("")}</table></div>`:"<p class='muted'>No submitted results yet.</p>";
+ }catch(e){console.warn("Top Performer could not be refreshed",e);const box=document.getElementById("dashTopPerformers");if(box)box.innerHTML=`<p class="muted">Top Performer requires a live connection to the Edu-Vault SQL database. ${esc(e.message||"")}</p>`}
+};
+setTimeout(()=>{ev4AddArchiveNav();ev4SyncArchive()},1500);
+window.addEventListener("online",()=>setTimeout(ev4SyncArchive,800));
+</script>
+
 </body>
 </html>
