@@ -1,0 +1,165 @@
+{
+  "grade": 10,
+  "subject": "Biology",
+  "curriculum": "Ethiopian New Curriculum",
+  "publisher": "Ministry of Education of Ethiopia",
+  "textbook_year": 2023,
+  "units": [
+    {
+      "unit_number": 1,
+      "unit_title": "Sub-fields of Biology",
+      "sections": [
+        {
+          "section_number": "1.1",
+          "section_title": "Sub-fields of Biology"
+        },
+        {
+          "section_number": "1.2",
+          "section_title": "Importance and Applications of Biology"
+        }
+      ]
+    },
+    {
+      "unit_number": 2,
+      "unit_title": "Plants",
+      "sections": [
+        {
+          "section_number": "2.1",
+          "section_title": "Plant Structure and Function"
+        },
+        {
+          "section_number": "2.2",
+          "section_title": "Plant Reproduction"
+        },
+        {
+          "section_number": "2.3",
+          "section_title": "Transport in Plants"
+        },
+        {
+          "section_number": "2.4",
+          "section_title": "Photosynthesis"
+        },
+        {
+          "section_number": "2.5",
+          "section_title": "Response in Plants"
+        }
+      ]
+    },
+    {
+      "unit_number": 3,
+      "unit_title": "Biochemical Molecules",
+      "sections": [
+        {
+          "section_number": "3.1",
+          "section_title": "Introduction to Biochemical Molecules"
+        },
+        {
+          "section_number": "3.2",
+          "section_title": "Carbohydrates"
+        },
+        {
+          "section_number": "3.3",
+          "section_title": "Lipids"
+        },
+        {
+          "section_number": "3.4",
+          "section_title": "Proteins"
+        },
+        {
+          "section_number": "3.5",
+          "section_title": "Nucleic Acids"
+        },
+        {
+          "section_number": "3.6",
+          "section_title": "Water and Inorganic Ions"
+        }
+      ]
+    },
+    {
+      "unit_number": 4,
+      "unit_title": "Cell Reproduction",
+      "sections": [
+        {
+          "section_number": "4.1",
+          "section_title": "Cell Cycle"
+        },
+        {
+          "section_number": "4.2",
+          "section_title": "Mitosis"
+        },
+        {
+          "section_number": "4.3",
+          "section_title": "Meiosis"
+        },
+        {
+          "section_number": "4.4",
+          "section_title": "Comparison of Mitosis and Meiosis"
+        }
+      ]
+    },
+    {
+      "unit_number": 5,
+      "unit_title": "Human Biology",
+      "sections": [
+        {
+          "section_number": "5.1",
+          "section_title": "Human Body Organization"
+        },
+        {
+          "section_number": "5.2",
+          "section_title": "Digestive System"
+        },
+        {
+          "section_number": "5.3",
+          "section_title": "Respiratory System"
+        },
+        {
+          "section_number": "5.4",
+          "section_title": "Circulatory System"
+        },
+        {
+          "section_number": "5.5",
+          "section_title": "Excretory System"
+        },
+        {
+          "section_number": "5.6",
+          "section_title": "Nervous System"
+        },
+        {
+          "section_number": "5.7",
+          "section_title": "Reproductive System"
+        },
+        {
+          "section_number": "5.8",
+          "section_title": "Homeostasis"
+        }
+      ]
+    },
+    {
+      "unit_number": 6,
+      "unit_title": "Ecological Interactions",
+      "sections": [
+        {
+          "section_number": "6.1",
+          "section_title": "Ecological Interactions"
+        },
+        {
+          "section_number": "6.2",
+          "section_title": "Population Ecology"
+        },
+        {
+          "section_number": "6.3",
+          "section_title": "Ecosystem Structure and Function"
+        },
+        {
+          "section_number": "6.4",
+          "section_title": "Biogeochemical Cycles"
+        },
+        {
+          "section_number": "6.5",
+          "section_title": "Biodiversity and Conservation"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,231 @@
+{
+  "grade": 11,
+  "subject": "Biology",
+  "curriculum": "Ethiopian New Curriculum",
+  "units": [
+    {
+      "unit_number": 1,
+      "unit_title": "Biology and Technology",
+      "sections": [
+        {
+          "section_number": "1.1",
+          "section_title": "Learning from Nature"
+        },
+        {
+          "section_number": "1.2",
+          "section_title": "Biology and Technology"
+        },
+        {
+          "section_number": "1.3",
+          "section_title": "Impacts of Biology and Technology on Society and the Natural World"
+        },
+        {
+          "section_number": "1.4",
+          "section_title": "Ethical Issues in Biology"
+        }
+      ]
+    },
+    {
+      "unit_number": 2,
+      "unit_title": "Animals",
+      "sections": [
+        {
+          "section_number": "2.1",
+          "section_title": "Characteristics of Animals"
+        },
+        {
+          "section_number": "2.2",
+          "section_title": "Invertebrates and Vertebrates"
+        },
+        {
+          "section_number": "2.3",
+          "section_title": "Reproduction in Animals"
+        },
+        {
+          "section_number": "2.4",
+          "section_title": "The Economic Importance of Animals (Insects)"
+        },
+        {
+          "section_number": "2.5",
+          "section_title": "Animal Behavior"
+        },
+        {
+          "section_number": "2.6",
+          "section_title": "Homeostasis in Animals"
+        },
+        {
+          "section_number": "2.7",
+          "section_title": "Renowned Zoologists in Ethiopia"
+        }
+      ]
+    },
+    {
+      "unit_number": 3,
+      "unit_title": "Enzymes",
+      "sections": [
+        {
+          "section_number": "3.1",
+          "section_title": "What Are Enzymes?"
+        },
+        {
+          "section_number": "3.2",
+          "section_title": "Properties and Functions of Enzymes"
+        },
+        {
+          "section_number": "3.3",
+          "section_title": "Protein Structures"
+        },
+        {
+          "section_number": "3.4",
+          "section_title": "Enzyme Substrate Models"
+        },
+        {
+          "section_number": "3.5",
+          "section_title": "Enzyme Regulation"
+        },
+        {
+          "section_number": "3.6",
+          "section_title": "Types of Enzymes"
+        },
+        {
+          "section_number": "3.7",
+          "section_title": "Factors Affecting Enzyme Action"
+        },
+        {
+          "section_number": "3.8",
+          "section_title": "Enzyme Kinetics"
+        },
+        {
+          "section_number": "3.9",
+          "section_title": "Application of Enzymes in Industries and Their Benefits"
+        },
+        {
+          "section_number": "3.10",
+          "section_title": "Malting in Ethiopian Tradition"
+        },
+        {
+          "section_number": "3.11",
+          "section_title": "Renowned Biochemists in Ethiopia"
+        }
+      ]
+    },
+    {
+      "unit_number": 4,
+      "unit_title": "Genetics",
+      "sections": [
+        {
+          "section_number": "4.1",
+          "section_title": "The Genetic Materials"
+        },
+        {
+          "section_number": "4.2",
+          "section_title": "The Structure and Function of DNA and RNA"
+        },
+        {
+          "section_number": "4.3",
+          "section_title": "The Process of Cell Division"
+        },
+        {
+          "section_number": "4.4",
+          "section_title": "Protein Synthesis"
+        },
+        {
+          "section_number": "4.5",
+          "section_title": "Mendelian Inheritance"
+        },
+        {
+          "section_number": "4.6",
+          "section_title": "Sex Determination"
+        },
+        {
+          "section_number": "4.7",
+          "section_title": "Non-Mendelian Inheritance"
+        },
+        {
+          "section_number": "4.8",
+          "section_title": "Human Pedigree Analysis and Its Importance"
+        },
+        {
+          "section_number": "4.9",
+          "section_title": "Genetic Disorders"
+        },
+        {
+          "section_number": "4.10",
+          "section_title": "Genetic Testing and Counseling"
+        },
+        {
+          "section_number": "4.11",
+          "section_title": "Gene Therapy"
+        },
+        {
+          "section_number": "4.12",
+          "section_title": "Breeding"
+        },
+        {
+          "section_number": "4.13",
+          "section_title": "Bioinformatics Introduction"
+        }
+      ]
+    },
+    {
+      "unit_number": 5,
+      "unit_title": "The Human Body Systems",
+      "sections": [
+        {
+          "section_number": "5.1",
+          "section_title": "Human Musculoskeletal Systems"
+        },
+        {
+          "section_number": "5.2",
+          "section_title": "The Reproductive System"
+        },
+        {
+          "section_number": "5.3",
+          "section_title": "Harmful Traditional Practices"
+        },
+        {
+          "section_number": "5.4",
+          "section_title": "Family Planning"
+        },
+        {
+          "section_number": "5.5",
+          "section_title": "Effects of Alcohol Use, Chewing Khat, Cannabis and Other Drug Uses on STI Transmission and Unwanted Pregnancy"
+        }
+      ]
+    },
+    {
+      "unit_number": 6,
+      "unit_title": "Population and Natural Resources",
+      "sections": [
+        {
+          "section_number": "6.1.1",
+          "section_title": "Population Size, Density and Dispersal"
+        },
+        {
+          "section_number": "6.1.2",
+          "section_title": "Exponential and Logistic Growth in Populations"
+        },
+        {
+          "section_number": "6.1.3",
+          "section_title": "Demographic Structure"
+        },
+        {
+          "section_number": "6.1.4",
+          "section_title": "Population Regulation"
+        },
+        {
+          "section_number": "6.2",
+          "section_title": "Natural Resources"
+        },
+        {
+          "section_number": "6.3",
+          "section_title": "Conservation of Natural Resources in Ethiopia"
+        },
+        {
+          "section_number": "6.4",
+          "section_title": "Impact of Traffic Accident on Wild and Domestic Animals"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,307 @@
+{
+  "grade": 10,
+  "subject": "English",
+  "curriculum": "Ethiopian New Curriculum",
+  "units": [
+    {
+      "unit_number": 1,
+      "unit_title": "Population Growth",
+      "sections": [
+        {
+          "section_number": "1.1",
+          "section_title": "Listening: Population Explosion"
+        },
+        {
+          "section_number": "1.2",
+          "section_title": "Speaking"
+        },
+        {
+          "section_number": "1.3",
+          "section_title": "Reading: Population Growth"
+        },
+        {
+          "section_number": "1.4",
+          "section_title": "Grammar"
+        },
+        {
+          "section_number": "1.5",
+          "section_title": "Writing"
+        },
+        {
+          "section_number": "1.6",
+          "section_title": "Vocabulary and Pronunciation"
+        }
+      ]
+    },
+    {
+      "unit_number": 2,
+      "unit_title": "Travel Behaviors",
+      "sections": [
+        {
+          "section_number": "2.1",
+          "section_title": "Listening"
+        },
+        {
+          "section_number": "2.2",
+          "section_title": "Speaking"
+        },
+        {
+          "section_number": "2.3",
+          "section_title": "Reading"
+        },
+        {
+          "section_number": "2.4",
+          "section_title": "Grammar"
+        },
+        {
+          "section_number": "2.5",
+          "section_title": "Writing"
+        },
+        {
+          "section_number": "2.6",
+          "section_title": "Vocabulary and Pronunciation"
+        }
+      ]
+    },
+    {
+      "unit_number": 3,
+      "unit_title": "Punctuality",
+      "sections": [
+        {
+          "section_number": "3.1",
+          "section_title": "Listening"
+        },
+        {
+          "section_number": "3.2",
+          "section_title": "Speaking"
+        },
+        {
+          "section_number": "3.3",
+          "section_title": "Reading"
+        },
+        {
+          "section_number": "3.4",
+          "section_title": "Grammar"
+        },
+        {
+          "section_number": "3.5",
+          "section_title": "Writing"
+        },
+        {
+          "section_number": "3.6",
+          "section_title": "Vocabulary"
+        }
+      ]
+    },
+    {
+      "unit_number": 4,
+      "unit_title": "Tourist Attractions",
+      "sections": [
+        {
+          "section_number": "4.1",
+          "section_title": "Listening"
+        },
+        {
+          "section_number": "4.2",
+          "section_title": "Speaking"
+        },
+        {
+          "section_number": "4.3",
+          "section_title": "Reading"
+        },
+        {
+          "section_number": "4.4",
+          "section_title": "Vocabulary"
+        },
+        {
+          "section_number": "4.5",
+          "section_title": "Grammar"
+        },
+        {
+          "section_number": "4.6",
+          "section_title": "Writing"
+        }
+      ]
+    },
+    {
+      "unit_number": 5,
+      "unit_title": "Honey Processing",
+      "sections": [
+        {
+          "section_number": "5.1",
+          "section_title": "Listening: Honey Processing"
+        },
+        {
+          "section_number": "5.2",
+          "section_title": "Speaking"
+        },
+        {
+          "section_number": "5.3",
+          "section_title": "Reading: The Importance of Honey"
+        },
+        {
+          "section_number": "5.4",
+          "section_title": "Vocabulary"
+        },
+        {
+          "section_number": "5.5",
+          "section_title": "Grammar"
+        },
+        {
+          "section_number": "5.6",
+          "section_title": "Writing"
+        }
+      ]
+    },
+    {
+      "unit_number": 6,
+      "unit_title": "Migration",
+      "sections": [
+        {
+          "section_number": "6.1",
+          "section_title": "Listening"
+        },
+        {
+          "section_number": "6.2",
+          "section_title": "Speaking"
+        },
+        {
+          "section_number": "6.3",
+          "section_title": "Reading: Migration in Ethiopia"
+        },
+        {
+          "section_number": "6.4",
+          "section_title": "Vocabulary"
+        },
+        {
+          "section_number": "6.5",
+          "section_title": "Grammar: Tense"
+        },
+        {
+          "section_number": "6.6",
+          "section_title": "Writing"
+        }
+      ]
+    },
+    {
+      "unit_number": 7,
+      "unit_title": "Branding Ethiopia and National Identity",
+      "sections": [
+        {
+          "section_number": "7.1",
+          "section_title": "Listening"
+        },
+        {
+          "section_number": "7.2",
+          "section_title": "Speaking"
+        },
+        {
+          "section_number": "7.3",
+          "section_title": "Reading"
+        },
+        {
+          "section_number": "7.4",
+          "section_title": "Vocabulary"
+        },
+        {
+          "section_number": "7.5",
+          "section_title": "Grammar"
+        },
+        {
+          "section_number": "7.6",
+          "section_title": "Writing"
+        }
+      ]
+    },
+    {
+      "unit_number": 8,
+      "unit_title": "The Healing Power of Plants",
+      "sections": [
+        {
+          "section_number": "8.1",
+          "section_title": "Listening"
+        },
+        {
+          "section_number": "8.2",
+          "section_title": "Speaking"
+        },
+        {
+          "section_number": "8.3",
+          "section_title": "Reading: Traditional Medicine and Moringa"
+        },
+        {
+          "section_number": "8.4",
+          "section_title": "Vocabulary"
+        },
+        {
+          "section_number": "8.5",
+          "section_title": "Grammar"
+        },
+        {
+          "section_number": "8.6",
+          "section_title": "Writing"
+        }
+      ]
+    },
+    {
+      "unit_number": 9,
+      "unit_title": "Multilingualism",
+      "sections": [
+        {
+          "section_number": "9.1",
+          "section_title": "Listening"
+        },
+        {
+          "section_number": "9.2",
+          "section_title": "Speaking"
+        },
+        {
+          "section_number": "9.3",
+          "section_title": "Reading"
+        },
+        {
+          "section_number": "9.4",
+          "section_title": "Vocabulary"
+        },
+        {
+          "section_number": "9.5",
+          "section_title": "Grammar"
+        },
+        {
+          "section_number": "9.6",
+          "section_title": "Writing"
+        }
+      ]
+    },
+    {
+      "unit_number": 10,
+      "unit_title": "Digital vs Satellite Television",
+      "sections": [
+        {
+          "section_number": "10.1",
+          "section_title": "Listening"
+        },
+        {
+          "section_number": "10.2",
+          "section_title": "Speaking"
+        },
+        {
+          "section_number": "10.3",
+          "section_title": "Reading"
+        },
+        {
+          "section_number": "10.4",
+          "section_title": "Vocabulary"
+        },
+        {
+          "section_number": "10.5",
+          "section_title": "Grammar"
+        },
+        {
+          "section_number": "10.6",
+          "section_title": "Writing"
+        }
+      ]
+    }
+  ]
+}

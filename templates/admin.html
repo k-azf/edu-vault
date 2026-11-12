@@ -1,0 +1,1103 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+    
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center gap-3 mb-2">
+            <span class="text-3xl">⚡</span>
+            <h1 class="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white tracking-tight">Admin Console</h1>
+            <span class="bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-blue-200 dark:border-blue-800">Smart Upload & Review</span>
+        </div>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Upload PDF/JSON exams, review AI-classified questions, and manage resources.</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex gap-1 sm:gap-2 border-b border-slate-200 dark:border-slate-800 mb-6 overflow-x-auto pb-px">
+        <button id="tab-students" class="tab-btn bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 text-xs font-bold px-4 sm:px-6 py-3 rounded-t-xl transition hover:border-blue-500 whitespace-nowrap">
+            👥 Student Approvals <span id="student-pending-badge" class="hidden bg-red-500 text-white text-[10px] font-black rounded-full px-2 py-0.5 ml-1.5">0</span>
+        </button>
+        <button id="tab-upload" class="tab-btn active bg-blue-600 text-white text-xs font-bold px-4 sm:px-6 py-3 rounded-t-xl transition whitespace-nowrap">
+            📤 Upload Resource
+        </button>
+        <button id="tab-review" class="tab-btn bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 text-xs font-bold px-4 sm:px-6 py-3 rounded-t-xl transition hover:border-blue-500 whitespace-nowrap">
+            📋 Review Pending
+            <span id="pending-badge" class="hidden bg-red-500 text-white text-[10px] font-black rounded-full px-2 py-0.5 ml-1.5">0</span>
+        </button>
+        <button id="tab-resources" class="tab-btn bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 text-xs font-bold px-4 sm:px-6 py-3 rounded-t-xl transition hover:border-blue-500 whitespace-nowrap">
+            📄 All Resources
+        </button>
+
+    <button id="tab-analytics" class="tab-btn bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 text-xs font-bold px-4 sm:px-6 py-3 rounded-t-xl transition hover:border-blue-500 whitespace-nowrap">Exam Analytics</button>
+    </div>
+    <div id="analytics-section" class="tab-content hidden space-y-5">
+      <form id="admin-analytics-filters" class="grid gap-3 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 sm:grid-cols-3 lg:grid-cols-6">
+        <select name="examination_type" class="rounded-lg border p-2 text-xs dark:bg-slate-900 dark:text-white"><option value="">All types</option><option value="official_entrance_exam">Official entrance</option><option value="entrance_exam_worksheet">Entrance worksheet</option><option value="school_final_exam">School final</option><option value="school_midterm_exam">School midterm</option><option value="school_test">School test</option><option value="worksheet">Worksheet</option><option value="practical_question">Practical question</option><option value="practical_worksheet">Practical worksheet</option><option value="chapter_practice">Chapter practice</option><option value="other_core_subject">Other core subject</option></select>
+        <input name="subject" placeholder="Subject" class="rounded-lg border p-2 text-xs dark:bg-slate-900 dark:text-white"><input name="grade" type="number" placeholder="Grade" class="rounded-lg border p-2 text-xs dark:bg-slate-900 dark:text-white"><input name="academic_year" placeholder="Academic year" class="rounded-lg border p-2 text-xs dark:bg-slate-900 dark:text-white"><input name="date_from" type="date" aria-label="From date" class="rounded-lg border p-2 text-xs dark:bg-slate-900 dark:text-white"><input name="date_to" type="date" aria-label="To date" class="rounded-lg border p-2 text-xs dark:bg-slate-900 dark:text-white">
+        <button class="rounded-lg bg-blue-600 p-2 text-xs font-bold text-white sm:col-span-3 lg:col-span-6">Apply filters</button>
+      </form>
+      <section id="admin-analytics-summary" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"></section>
+      <section class="grid gap-5 lg:grid-cols-2"><article class="rounded-2xl bg-white p-5 dark:bg-slate-900"><h3 class="font-black">Most difficult subjects</h3><div id="admin-difficult-subjects" class="mt-3 space-y-2 text-sm"></div></article><article class="rounded-2xl bg-white p-5 dark:bg-slate-900"><h3 class="font-black">Student rankings</h3><div id="admin-student-rankings" class="mt-3 space-y-2 text-sm"></div></article><article class="rounded-2xl bg-white p-5 dark:bg-slate-900 lg:col-span-2"><h3 class="font-black">Most difficult questions</h3><div id="admin-difficult-questions" class="mt-3 space-y-2 text-sm"></div></article></section>
+    </div>
+    <div id="students-section" class="tab-content hidden">
+        <div class="bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-900 rounded-2xl shadow-xl overflow-hidden mb-6">
+            <div class="p-6 border-b border-blue-100 dark:border-blue-900">
+                <h2 class="text-lg font-black text-slate-800 dark:text-white">Add Student Directly</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Students added by an administrator are activated immediately and receive an automatic Student Code.</p>
+            </div>
+            <form id="add-student-form" class="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input name="first_name" required minlength="2" maxlength="50" placeholder="First name" class="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-white text-sm">
+                <input name="last_name" required minlength="2" maxlength="50" placeholder="Last name" class="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-white text-sm">
+                <input name="username" required minlength="1" maxlength="100" placeholder="Username (any characters)" class="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-white text-sm">
+                <input name="phone_number" type="tel" inputmode="tel" placeholder="Student mobile (09... or 07...)" class="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-white text-sm">
+                <input name="email" type="email" required placeholder="Student email for code delivery" class="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-white text-sm">
+                <input name="password" required minlength="8" type="password" placeholder="Temporary password" class="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 dark:text-white text-sm">
+                <div class="sm:col-span-2 flex flex-wrap items-center gap-3">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-black px-5 py-3 rounded-xl">Add and Activate Student</button>
+                    <span id="add-student-msg" class="text-xs font-semibold"></span>
+                </div>
+            </form>
+        </div>
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+            <div class="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4">
+                <div><h2 class="text-lg font-black text-slate-800 dark:text-white">Pending Student Registrations</h2><p class="text-xs text-slate-500 dark:text-slate-400">Approve a registration to generate its permanent Student Code, or reject it.</p></div>
+                <button onclick="loadPendingStudents()" class="bg-slate-100 dark:bg-slate-800 text-xs font-bold px-4 py-2 rounded-xl">Refresh</button>
+            </div>
+            <div id="pending-students-list" class="p-4 sm:p-6 space-y-4"><p class="text-xs text-slate-400">Loading pending registrations...</p></div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- TAB 1: UPLOAD RESOURCE -->
+    <!-- ============================================ -->
+    <div id="upload-section" class="tab-content">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-8 rounded-2xl shadow-xl">
+            
+            <div class="flex items-center gap-3 mb-6 border-b border-slate-100 dark:border-slate-800 pb-4">
+                <span class="text-2xl">🚀</span>
+                <div>
+                    <h2 class="text-lg font-black text-slate-800 dark:text-white">Smart Categorized Upload</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Upload PDF or JSON. AI will extract, classify, and queue for review.</p>
+                </div>
+            </div>
+
+            <form id="upload-form" class="space-y-5">
+                
+                <!-- Resource Type & Category -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Resource Type</label>
+                        <select name="resource_type" id="resource_type" class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition">
+                            <option value="Exam">📝 Exam</option>
+                            <option value="Worksheet">📄 Worksheet</option>
+                            <option value="Textbook">📚 Textbook</option>
+                            <option value="Teacher Guide">👨‍🏫 Teacher Guide</option>
+                            <option value="Notes">📖 Notes</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Category / Sub-type</label>
+                        <select name="category" id="category" class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition">
+                            <option value="National Entrance (EUEE)">🎓 National Entrance (EUEE)</option>
+                            <option value="Model Exam">📋 Model Exam</option>
+                            <option value="School Exam">🏫 School Exam</option>
+                            <option value="Chapter Worksheet">📝 Chapter Worksheet</option>
+                            <option value="Unit Test">📊 Unit Test</option>
+                        </select>
+                        <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-3 mb-1.5">Examination Type / Destination</label>
+                        <select name="examination_type" id="examination_type" required class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition">
+                            <option value="official_entrance_exam">Official Entrance Exam â†’ Entrance Portal</option>
+                            <option value="entrance_exam_worksheet">Entrance Exam Worksheet â†’ Core Subjects</option>
+                            <option value="school_final_exam">School Final Exam â†’ Core Subjects</option>
+                            <option value="school_midterm_exam">School Midterm Exam â†’ Core Subjects</option>
+                            <option value="school_test">School Test â†’ Core Subjects</option>
+                            <option value="worksheet">Worksheet â†’ Practical Questions</option>
+                            <option value="practical_question">Practical Question â†’ Practical Questions</option>
+                            <option value="practical_worksheet">Practical Worksheet â†’ Practical Questions</option>
+                            <option value="chapter_practice">Chapter Practice</option>
+                            <option value="other_core_subject">None / Unclassified (Notes)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Subject & Grade -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Subject</label>
+                        <select name="subject" id="subject" class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition">
+                            <option value="Mathematics">📐 Mathematics</option>
+                            <option value="Physics">⚛️ Physics</option>
+                            <option value="Chemistry">🧪 Chemistry</option>
+                            <option value="Biology">🧬 Biology</option>
+                            <option value="English">📖 English</option>
+                            <option value="Geography">🌍 Geography</option>
+                            <option value="History">🏛️ History</option>
+                            <option value="Economics">📊 Economics</option>
+                            <option value="Aptitude">🧠 Aptitude</option>
+                            <option value="IT">💻 Information Technology</option>
+                            <option value="General">📚 General</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Grade Level</label>
+                        <select name="grade" id="grade" class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition">
+                            <option value="12">Grade 12</option>
+                            <option value="11">Grade 11</option>
+                            <option value="10">Grade 10</option>
+                            <option value="9">Grade 9</option>
+                            <option value="8">Grade 8</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Academic Year</label>
+                        <input type="text" name="academic_year" placeholder="e.g. 2016 E.C / 2024" class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+                </div>
+
+                <!-- Title & Instructions -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Resource Title <span class="text-red-500">*</span></label>
+                        <input type="text" name="title" placeholder="e.g. Grade 12 Physics Entrance Exam 2003 E.C. (JSON title used if blank)" class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">School / Institution</label>
+                        <input type="text" name="school_name" placeholder="e.g. Oromia Education Bureau" class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Duration (minutes)</label>
+                        <input type="number" name="duration_minutes" min="1" max="600" value="60" required class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Instructions / Description</label>
+                    <textarea name="instructions" rows="2" placeholder="Additional notes about this resource..." class="w-full bg-slate-50 dark:bg-slate-950 p-3 border border-slate-200 dark:border-slate-800 rounded-xl text-xs dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition resize-none"></textarea>
+                </div>
+
+                <!-- File Upload -->
+                <div class="p-6 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl text-center hover:border-blue-500 dark:hover:border-blue-500 transition group">
+                    <input type="file" id="file-input" name="file" accept=".pdf,.json" required class="hidden">
+                    <label for="file-input" class="cursor-pointer block">
+                        <div class="text-4xl mb-2 group-hover:scale-110 transition">📄</div>
+                        <span id="file-name" class="text-xs font-bold text-blue-600 dark:text-blue-400 block">Click to select PDF or JSON file</span>
+                        <span class="text-[10px] text-slate-400 uppercase block font-bold mt-1">Supports PDF (AI Auto-Parse) or Standard JSON</span>
+                        <span class="text-[10px] text-slate-400 block">Max file size: 16MB</span>
+                    </label>
+                </div>
+
+                <!-- Upload Button -->
+                <button type="submit" id="submit-btn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black py-4 rounded-2xl transition shadow-lg shadow-blue-500/20 uppercase tracking-wider text-xs flex items-center justify-center gap-2">
+                    <span>🚀</span>
+                    <span>Classify & Upload Resource</span>
+                </button>
+
+                <!-- Status Message -->
+                <div id="status-msg" class="hidden p-4 rounded-2xl text-center text-xs font-bold"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- TAB 2: REVIEW PENDING EXAMS -->
+    <!-- ============================================ -->
+    <div id="review-section" class="tab-content hidden">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+            
+            <!-- Header -->
+            <div class="p-6 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">📋</span>
+                    <div>
+                        <h2 class="text-lg font-black text-slate-800 dark:text-white">Pending Exam Reviews</h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Review AI-classified questions before publishing</p>
+                    </div>
+                </div>
+                <button onclick="loadPendingExams()" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5">
+                    <span>🔄</span> Refresh
+                </button>
+            </div>
+
+            <!-- Pending Exams List -->
+            <div id="pending-exams-list" class="p-4 sm:p-6 space-y-4">
+                <!-- Loading skeleton -->
+                <div class="animate-pulse">
+                    <div class="bg-slate-100 dark:bg-slate-800 rounded-2xl p-6 h-24"></div>
+                    <div class="bg-slate-100 dark:bg-slate-800 rounded-2xl p-6 h-24 mt-4"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- ============================================ -->
+    <!-- TAB 3: ALL RESOURCES -->
+    <!-- ============================================ -->
+    <div id="resources-section" class="tab-content hidden">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+            
+            <div class="p-6 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">📄</span>
+                    <div>
+                        <h2 class="text-lg font-black text-slate-800 dark:text-white">All Resources</h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Manage all published resources</p>
+                    </div>
+                </div>
+                <button onclick="loadAllResources()" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5">
+                    <span>🔄</span> Refresh
+                </button>
+            </div>
+
+            <!-- Filters -->
+            <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap gap-3">
+                <select id="resource-filter-type" onchange="loadAllResources()" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold dark:text-white outline-none">
+                    <option value="all">All Types</option>
+                    <option value="Exam">📝 Exam</option>
+                    <option value="Worksheet">📄 Worksheet</option>
+                    <option value="Textbook">📚 Textbook</option>
+                    <option value="Teacher Guide">👨‍🏫 Teacher Guide</option>
+                    <option value="Notes">📖 Notes</option>
+                </select>
+                <select id="resource-filter-subject" onchange="loadAllResources()" class="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold dark:text-white outline-none">
+                    <option value="all">All Subjects</option>
+                    <option value="Mathematics">Mathematics</option>
+                    <option value="Physics">Physics</option>
+                    <option value="Chemistry">Chemistry</option>
+                    <option value="Biology">Biology</option>
+                    <option value="English">English</option>
+                    <option value="Geography">Geography</option>
+                    <option value="History">History</option>
+                    <option value="Economics">Economics</option>
+                    <option value="Aptitude">Aptitude</option>
+                </select>
+                <input type="text" id="resource-filter-search" placeholder="Search resources..." oninput="loadAllResources()" class="flex-grow bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs dark:text-white outline-none focus:ring-2 focus:ring-blue-500 transition">
+            </div>
+
+            <!-- Resources Grid -->
+            <div id="all-resources-list" class="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Loading skeleton -->
+                <div class="animate-pulse">
+                    <div class="bg-slate-100 dark:bg-slate-800 rounded-2xl p-6 h-32"></div>
+                </div>
+                <div class="animate-pulse">
+                    <div class="bg-slate-100 dark:bg-slate-800 rounded-2xl p-6 h-32"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ============================================ -->
+<!-- DETAILED REVIEW MODAL -->
+<!-- ============================================ -->
+<div id="review-modal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl">
+        
+        <!-- Modal Header -->
+        <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 p-4">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl">🔍</span>
+                <div>
+                    <h3 class="text-base font-black text-slate-800 dark:text-white" id="review-modal-title">Review Questions</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400" id="review-modal-subtitle">Exam: Loading...</p>
+                </div>
+            </div>
+            <button onclick="closeReviewModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xl font-bold p-1">✕</button>
+        </div>
+
+        <!-- Stats Bar -->
+        <div id="review-stats" class="flex flex-wrap gap-3 p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50">
+            <div class="flex items-center gap-2 text-xs">
+                <span class="font-bold text-slate-500 dark:text-slate-400">Total:</span>
+                <span id="review-total" class="font-black text-slate-800 dark:text-white">0</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+                <span class="font-bold text-emerald-500">High Confidence:</span>
+                <span id="review-high" class="font-black text-emerald-600 dark:text-emerald-400">0</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+                <span class="font-bold text-amber-500">Medium:</span>
+                <span id="review-medium" class="font-black text-amber-600 dark:text-amber-400">0</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+                <span class="font-bold text-red-500">Low:</span>
+                <span id="review-low" class="font-black text-red-600 dark:text-red-400">0</span>
+            </div>
+        </div>
+
+        <!-- Questions List -->
+        <div id="review-questions-list" class="flex-grow overflow-y-auto p-4 space-y-4 custom-scrollbar">
+            <!-- Loaded dynamically -->
+            <div class="text-center text-xs text-slate-400 py-8">Loading questions...</div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="border-t border-slate-200 dark:border-slate-800 p-4 flex flex-wrap justify-between items-center gap-3">
+            <div class="flex gap-2">
+                <button onclick="approveAllQuestions()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-1.5">
+                    <span>✅</span> Approve All
+                </button>
+                <button onclick="rejectAllQuestions()" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-1.5">
+                    <span>❌</span> Reject All
+                </button>
+            </div>
+            <button onclick="closeReviewModal()" class="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-white text-xs font-bold px-4 py-2.5 rounded-xl transition">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- JAVASCRIPT -->
+<!-- ============================================ -->
+<script>
+    // ============================================
+    // STATE
+    // ============================================
+    let currentPendingExamId = null;
+    let currentQuestions = [];
+
+    async function loadAdminExamAnalytics() {
+        const form = document.getElementById('admin-analytics-filters');
+        if (!form.dataset.bound) {
+            form.dataset.bound = '1';
+            form.addEventListener('submit', event => { event.preventDefault(); loadAdminExamAnalytics(); });
+        }
+        const query = new URLSearchParams(new FormData(form));
+        for (const [key, value] of [...query.entries()]) if (!value) query.delete(key);
+        const response = await fetch(`/api/admin/exam-analytics?${query.toString()}`, {cache:'no-store'});
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Could not load exam analytics.');
+        const counts = data.exam_type_counts || {};
+        const entrance = counts.official_entrance_exam || 0;
+        const practical = (counts.worksheet || 0) + (counts.practical_question || 0) + (counts.practical_worksheet || 0);
+        const core = Object.entries(counts).filter(([kind]) => ['entrance_exam_worksheet','school_final_exam','school_midterm_exam','school_test','other_core_subject'].includes(kind)).reduce((sum, [,count]) => sum + count, 0);
+        const cards = [['Examinations', data.total_exams], ['Questions', data.total_questions], ['Entrance exams', entrance], ['Core subject exams', core], ['Practical resources', practical], ['Student attempts', data.student_attempts], ['Average score', `${data.average_score}%`]];
+        document.getElementById('admin-analytics-summary').innerHTML = cards.map(([label, value]) => `<article class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><p class="text-xs text-slate-500">${escapeHtml(label)}</p><p class="mt-1 text-2xl font-black text-slate-900 dark:text-white">${escapeHtml(value ?? 0)}</p></article>`).join('');
+        document.getElementById('admin-difficult-subjects').innerHTML = (data.most_difficult_subjects || []).map(row => `<p class="flex justify-between gap-3 border-b border-slate-100 py-2 dark:border-slate-800"><span>${escapeHtml(row.subject || 'Other')} (${row.attempts} attempts)</span><b>${Number(row.average_accuracy || 0).toFixed(1)}%</b></p>`).join('') || '<p class="text-slate-500">No recorded results for these filters.</p>';
+        document.getElementById('admin-student-rankings').innerHTML = (data.student_rankings || []).map((row, i) => `<p class="flex justify-between gap-3 border-b border-slate-100 py-2 dark:border-slate-800"><span>${i + 1}. ${escapeHtml(row.student || 'Student')} (${row.attempts})</span><b>${Number(row.average_accuracy || 0).toFixed(1)}%</b></p>`).join('') || '<p class="text-slate-500">No recorded results for these filters.</p>';
+        document.getElementById('admin-difficult-questions').innerHTML = (data.most_difficult_questions || []).map(row => `<p class="border-b border-slate-100 py-2 dark:border-slate-800"><span class="text-slate-500">${escapeHtml(row.subject || 'Other')} · ${row.attempts} attempts · ${Number(row.accuracy || 0).toFixed(1)}%</span><br>${escapeHtml(row.question_text || '')}</p>`).join('') || '<p class="text-slate-500">No answered questions for these filters.</p>';
+    }
+
+    // ============================================
+    // FILE UPLOAD HANDLER
+    // ============================================
+    document.getElementById('file-input').addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            const file = e.target.files[0];
+            document.getElementById('file-name').innerHTML = `📎 Selected: <b>${file.name}</b> (${(file.size / 1024).toFixed(1)} KB)`;
+            if (file.name.toLowerCase().endsWith('.json')) {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    try {
+                        const payload = JSON.parse(String(reader.result || '').replace(/^\uFEFF/, ''));
+                        const exam = Array.isArray(payload) ? {} : payload;
+                        const form = document.getElementById('upload-form');
+                        if (exam.title && !form.elements.title.value.trim()) form.elements.title.value = exam.title;
+                        if (exam.subject) document.getElementById('subject').value = exam.subject;
+                        if (exam.grade) document.getElementById('grade').value = exam.grade;
+                        if (exam.academic_year) form.elements.academic_year.value = exam.academic_year;
+                        if (exam.instructions) form.elements.instructions.value = exam.instructions;
+                        if (exam.examination_type && [...document.getElementById('examination_type').options].some(option => option.value === exam.examination_type)) {
+                            document.getElementById('examination_type').value = exam.examination_type;
+                        }
+                    } catch (error) {
+                        const status = document.getElementById('status-msg');
+                        status.className = "p-4 rounded-2xl text-center text-xs font-bold bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 block";
+                        status.innerText = 'Could not read JSON metadata. Upload will report the JSON error.';
+                    }
+                };
+                reader.readAsText(file, 'UTF-8');
+            }
+        }
+    });
+
+    // ============================================
+    // UPLOAD FORM
+    // ============================================
+    document.getElementById('upload-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('submit-btn');
+        const status = document.getElementById('status-msg');
+        const formData = new FormData(this);
+
+        // Validate file
+        const file = document.getElementById('file-input').files[0];
+        if (!file) {
+            status.className = "p-4 rounded-2xl text-center text-xs font-bold bg-rose-100 dark:bg-rose-950/30 text-rose-800 dark:text-rose-400 block";
+            status.innerText = "❌ Please select a file to upload.";
+            return;
+        }
+
+        // Disable button
+        btn.disabled = true;
+        btn.innerHTML = '<span class="animate-spin">⏳</span> Processing & Classifying...';
+        status.className = "p-4 rounded-2xl text-center text-xs font-bold bg-blue-100 dark:bg-blue-950/30 text-blue-800 dark:text-blue-400 block animate-pulse";
+        status.innerText = "⏳ Extracting questions and classifying against curriculum...";
+
+        fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.text().then(raw => {
+            let body;
+            try {
+                body = JSON.parse(raw);
+            } catch (error) {
+                const detail = raw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 240);
+                throw new Error(detail || `Server returned an unreadable response (HTTP ${res.status}).`);
+            }
+            if (!res.ok && !body.error) body.error = `Upload request failed (HTTP ${res.status}).`;
+            return body;
+        }))
+        .then(data => {
+            if (data.success) {
+                status.className = "p-4 rounded-2xl text-center text-xs font-bold bg-emerald-100 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-400 block";
+                status.innerText = `✅ ${data.message}`;
+                document.getElementById('upload-form').reset();
+                document.getElementById('file-name').innerHTML = 'Click to select PDF or JSON file';
+                // Refresh pending count
+                loadPendingExamsCount();
+                // Switch to review tab
+                document.getElementById('tab-review').click();
+            } else {
+                status.className = "p-4 rounded-2xl text-center text-xs font-bold bg-rose-100 dark:bg-rose-950/30 text-rose-800 dark:text-rose-400 block";
+                status.innerText = `❌ Error: ${data.error}`;
+            }
+        })
+        .catch(err => {
+            status.className = "p-4 rounded-2xl text-center text-xs font-bold bg-rose-100 dark:bg-rose-950/30 text-rose-800 dark:text-rose-400 block";
+            status.innerText = `❌ Upload Failed: ${err.message}`;
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<span>🚀</span> <span>Classify & Upload Resource</span>';
+        });
+    });
+
+    // ============================================
+    // LOAD PENDING EXAMS
+    // ============================================
+    function loadPendingExamsCount() {
+        fetch('/api/admin/pending_exams')
+            .then(res => res.json())
+            .then(data => {
+                const badge = document.getElementById('pending-badge');
+                if (data.length > 0) {
+                    badge.classList.remove('hidden');
+                    badge.textContent = data.length;
+                } else {
+                    badge.classList.add('hidden');
+                }
+            })
+            .catch(() => {});
+    }
+
+    function loadPendingStudents() {
+        const list = document.getElementById('pending-students-list');
+        fetch('/api/admin/students/pending')
+            .then(res => res.json())
+            .then(students => {
+                const badge = document.getElementById('student-pending-badge');
+                badge.textContent = students.length;
+                badge.classList.toggle('hidden', students.length === 0);
+                if (!students.length) {
+                    list.innerHTML = '<p class="text-xs text-slate-400">No pending student registrations.</p>';
+                    return;
+                }
+                list.innerHTML = students.map(student => `
+                    <div data-student-contact="${student.id}" class="flex flex-wrap items-center gap-4 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50">
+                        ${student.photo_url ? `<img src="${student.photo_url}" alt="${escapeHtml(student.full_name)} profile photo" class="w-16 h-20 object-cover rounded-xl border border-slate-200">` : '<div class="w-16 h-20 rounded-xl bg-slate-200 dark:bg-slate-800"></div>'}
+                        <div class="flex-grow min-w-[220px]"><span class="text-[10px] font-black uppercase tracking-widest text-amber-600">${escapeHtml(student.account_status)}</span><h3 class="text-base font-black text-slate-800 dark:text-white mt-1">${escapeHtml(student.full_name)}</h3><p class="text-xs text-slate-500">@${escapeHtml(student.username)} · ${escapeHtml(student.phone_number || student.email || 'No contact')} · Registered ${escapeHtml(student.registered_at || '')}</p></div>
+                        <div class="grid min-w-[220px] flex-1 gap-2 sm:grid-cols-2"><input class="student-contact-phone rounded-lg border border-slate-300 bg-white p-2 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-white" value="${escapeHtml(student.phone_number || '')}" placeholder="Mobile phone (optional)"><input class="student-contact-email rounded-lg border border-slate-300 bg-white p-2 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-white" type="email" value="${escapeHtml(student.email || '')}" placeholder="Required email for Student Code"></div>
+                        <button onclick="saveStudentContact(${student.id})" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold dark:border-slate-700">Save contact</button>
+                        <div class="flex gap-2"><button onclick="approveStudent(${student.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl">Approve</button><button onclick="rejectStudent(${student.id})" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl">Reject</button></div>
+                    </div>`).join('');
+            })
+            .catch(() => { list.innerHTML = '<p class="text-xs text-red-600">Could not load student registrations.</p>'; });
+    }
+
+    document.getElementById('add-student-form').addEventListener('submit', function (event) {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const message = document.getElementById('add-student-msg');
+        const button = form.querySelector('button[type="submit"]');
+        button.disabled = true;
+        message.className = 'text-xs font-semibold text-blue-600';
+        message.textContent = 'Adding student...';
+        fetch('/api/admin/students', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(Object.fromEntries(new FormData(form)))
+        })
+            .then(async response => {
+                const data = await response.json();
+                if (!response.ok || !data.success) throw new Error(data.error || 'Student could not be added.');
+                message.className = 'text-xs font-semibold text-emerald-600';
+                message.textContent = `${data.full_name} added. ${data.message}`;
+                form.reset();
+                loadPendingStudents();
+            })
+            .catch(error => {
+                message.className = 'text-xs font-semibold text-red-600';
+                message.textContent = error.message;
+            })
+            .finally(() => { button.disabled = false; });
+    });
+
+    async function saveStudentContact(userId) {
+        const card = document.querySelector(`[data-student-contact="${userId}"]`);
+        const button = card?.querySelector('button[onclick^="saveStudentContact"]');
+        if (!card || !button) return;
+        button.disabled = true;
+        try {
+            const response = await fetch(`/api/admin/students/${userId}/contact`, {
+                method: 'PUT', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    phone_number: card.querySelector('.student-contact-phone').value.trim(),
+                    email: card.querySelector('.student-contact-email').value.trim()
+                })
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.error || 'Could not save contact details.');
+            alert(data.message);
+            loadPendingStudents();
+        } catch (error) { alert(error.message || 'Could not save contact details.'); }
+        finally { button.disabled = false; }
+    }
+
+    function approveStudent(userId) {
+        if (!confirm('Approve this student and generate a Student Code?')) return;
+        fetch(`/api/admin/students/${userId}/approve`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => { alert(data.success ? data.message : data.error); loadPendingStudents(); })
+            .catch(() => alert('Approval failed. Please try again.'));
+    }
+
+    function rejectStudent(userId) {
+        if (!confirm('Reject this student registration?')) return;
+        fetch(`/api/admin/students/${userId}/reject`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => { alert(data.success ? data.message : data.error); loadPendingStudents(); })
+            .catch(() => alert('Rejection failed. Please try again.'));
+    }
+
+    function loadPendingExams() {
+        const list = document.getElementById('pending-exams-list');
+        list.innerHTML = `
+            <div class="animate-pulse">
+                <div class="bg-slate-100 dark:bg-slate-800 rounded-2xl p-6 h-24"></div>
+                <div class="bg-slate-100 dark:bg-slate-800 rounded-2xl p-6 h-24 mt-4"></div>
+            </div>
+        `;
+
+        fetch('/api/admin/pending_exams')
+            .then(res => res.json())
+            .then(exams => {
+                if (exams.length === 0) {
+                    list.innerHTML = `
+                        <div class="bg-slate-50 dark:bg-slate-950/50 p-8 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 text-center">
+                            <div class="text-3xl mb-2">🎉</div>
+                            <p class="text-xs font-bold text-slate-500 dark:text-slate-400">No pending exams to review.</p>
+                            <p class="text-[10px] text-slate-400 mt-1">Upload a new resource to start the review process.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                list.innerHTML = '';
+                const examTypes = [
+                    ['official_entrance_exam','Official Entrance Exam'],['entrance_exam_worksheet','Entrance Exam Worksheet'],
+                    ['school_final_exam','School Final Exam'],['school_midterm_exam','School Midterm Exam'],['school_test','School Test'],
+                    ['worksheet','Worksheet'],['practical_question','Practical Question'],['practical_worksheet','Practical Worksheet'],
+                    ['chapter_practice','Chapter Practice'],['other_core_subject','Other Core Subject Examination']
+                ];
+                exams.forEach(exam => {
+                    const confidenceColor = exam.question_count > 0 ? 'text-emerald-500' : 'text-amber-500';
+                    const dateStr = new Date(exam.created_at).toLocaleDateString() + ' ' + 
+                                  new Date(exam.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+                    list.innerHTML += `
+                        <div class="bg-slate-50 dark:bg-slate-950/50 hover:bg-slate-100 dark:hover:bg-slate-950 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 transition flex flex-wrap items-center justify-between gap-4">
+                            <div class="flex-grow min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="bg-amber-500/10 text-amber-500 border border-amber-500/30 text-[9px] font-black uppercase px-2 py-0.5 rounded">Pending</span>
+                                    <span class="text-[10px] font-bold text-slate-400">${exam.resource_type || 'Exam'}</span>
+                                    <span class="text-[10px] font-bold text-slate-400">•</span>
+                                    <span class="text-[10px] font-bold text-slate-400">Grade ${exam.grade}</span>
+                                </div>
+                                <h3 class="text-base font-black text-slate-800 dark:text-white truncate">${exam.title}</h3>
+                                <div class="mt-2 flex flex-wrap items-center gap-2">
+                                    <select id="pending-exam-type-${exam.id}" class="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-[10px] font-bold dark:border-slate-700 dark:bg-slate-900 dark:text-white">${examTypes.map(([value,label]) => `<option value="${value}" ${exam.examination_type===value?'selected':''}>${label}</option>`).join('')}</select>
+                                    <button onclick="savePendingClassification(${exam.id})" class="rounded-lg border border-blue-300 px-2 py-1.5 text-[10px] font-bold text-blue-700 dark:border-blue-900 dark:text-blue-300">Save classification</button>
+                                    <span class="text-[10px] text-slate-400">${exam.duration_minutes || 60} min</span>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                    <span>📚 ${exam.subject}</span>
+                                    <span>•</span>
+                                    <span>👤 ${exam.uploaded_by_name || 'Admin'}</span>
+                                    <span>•</span>
+                                    <span>📅 ${dateStr}</span>
+                                    <span>•</span>
+                                    <span class="${confidenceColor} font-bold">📝 ${exam.question_count || 0} questions</span>
+                                </div>
+                            </div>
+                            <div class="flex gap-2 flex-wrap">
+                                <button onclick="openReviewModal(${exam.id})" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-sm shadow-blue-500/20">
+                                    <span>🔍</span> Review
+                                </button>
+                                <button onclick="approvePendingExam(${exam.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-1.5">
+                                    <span>✅</span> Approve
+                                </button>
+                                <button onclick="rejectPendingExam(${exam.id})" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-1.5">
+                                    <span>❌</span> Reject
+                                </button>
+                                <button onclick="deletePendingExam(${exam.id})" class="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 text-xs font-bold px-3 py-2.5 rounded-xl transition">
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+            })
+            .catch(err => {
+                list.innerHTML = `
+                    <div class="bg-rose-50 dark:bg-rose-950/20 p-6 rounded-2xl border border-rose-200 dark:border-rose-900 text-center text-rose-600 dark:text-rose-400 text-xs font-bold">
+                        ❌ Failed to load pending exams: ${err.message}
+                    </div>
+                `;
+            });
+    }
+
+    function savePendingClassification(pendingExamId) {
+        const examination_type = document.getElementById(`pending-exam-type-${pendingExamId}`).value;
+        fetch(`/api/admin/pending_exams/${pendingExamId}/classification`, {
+            method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({examination_type})
+        }).then(async response => {
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Classification could not be saved.');
+            loadPendingExams();
+        }).catch(error => alert(error.message));
+    }
+
+    // ============================================
+    // REVIEW MODAL
+    // ============================================
+    function openReviewModal(pendingExamId) {
+        currentPendingExamId = pendingExamId;
+        const modal = document.getElementById('review-modal');
+        modal.classList.remove('hidden');
+        
+        // Load exam details
+        fetch(`/api/admin/pending_exams/${pendingExamId}/stats`)
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('review-modal-title').textContent = `Review: ${data.exam.title}`;
+                document.getElementById('review-modal-subtitle').textContent = `${data.exam.subject} - Grade ${data.exam.grade}`;
+                
+                const stats = data.stats || { total: 0, high_confidence: 0, medium_confidence: 0, low_confidence: 0 };
+                document.getElementById('review-total').textContent = stats.total || 0;
+                document.getElementById('review-high').textContent = stats.high_confidence || 0;
+                document.getElementById('review-medium').textContent = stats.medium_confidence || 0;
+                document.getElementById('review-low').textContent = stats.low_confidence || 0;
+            })
+            .catch(err => console.error('Error loading exam stats:', err));
+
+        // Load questions
+        loadReviewQuestions(pendingExamId);
+    }
+
+    function loadReviewQuestions(pendingExamId) {
+        const list = document.getElementById('review-questions-list');
+        list.innerHTML = `
+            <div class="text-center text-xs text-slate-400 py-8">
+                <div class="animate-spin inline-block text-2xl">⏳</div>
+                <p class="mt-2">Loading questions...</p>
+            </div>
+        `;
+
+        fetch(`/api/admin/pending_exams/${pendingExamId}/questions`)
+            .then(res => res.json())
+            .then(questions => {
+                currentQuestions = questions;
+                
+                if (questions.length === 0) {
+                    list.innerHTML = `
+                        <div class="text-center text-xs text-slate-400 py-8">
+                            <div class="text-2xl mb-2">📭</div>
+                            <p>No pending questions found.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                list.innerHTML = '';
+                questions.forEach((q, index) => {
+                    const confidenceColors = {
+                        'High': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400',
+                        'Medium': 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-400',
+                        'Low': 'bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-400'
+                    };
+                    const confidenceClass = confidenceColors[q.confidence] || confidenceColors['Low'];
+
+                    list.innerHTML += `
+                        <div class="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3" id="question-${q.id}">
+                            <!-- Header -->
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex items-center gap-3">
+                                    <span class="bg-blue-600 text-white font-black text-xs w-7 h-7 rounded-lg flex items-center justify-center">${q.question_number || index + 1}</span>
+                                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300">Question</span>
+                                </div>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full ${confidenceClass}">${q.confidence || 'Low'} Confidence</span>
+                                    <select onchange="updateQuestionField(${q.id}, 'confidence', this.value)" class="text-[10px] font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-2 py-1 outline-none">
+                                        <option value="High" ${q.confidence === 'High' ? 'selected' : ''}>High</option>
+                                        <option value="Medium" ${q.confidence === 'Medium' ? 'selected' : ''}>Medium</option>
+                                        <option value="Low" ${q.confidence === 'Low' ? 'selected' : ''}>Low</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Question Text -->
+                            <div class="text-sm font-medium text-slate-800 dark:text-white">${escapeHtml(q.question_text)}</div>
+
+                            <!-- Options -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
+                                ${q.option_a ? `<div class="flex items-start gap-2"><span class="font-bold text-blue-600">A.</span> <span>${escapeHtml(q.option_a)}</span></div>` : ''}
+                                ${q.option_b ? `<div class="flex items-start gap-2"><span class="font-bold text-blue-600">B.</span> <span>${escapeHtml(q.option_b)}</span></div>` : ''}
+                                ${q.option_c ? `<div class="flex items-start gap-2"><span class="font-bold text-blue-600">C.</span> <span>${escapeHtml(q.option_c)}</span></div>` : ''}
+                                ${q.option_d ? `<div class="flex items-start gap-2"><span class="font-bold text-blue-600">D.</span> <span>${escapeHtml(q.option_d)}</span></div>` : ''}
+                            </div>
+
+                            <!-- Classification Details -->
+                            <div class="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-200 dark:border-slate-800 text-[10px] space-y-1">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                                    <div><span class="font-bold text-slate-500 dark:text-slate-400">Curriculum grade:</span>
+                                        <input type="number" min="9" max="12" value="${q.curriculum_grade || ''}" onchange="updateQuestionField(${q.id}, 'curriculum_grade', Number(this.value))" class="bg-transparent border-b border-slate-300 dark:border-slate-700 focus:border-blue-500 outline-none w-12">
+                                    </div>
+                                    <div><span class="font-bold text-slate-500 dark:text-slate-400">Unit:</span> 
+                                        <input type="text" value="${q.unit_number || ''}" onchange="updateQuestionField(${q.id}, 'unit_number', this.value)" class="bg-transparent border-b border-slate-300 dark:border-slate-700 focus:border-blue-500 outline-none w-16">
+                                        <input type="text" value="${q.unit_title || ''}" onchange="updateQuestionField(${q.id}, 'unit_title', this.value)" class="bg-transparent border-b border-slate-300 dark:border-slate-700 focus:border-blue-500 outline-none w-32">
+                                    </div>
+                                    <div><span class="font-bold text-slate-500 dark:text-slate-400">Section:</span>
+                                        <input type="text" value="${q.section_number || ''}" onchange="updateQuestionField(${q.id}, 'section_number', this.value)" class="bg-transparent border-b border-slate-300 dark:border-slate-700 focus:border-blue-500 outline-none w-16">
+                                        <input type="text" value="${q.section_title || ''}" onchange="updateQuestionField(${q.id}, 'section_title', this.value)" class="bg-transparent border-b border-slate-300 dark:border-slate-700 focus:border-blue-500 outline-none w-32">
+                                    </div>
+                                </div>
+                                <div class="text-[10px] text-slate-400 mt-1">${q.classification_reason || 'Auto-classified'}</div>
+                            </div>
+
+                            <!-- Correct Answer & Explanation -->
+                            <div class="flex flex-wrap items-center gap-3 text-xs">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-slate-500 dark:text-slate-400">Correct:</span>
+                                    <select onchange="updateQuestionField(${q.id}, 'correct_answer', this.value)" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-2 py-0.5 text-xs font-bold outline-none">
+                                        <option value="A" ${q.correct_answer === 'A' ? 'selected' : ''}>A</option>
+                                        <option value="B" ${q.correct_answer === 'B' ? 'selected' : ''}>B</option>
+                                        <option value="C" ${q.correct_answer === 'C' ? 'selected' : ''}>C</option>
+                                        <option value="D" ${q.correct_answer === 'D' ? 'selected' : ''}>D</option>
+                                    </select>
+                                </div>
+                                ${q.explanation ? `<div class="text-slate-500 dark:text-slate-400"><span class="font-bold">Explanation:</span> ${escapeHtml(q.explanation.substring(0, 100))}${q.explanation.length > 100 ? '...' : ''}</div>` : ''}
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                                <button onclick="approveQuestion(${q.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition">✅ Approve</button>
+                                <button onclick="rejectQuestion(${q.id})" class="bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition">❌ Reject</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            })
+            .catch(err => {
+                list.innerHTML = `
+                    <div class="bg-rose-50 dark:bg-rose-950/20 p-6 rounded-2xl border border-rose-200 dark:border-rose-900 text-center text-rose-600 dark:text-rose-400 text-xs font-bold">
+                        ❌ Failed to load questions: ${err.message}
+                    </div>
+                `;
+            });
+    }
+
+    function closeReviewModal() {
+        document.getElementById('review-modal').classList.add('hidden');
+        currentPendingExamId = null;
+        currentQuestions = [];
+        loadPendingExams();
+    }
+
+    // ============================================
+    // QUESTION ACTIONS (Update, Approve, Reject)
+    // ============================================
+    function updateQuestionField(questionId, field, value) {
+        const data = {};
+        data[field] = value;
+        
+        fetch(`/api/admin/pending_questions/${questionId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) {
+                console.error('Update failed:', data.error);
+            }
+        })
+        .catch(err => console.error('Error updating question:', err));
+    }
+
+    function approveQuestion(questionId) {
+        if (!confirm('Approve this question?')) return;
+        updateQuestionField(questionId, 'status', 'approved');
+        // Reload questions
+        loadReviewQuestions(currentPendingExamId);
+    }
+
+    function rejectQuestion(questionId) {
+        if (!confirm('Reject this question?')) return;
+        updateQuestionField(questionId, 'status', 'rejected');
+        loadReviewQuestions(currentPendingExamId);
+    }
+
+    function approveAllQuestions() {
+        if (!confirm('Approve ALL questions in this exam?')) return;
+        currentQuestions.forEach(q => {
+            if (q.status === 'pending') {
+                updateQuestionField(q.id, 'status', 'approved');
+            }
+        });
+        // Then approve the exam
+        approvePendingExam(currentPendingExamId);
+    }
+
+    function rejectAllQuestions() {
+        if (!confirm('Reject ALL questions in this exam?')) return;
+        currentQuestions.forEach(q => {
+            if (q.status === 'pending') {
+                updateQuestionField(q.id, 'status', 'rejected');
+            }
+        });
+        rejectPendingExam(currentPendingExamId);
+    }
+
+    // ============================================
+    // EXAM ACTIONS (Approve, Reject, Delete)
+    // ============================================
+    function approvePendingExam(pendingExamId) {
+        if (!confirm('Approve this exam and publish all approved questions?')) return;
+        
+        fetch(`/api/admin/pending_exams/${pendingExamId}/approve`, {
+            method: 'POST'
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                loadPendingExams();
+                loadPendingExamsCount();
+                closeReviewModal();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(err => {
+            alert('Error: ' + err.message);
+        });
+    }
+
+    function rejectPendingExam(pendingExamId) {
+        if (!confirm('Reject this exam?')) return;
+        
+        fetch(`/api/admin/pending_exams/${pendingExamId}/reject`, {
+            method: 'POST'
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert('Exam rejected successfully.');
+                loadPendingExams();
+                loadPendingExamsCount();
+                closeReviewModal();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(err => {
+            alert('Error: ' + err.message);
+        });
+    }
+
+    function deletePendingExam(pendingExamId) {
+        if (!confirm('Delete this exam permanently? This cannot be undone.')) return;
+        
+        fetch(`/api/admin/pending_exams/${pendingExamId}`, {
+            method: 'DELETE'
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert('Exam deleted successfully.');
+                loadPendingExams();
+                loadPendingExamsCount();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(err => {
+            alert('Error: ' + err.message);
+        });
+    }
+    // ============================================
+    // ALL RESOURCES
+    // ============================================
+    function loadAllResources() {
+        const list = document.getElementById('all-resources-list');
+        const typeFilter = document.getElementById('resource-filter-type').value;
+        const subjectFilter = document.getElementById('resource-filter-subject').value;
+        const searchFilter = document.getElementById('resource-filter-search').value.toLowerCase();
+
+        list.innerHTML = `
+            <div class="animate-pulse">
+                <div class="bg-slate-100 dark:bg-slate-800 rounded-2xl p-6 h-32"></div>
+            </div>
+            <div class="animate-pulse">
+                <div class="bg-slate-100 dark:bg-slate-800 rounded-2xl p-6 h-32"></div>
+            </div>
+        `;
+
+        fetch('/api/resources')
+            .then(res => res.json())
+            .then(resources => {
+                // Apply filters
+                let filtered = resources;
+                if (typeFilter !== 'all') {
+                    filtered = filtered.filter(r => r.resource_type === typeFilter);
+                }
+                if (subjectFilter !== 'all') {
+                    filtered = filtered.filter(r => r.subject === subjectFilter);
+                }
+                if (searchFilter) {
+                    filtered = filtered.filter(r => 
+                        r.title.toLowerCase().includes(searchFilter) ||
+                        r.subject.toLowerCase().includes(searchFilter) ||
+                        (r.description && r.description.toLowerCase().includes(searchFilter))
+                    );
+                }
+
+                if (filtered.length === 0) {
+                    list.innerHTML = `
+                        <div class="col-span-2 bg-slate-50 dark:bg-slate-950/50 p-8 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 text-center">
+                            <div class="text-3xl mb-2">📭</div>
+                            <p class="text-xs font-bold text-slate-500 dark:text-slate-400">No resources found.</p>
+                            <p class="text-[10px] text-slate-400 mt-1">Upload a new resource to get started.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                list.innerHTML = '';
+                filtered.forEach(resource => {
+                    const typeIcons = {
+                        'Exam': '📝',
+                        'Worksheet': '📄',
+                        'Textbook': '📚',
+                        'Teacher Guide': '👨‍🏫',
+                        'Notes': '📖'
+                    };
+                    const icon = typeIcons[resource.resource_type] || '📄';
+
+                    list.innerHTML += `
+                        <div class="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 hover:shadow-md transition">
+                            <div class="flex items-start gap-3">
+                                <div class="text-2xl">${icon}</div>
+                                <div class="flex-grow min-w-0">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/50 px-2 py-0.5 rounded">${resource.resource_type}</span>
+                                        <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">Grade ${resource.grade}</span>
+                                        <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">•</span>
+                                        <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">${resource.subject}</span>
+                                    </div>
+                                    <h3 class="text-sm font-black text-slate-800 dark:text-white truncate">${resource.title}</h3>
+                                    ${resource.description ? `<p class="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">${escapeHtml(resource.description)}</p>` : ''}
+                                </div>
+                                <div class="flex gap-1.5 flex-shrink-0">
+                                    <a href="${resource.pdf_url || resource.file_url || '#'}" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition ${!resource.pdf_url && !resource.file_url ? 'opacity-50 pointer-events-none' : ''}">
+                                        📄 View
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            })
+            .catch(err => {
+                list.innerHTML = `
+                    <div class="col-span-2 bg-rose-50 dark:bg-rose-950/20 p-6 rounded-2xl border border-rose-200 dark:border-rose-900 text-center text-rose-600 dark:text-rose-400 text-xs font-bold">
+                        ❌ Failed to load resources: ${err.message}
+                    </div>
+                `;
+            });
+    }
+
+    // ============================================
+    // UTILITY FUNCTIONS
+    // ============================================
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // ============================================
+    // INITIALIZATION
+    // ============================================
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load pending exams count
+        loadPendingExamsCount();
+        loadPendingStudents();
+        // Load pending exams by default (since Upload tab is active, but we preload)
+        // Actually, load them in background
+        setTimeout(() => {
+            loadPendingExams();
+        }, 500);
+    });
+
+    // Auto-refresh pending count every 30 seconds
+    setInterval(loadPendingExamsCount, 30000);
+
+    console.log('⚡ Admin Console initialized!');
+</script>
+
+<script>
+(() => {
+    const tabSections = { students: 'students-section', upload: 'upload-section', review: 'review-section', resources: 'resources-section', analytics: 'analytics-section' };
+    document.querySelectorAll('.tab-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            const name = button.id.replace(/^tab-/, '');
+            const sectionId = tabSections[name];
+            if (!sectionId) return;
+            document.querySelectorAll('.tab-btn').forEach(tab => {
+                tab.classList.remove('active', 'bg-blue-600', 'text-white');
+                tab.classList.add('bg-white', 'text-slate-700', 'border', 'border-slate-200');
+            });
+            button.classList.add('active', 'bg-blue-600', 'text-white');
+            button.classList.remove('bg-white', 'text-slate-700', 'border', 'border-slate-200');
+            document.querySelectorAll('.tab-content').forEach(section => section.classList.add('hidden'));
+            document.getElementById(sectionId).classList.remove('hidden');
+            if (name === 'students' && typeof loadPendingStudents === 'function') loadPendingStudents();
+            if (name === 'review' && typeof loadPendingExams === 'function') loadPendingExams();
+            if (name === 'resources' && typeof loadAllResources === 'function') loadAllResources();
+            if (name === 'analytics' && typeof loadAdminExamAnalytics === 'function') loadAdminExamAnalytics();
+        });
+    });
+})();
+</script>
+
+{% endblock %}

@@ -1,0 +1,151 @@
+{
+  "grade": 12,
+  "subject": "Biology",
+  "curriculum": "Ethiopian New Curriculum",
+  "units": [
+    {
+      "unit_number": 1,
+      "unit_title": "Application of Biology",
+      "sections": [
+        {
+          "section_number": "1.1",
+          "section_title": "Application in Conservation of Natural Resources"
+        },
+        {
+          "section_number": "1.2",
+          "section_title": "Food and Nutrition Security"
+        },
+        {
+          "section_number": "1.3",
+          "section_title": "Creating Conscious Citizens and Ensuring Sustainable Development"
+        },
+        {
+          "section_number": "1.4",
+          "section_title": "Applications in Biotechnology"
+        }
+      ]
+    },
+    {
+      "unit_number": 2,
+      "unit_title": "Microorganisms",
+      "sections": [
+        {
+          "section_number": "2.1",
+          "section_title": "Eubacteria"
+        },
+        {
+          "section_number": "2.2",
+          "section_title": "Archaea"
+        },
+        {
+          "section_number": "2.3",
+          "section_title": "Fungi"
+        },
+        {
+          "section_number": "2.4",
+          "section_title": "Protozoa"
+        },
+        {
+          "section_number": "2.5",
+          "section_title": "Viruses"
+        },
+        {
+          "section_number": "2.6",
+          "section_title": "Normal Microbiota"
+        },
+        {
+          "section_number": "2.7",
+          "section_title": "Modes of Disease Transmission and Ways of Prevention"
+        },
+        {
+          "section_number": "2.8",
+          "section_title": "Uses of Microorganisms"
+        },
+        {
+          "section_number": "2.9",
+          "section_title": "Controlling Microorganisms"
+        },
+        {
+          "section_number": "2.11",
+          "section_title": "Renowned Microbiologists in Ethiopia"
+        }
+      ]
+    },
+    {
+      "unit_number": 3,
+      "unit_title": "Energy Transformation",
+      "sections": [
+        {
+          "section_number": "3.1",
+          "section_title": "Cellular Metabolism"
+        },
+        {
+          "section_number": "3.2",
+          "section_title": "Photosynthesis"
+        },
+        {
+          "section_number": "3.3",
+          "section_title": "Contributions of Photosynthesis for the Continuity of Life, for O2 and CO2 Balance and Global Warming"
+        },
+        {
+          "section_number": "3.4",
+          "section_title": "Cellular Respiration"
+        }
+      ]
+    },
+    {
+      "unit_number": 4,
+      "unit_title": "Evolution",
+      "sections": [
+        {
+          "section_number": "4.1",
+          "section_title": "Evolution"
+        },
+        {
+          "section_number": "4.2",
+          "section_title": "Renowned Anthropologists in Ethiopia"
+        },
+        {
+          "section_number": "4.3",
+          "section_title": "Renowned Evolutionists in Ethiopia"
+        }
+      ]
+    },
+    {
+      "unit_number": 5,
+      "unit_title": "Human Body System",
+      "sections": [
+        {
+          "section_number": "5.1",
+          "section_title": "The Nervous System"
+        },
+        {
+          "section_number": "5.2",
+          "section_title": "Sense Organs"
+        },
+        {
+          "section_number": "5.3",
+          "section_title": "Homeostasis in the Human Body"
+        }
+      ]
+    },
+    {
+      "unit_number": 6,
+      "unit_title": "Climate Change",
+      "sections": [
+        {
+          "section_number": "6.1",
+          "section_title": "Climate Change: Causes and Effects"
+        },
+        {
+          "section_number": "6.2",
+          "section_title": "Effects of Climate Change"
+        },
+        {
+          "section_number": "6.3",
+          "section_title": "International Conventions"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,132 @@
+{
+  "grade": 9,
+  "subject": "Chemistry",
+  "curriculum": "Ethiopian New Curriculum",
+  "units": [
+    {
+      "unit_number": 1,
+      "unit_title": "Chemistry and Its Importance",
+      "sections": [
+        {
+          "section_number": "1.1",
+          "section_title": "Definition and Scope of Chemistry",
+          "page": 2
+        },
+        {
+          "section_number": "1.2",
+          "section_title": "Relationship between Chemistry and Other Natural Sciences",
+          "page": 6
+        },
+        {
+          "section_number": "1.3",
+          "section_title": "The Role Chemistry Plays in Production and in the Society",
+          "page": 8
+        },
+        {
+          "section_number": "1.4",
+          "section_title": "Some Common Chemical Industries in Ethiopia",
+          "page": 12
+        }
+      ]
+    },
+    {
+      "unit_number": 2,
+      "unit_title": "Measurements and Scientific Methods",
+      "sections": [
+        {
+          "section_number": "2.1",
+          "section_title": "Measurements and Units in Chemistry",
+          "page": 19
+        },
+        {
+          "section_number": "2.2",
+          "section_title": "Chemistry as Experimental Science",
+          "page": 35
+        }
+      ]
+    },
+    {
+      "unit_number": 3,
+      "unit_title": "Structure of the Atom",
+      "sections": [
+        {
+          "section_number": "3.1",
+          "section_title": "Historical Development of the Atomic Theories of Matter",
+          "page": 51
+        },
+        {
+          "section_number": "3.2",
+          "section_title": "Fundamental Laws of Chemical Reactions",
+          "page": 56
+        },
+        {
+          "section_number": "3.3",
+          "section_title": "Atomic Theory",
+          "page": 64
+        },
+        {
+          "section_number": "3.4",
+          "section_title": "Discoveries of Fundamental Subatomic Particles and the Atomic Nucleus",
+          "page": 69
+        },
+        {
+          "section_number": "3.5",
+          "section_title": "Composition of an Atom and the Isotopes",
+          "page": 85
+        }
+      ]
+    },
+    {
+      "unit_number": 4,
+      "unit_title": "Periodic Classification of Elements",
+      "sections": [
+        {
+          "section_number": "4.1",
+          "section_title": "Historical Development of Periodic Classification of the Elements",
+          "page": 110
+        },
+        {
+          "section_number": "4.2",
+          "section_title": "Mendeleev's Classification of the Elements",
+          "page": 113
+        },
+        {
+          "section_number": "4.3",
+          "section_title": "The Modern Periodic Table",
+          "page": 116
+        },
+        {
+          "section_number": "4.4",
+          "section_title": "The Major Trends in the Periodic Table",
+          "page": 125
+        }
+      ]
+    },
+    {
+      "unit_number": 5,
+      "unit_title": "Chemical Bonding",
+      "sections": [
+        {
+          "section_number": "5.1",
+          "section_title": "Chemical Bonding",
+          "page": 141
+        },
+        {
+          "section_number": "5.2",
+          "section_title": "Ionic Bonding",
+          "page": 143
+        },
+        {
+          "section_number": "5.3",
+          "section_title": "Covalent Bonding",
+          "page": 154
+        },
+        {
+          "section_number": "5.4",
+          "section_title": "Metallic Bonding",
+          "page": 167
+        }
+      ]
+    }
+  ]
+}

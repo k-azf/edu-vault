@@ -1,0 +1,181 @@
+{
+  "grade": 10,
+  "subject": "Mathematics",
+  "curriculum": "Ethiopian New Curriculum",
+  "units": [
+    {
+      "unit_number": 1,
+      "unit_title": "Relations and Functions",
+      "sections": [
+        {
+          "section_number": "1.1",
+          "section_title": "Relations"
+        },
+        {
+          "section_number": "1.2",
+          "section_title": "Functions"
+        },
+        {
+          "section_number": "1.3",
+          "section_title": "Graphs of Relations and Functions"
+        },
+        {
+          "section_number": "1.4",
+          "section_title": "Applications of Relations and Functions"
+        }
+      ]
+    },
+    {
+      "unit_number": 2,
+      "unit_title": "Polynomial Functions",
+      "sections": [
+        {
+          "section_number": "2.1",
+          "section_title": "Introduction to Polynomial Functions"
+        },
+        {
+          "section_number": "2.2",
+          "section_title": "Operations on Polynomial Functions"
+        },
+        {
+          "section_number": "2.3",
+          "section_title": "Theorems on Polynomials"
+        },
+        {
+          "section_number": "2.4",
+          "section_title": "Zeros of Polynomial Functions"
+        },
+        {
+          "section_number": "2.5",
+          "section_title": "Graphs of Polynomial Functions"
+        }
+      ]
+    },
+    {
+      "unit_number": 3,
+      "unit_title": "Exponential and Logarithmic Functions",
+      "sections": [
+        {
+          "section_number": "3.1",
+          "section_title": "Exponents and Logarithms"
+        },
+        {
+          "section_number": "3.2",
+          "section_title": "Exponential Functions and Their Graphs"
+        },
+        {
+          "section_number": "3.3",
+          "section_title": "Logarithmic Functions and Their Graphs"
+        },
+        {
+          "section_number": "3.4",
+          "section_title": "Equations Involving Exponents and Logarithms"
+        },
+        {
+          "section_number": "3.5",
+          "section_title": "Applications of Exponential and Logarithmic Functions"
+        }
+      ]
+    },
+    {
+      "unit_number": 4,
+      "unit_title": "Trigonometric Functions",
+      "sections": [
+        {
+          "section_number": "4.1",
+          "section_title": "Radian Measure"
+        },
+        {
+          "section_number": "4.2",
+          "section_title": "Trigonometric Functions"
+        },
+        {
+          "section_number": "4.3",
+          "section_title": "Trigonometric Identities"
+        },
+        {
+          "section_number": "4.4",
+          "section_title": "Trigonometric Equations"
+        },
+        {
+          "section_number": "4.5",
+          "section_title": "Applications of Trigonometric Functions"
+        }
+      ]
+    },
+    {
+      "unit_number": 5,
+      "unit_title": "Circles",
+      "sections": [
+        {
+          "section_number": "5.1",
+          "section_title": "Symmetrical Properties of Circles"
+        },
+        {
+          "section_number": "5.2",
+          "section_title": "Angle Properties of Circles"
+        },
+        {
+          "section_number": "5.3",
+          "section_title": "Arc Length, Perimeters and Areas of Segments and Sectors"
+        }
+      ]
+    },
+    {
+      "unit_number": 6,
+      "unit_title": "Solid Figures",
+      "sections": [
+        {
+          "section_number": "6.1",
+          "section_title": "Prisms and Cylinders"
+        },
+        {
+          "section_number": "6.2",
+          "section_title": "Pyramids and Cones"
+        },
+        {
+          "section_number": "6.3",
+          "section_title": "Spheres"
+        },
+        {
+          "section_number": "6.4",
+          "section_title": "Frustums"
+        },
+        {
+          "section_number": "6.5",
+          "section_title": "Composed Solid Figures"
+        }
+      ]
+    },
+    {
+      "unit_number": 7,
+      "unit_title": "Coordinate Geometry",
+      "sections": [
+        {
+          "section_number": "7.1",
+          "section_title": "Distance Between Two Points"
+        },
+        {
+          "section_number": "7.2",
+          "section_title": "Division of a Line Segment"
+        },
+        {
+          "section_number": "7.3",
+          "section_title": "Equation of a Line"
+        },
+        {
+          "section_number": "7.4",
+          "section_title": "Slopes of Parallel and Perpendicular Lines"
+        },
+        {
+          "section_number": "7.5",
+          "section_title": "Equation of a Circle"
+        },
+        {
+          "section_number": "7.6",
+          "section_title": "Applications"
+        }
+      ]
+    }
+  ]
+}

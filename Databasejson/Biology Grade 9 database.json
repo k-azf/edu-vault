@@ -1,0 +1,313 @@
+{
+  "grade": 9,
+  "subject": "Biology",
+  "curriculum": "Ethiopian New Curriculum",
+  "publisher": "Ministry of Education of Ethiopia",
+  "textbook_year": 2023,
+  "units": [
+    {
+      "unit_number": 1,
+      "unit_title": "Introduction to Biology",
+      "sections": [
+        {
+          "section_number": "1.1",
+          "section_title": "Definition of Biology"
+        },
+        {
+          "section_number": "1.2",
+          "section_title": "Why Do We Study Biology?"
+        },
+        {
+          "section_number": "1.3",
+          "section_title": "The Scientific Method"
+        },
+        {
+          "section_number": "1.4",
+          "section_title": "Tools of a Biologist"
+        },
+        {
+          "section_number": "1.4.1",
+          "section_title": "Laboratory Tools of a Biologist"
+        },
+        {
+          "section_number": "1.4.2",
+          "section_title": "Field Tools"
+        },
+        {
+          "section_number": "1.5",
+          "section_title": "The Light Microscope"
+        },
+        {
+          "section_number": "1.5.1",
+          "section_title": "Parts and Function of the Light Microscope"
+        },
+        {
+          "section_number": "1.5.2",
+          "section_title": "Handling and Using a Light Microscope"
+        },
+        {
+          "section_number": "1.6",
+          "section_title": "General Laboratory Safety Rules"
+        }
+      ]
+    },
+    {
+      "unit_number": 2,
+      "unit_title": "Characteristics and Classification of Organisms",
+      "sections": [
+        {
+          "section_number": "2.1",
+          "section_title": "Characteristics of Living Things"
+        },
+        {
+          "section_number": "2.2",
+          "section_title": "Taxonomy of Living Things"
+        },
+        {
+          "section_number": "2.2.1",
+          "section_title": "Principles of Classification"
+        },
+        {
+          "section_number": "2.2.2",
+          "section_title": "Taxonomic Hierarchies in Biological Classification"
+        },
+        {
+          "section_number": "2.3",
+          "section_title": "Relevance of Classification"
+        },
+        {
+          "section_number": "2.4",
+          "section_title": "Linnaean System of Nomenclature"
+        },
+        {
+          "section_number": "2.5",
+          "section_title": "Common Ethiopian Animals and Plants"
+        },
+        {
+          "section_number": "2.6",
+          "section_title": "The Five-Kingdom System of Classification"
+        },
+        {
+          "section_number": "2.6.1",
+          "section_title": "Kingdom Monera"
+        },
+        {
+          "section_number": "2.6.2",
+          "section_title": "Kingdom Protista"
+        },
+        {
+          "section_number": "2.6.3",
+          "section_title": "Kingdom Fungi"
+        },
+        {
+          "section_number": "2.6.4",
+          "section_title": "Kingdom Plantae"
+        },
+        {
+          "section_number": "2.6.5",
+          "section_title": "Kingdom Animalia"
+        },
+        {
+          "section_number": "2.7",
+          "section_title": "Renowned Taxonomists in Ethiopia"
+        }
+      ]
+    },
+    {
+      "unit_number": 3,
+      "unit_title": "Cells",
+      "sections": [
+        {
+          "section_number": "3.2",
+          "section_title": "Cell Theory"
+        },
+        {
+          "section_number": "3.3",
+          "section_title": "Cell Structure and Function"
+        },
+        {
+          "section_number": "3.4",
+          "section_title": "Types of Cells"
+        },
+        {
+          "section_number": "3.5",
+          "section_title": "Animal and Plant Cells"
+        },
+        {
+          "section_number": "3.6",
+          "section_title": "Observing Cells Under a Microscope"
+        },
+        {
+          "section_number": "3.7",
+          "section_title": "The Cell and Its Environment"
+        },
+        {
+          "section_number": "3.7.1",
+          "section_title": "Passive Transport"
+        },
+        {
+          "section_number": "3.7.2",
+          "section_title": "Active Transport"
+        },
+        {
+          "section_number": "3.8",
+          "section_title": "Levels of Biological Organization"
+        }
+      ]
+    },
+    {
+      "unit_number": 4,
+      "unit_title": "Reproduction",
+      "sections": [
+        {
+          "section_number": "4.1",
+          "section_title": "Introduction to Reproduction"
+        },
+        {
+          "section_number": "4.2",
+          "section_title": "Asexual Reproduction"
+        },
+        {
+          "section_number": "4.3",
+          "section_title": "Types of Asexual Reproduction"
+        },
+        {
+          "section_number": "4.3.1",
+          "section_title": "Fission"
+        },
+        {
+          "section_number": "4.3.2",
+          "section_title": "Fragmentation"
+        },
+        {
+          "section_number": "4.3.3",
+          "section_title": "Budding"
+        },
+        {
+          "section_number": "4.3.4",
+          "section_title": "Vegetative Propagation"
+        },
+        {
+          "section_number": "4.4",
+          "section_title": "Sexual Reproduction in Humans"
+        },
+        {
+          "section_number": "4.5",
+          "section_title": "Primary and Secondary Sexual Characteristics"
+        },
+        {
+          "section_number": "4.6",
+          "section_title": "Male Reproductive Structures"
+        },
+        {
+          "section_number": "4.7",
+          "section_title": "Female Reproductive Structures"
+        },
+        {
+          "section_number": "4.8",
+          "section_title": "The Menstrual Cycle"
+        },
+        {
+          "section_number": "4.9",
+          "section_title": "Fertilization and Pregnancy"
+        },
+        {
+          "section_number": "4.10",
+          "section_title": "Methods of Birth Control"
+        },
+        {
+          "section_number": "4.11",
+          "section_title": "Sexually Transmitted Infections: Transmission and Prevention"
+        }
+      ]
+    },
+    {
+      "unit_number": 5,
+      "unit_title": "Human Health, Nutrition, and Disease",
+      "sections": [
+        {
+          "section_number": "5.1",
+          "section_title": "What Is Food?"
+        },
+        {
+          "section_number": "5.2",
+          "section_title": "Nutrition"
+        },
+        {
+          "section_number": "5.3",
+          "section_title": "Nutrients"
+        },
+        {
+          "section_number": "5.4",
+          "section_title": "Balanced Diets"
+        },
+        {
+          "section_number": "5.5",
+          "section_title": "Deficiency Diseases"
+        },
+        {
+          "section_number": "5.6",
+          "section_title": "Malnutrition"
+        },
+        {
+          "section_number": "5.7",
+          "section_title": "Substance Abuse"
+        },
+        {
+          "section_number": "5.8",
+          "section_title": "Infectious and Noninfectious Diseases"
+        },
+        {
+          "section_number": "5.8.1",
+          "section_title": "Infectious Diseases"
+        },
+        {
+          "section_number": "5.8.2",
+          "section_title": "Noninfectious Diseases"
+        },
+        {
+          "section_number": "5.9",
+          "section_title": "Renowned Nutritionists in Ethiopia"
+        }
+      ]
+    },
+    {
+      "unit_number": 6,
+      "unit_title": "Ecology",
+      "sections": [
+        {
+          "section_number": "6.1",
+          "section_title": "Ecology"
+        },
+        {
+          "section_number": "6.1.1",
+          "section_title": "Definitions of Ecological Terms"
+        },
+        {
+          "section_number": "6.1.2",
+          "section_title": "Biotic and Abiotic Components"
+        },
+        {
+          "section_number": "6.1.3",
+          "section_title": "Ecological Levels"
+        },
+        {
+          "section_number": "6.1.4",
+          "section_title": "Ecosystems"
+        },
+        {
+          "section_number": "6.1.5",
+          "section_title": "Biomes"
+        },
+        {
+          "section_number": "6.1.6",
+          "section_title": "Ecological Succession"
+        },
+        {
+          "section_number": "6.2",
+          "section_title": "Ecological Relationships"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,290 @@
+[
+  {
+    "title": "Biology Grade 9 textbook",
+    "grade": 9,
+    "subject": "Biology",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "G9-Biology-STB-2023-web.pdf",
+    "source_name": "G9-Biology-STB-2023-web.pdf"
+  },
+  {
+    "title": "Chemistry Grade 9 textbook",
+    "grade": 9,
+    "subject": "Chemistry",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "G9-Chemistry-STB-2023-web.pdf",
+    "source_name": "G9-Chemistry-STB-2023-web.pdf"
+  },
+  {
+    "title": "Economics Grade 9 textbook",
+    "grade": 9,
+    "subject": "Economics",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "grade-9-economics-new-curriculum--student-textbook-kehulumcom1759932804ce76.pdf",
+    "source_name": "grade-9-economics-new-curriculum--student-textbook-kehulumcom1759932804ce76.pdf"
+  },
+  {
+    "title": "English Grade 9 textbook",
+    "grade": 9,
+    "subject": "English",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "G9-English-STB-2023-web.pdf",
+    "source_name": "G9-English-STB-2023-web.pdf"
+  },
+  {
+    "title": "Geography Grade 9 textbook",
+    "grade": 9,
+    "subject": "Geography",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "grade-9-geography-new-curriculum--student-textbook-kehulumcom1759931498f683.pdf",
+    "source_name": "grade-9-geography-new-curriculum--student-textbook-kehulumcom1759931498f683.pdf"
+  },
+  {
+    "title": "History Grade 9 textbook",
+    "grade": 9,
+    "subject": "History",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "grade-9-history-new-curriculum--student-textbook-kehulumcom1759931286d445.pdf",
+    "source_name": "grade-9-history-new-curriculum--student-textbook-kehulumcom1759931286d445.pdf"
+  },
+  {
+    "title": "Mathematics Grade 9 textbook",
+    "grade": 9,
+    "subject": "Mathematics",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "G9-Mathematics-STB-2023-web.pdf",
+    "source_name": "G9-Mathematics-STB-2023-web.pdf"
+  },
+  {
+    "title": "Physics Grade 9 textbook",
+    "grade": 9,
+    "subject": "Physics",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "G9-Physics-STB-2023-web.pdf",
+    "source_name": "G9-Physics-STB-2023-web.pdf"
+  },
+  {
+    "title": "Biology Grade 10 textbook",
+    "grade": 10,
+    "subject": "Biology",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "G10-Biology-STB-2023-web_1.pdf",
+    "source_name": "G10-Biology-STB-2023-web (1).pdf"
+  },
+  {
+    "title": "Chemistry Grade 10 textbook",
+    "grade": 10,
+    "subject": "Chemistry",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "G10-Chemistry-STB-2023-web.pdf",
+    "source_name": "G10-Chemistry-STB-2023-web.pdf"
+  },
+  {
+    "title": "Economics Grade 10 textbook",
+    "grade": 10,
+    "subject": "Economics",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "grade-10-economics-new-curriculum--student-textbook-kehulumcom1759928992f5b9_1.pdf",
+    "source_name": "grade-10-economics-new-curriculum--student-textbook-kehulumcom1759928992f5b9 (1).pdf"
+  },
+  {
+    "title": "English Grade 10 teacher guide and textbook",
+    "grade": 10,
+    "subject": "English",
+    "label": "Teacher guide and student textbook",
+    "resource_type": "Textbook",
+    "file_name": "English_Grade_10_ST_MTBOOK.pdf",
+    "source_name": "English Grade 10 ST (MT)(BOOK).pdf"
+  },
+  {
+    "title": "Geography Grade 10 textbook",
+    "grade": 10,
+    "subject": "Geography",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "grade-10-geography-new-curriculum--student-textbook-kehulumcom17599285581298.pdf",
+    "source_name": "grade-10-geography-new-curriculum--student-textbook-kehulumcom17599285581298.pdf"
+  },
+  {
+    "title": "History Grade 10 textbook",
+    "grade": 10,
+    "subject": "History",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "grade-10-history-new-curriculum--student-textbook-kehulumcom1759927358e997.pdf",
+    "source_name": "grade-10-history-new-curriculum--student-textbook-kehulumcom1759927358e997.pdf"
+  },
+  {
+    "title": "Mathematics Grade 10 textbook",
+    "grade": 10,
+    "subject": "Mathematics",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "G10-Mathematics-STB-2023-web.pdf",
+    "source_name": "G10-Mathematics-STB-2023-web.pdf"
+  },
+  {
+    "title": "Physics Grade 10 textbook",
+    "grade": 10,
+    "subject": "Physics",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "G10-Physics-STB-2023-web.pdf",
+    "source_name": "G10-Physics-STB-2023-web.pdf"
+  },
+  {
+    "title": "Biology Grade 11 textbook",
+    "grade": 11,
+    "subject": "Biology",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "G11-Biology-STB-2023-web.pdf",
+    "source_name": "G11-Biology-STB-2023-web.pdf"
+  },
+  {
+    "title": "Chemistry Grade 11 textbook",
+    "grade": 11,
+    "subject": "Chemistry",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "G.11-chemistry.pdf",
+    "source_name": "G.11-chemistry.pdf"
+  },
+  {
+    "title": "Economics Grade 11 textbook",
+    "grade": 11,
+    "subject": "Economics",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "grade-11-economics-new-curriculum--student-textbook-kehulumcom17599236035876.pdf",
+    "source_name": "grade-11-economics-new-curriculum--student-textbook-kehulumcom17599236035876.pdf"
+  },
+  {
+    "title": "English Grade 11 textbook",
+    "grade": 11,
+    "subject": "English",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "G11-English-STB-2023-web.pdf",
+    "source_name": "G11-English-STB-2023-web.pdf"
+  },
+  {
+    "title": "Geography Grade 11 textbook",
+    "grade": 11,
+    "subject": "Geography",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "grade-11-geography-new-curriculum--student-textbook-kehulumcom1759920987ac44.pdf",
+    "source_name": "grade-11-geography-new-curriculum--student-textbook-kehulumcom1759920987ac44.pdf"
+  },
+  {
+    "title": "History Grade 11 textbook",
+    "grade": 11,
+    "subject": "History",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "grade-11-history-new-curriculum--student-textbook-kehulumcom17599198807fa3.pdf",
+    "source_name": "grade-11-history-new-curriculum--student-textbook-kehulumcom17599198807fa3.pdf"
+  },
+  {
+    "title": "Mathematics Grade 11 textbook",
+    "grade": 11,
+    "subject": "Mathematics",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "G11-Mathematics-STB-2023-web.pdf",
+    "source_name": "G11-Mathematics-STB-2023-web.pdf"
+  },
+  {
+    "title": "Physics Grade 11 textbook",
+    "grade": 11,
+    "subject": "Physics",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "G11-Physics-STB-2023-web.pdf",
+    "source_name": "G11-Physics-STB-2023-web.pdf"
+  },
+  {
+    "title": "Biology Grade 12 textbook",
+    "grade": 12,
+    "subject": "Biology",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "G12-Biology-STB-2023-web_1.pdf",
+    "source_name": "G12-Biology-STB-2023-web (1).pdf"
+  },
+  {
+    "title": "Chemistry Grade 12 textbook",
+    "grade": 12,
+    "subject": "Chemistry",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "G12-Chemistry-STB-2023-web.pdf",
+    "source_name": "G12-Chemistry-STB-2023-web.pdf"
+  },
+  {
+    "title": "Economics Grade 12 textbook",
+    "grade": 12,
+    "subject": "Economics",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "grade-12-economics-new-curriculum--student-textbook-kehulumcom1759915712056d.pdf",
+    "source_name": "grade-12-economics-new-curriculum--student-textbook-kehulumcom1759915712056d.pdf"
+  },
+  {
+    "title": "English Grade 12 textbook",
+    "grade": 12,
+    "subject": "English",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "G12-English-STB-2023-web_1.pdf",
+    "source_name": "G12-English-STB-2023-web (1).pdf"
+  },
+  {
+    "title": "Geography Grade 12 textbook",
+    "grade": 12,
+    "subject": "Geography",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "grade-12-geography-new-curriculum--student-textbook-kehulumcom17599134797b34.pdf",
+    "source_name": "grade-12-geography-new-curriculum--student-textbook-kehulumcom17599134797b34.pdf"
+  },
+  {
+    "title": "History Grade 12 textbook",
+    "grade": 12,
+    "subject": "History",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "grade-12-history-new-curriculum--student-textbook-kehulumcom17599097897dd4.pdf",
+    "source_name": "grade-12-history-new-curriculum--student-textbook-kehulumcom17599097897dd4.pdf"
+  },
+  {
+    "title": "Mathematics Grade 12 textbook",
+    "grade": 12,
+    "subject": "Mathematics",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "G12-Mathematics-STB-2023-web.pdf",
+    "source_name": "G12-Mathematics-STB-2023-web.pdf"
+  },
+  {
+    "title": "Physics Grade 12 textbook",
+    "grade": 12,
+    "subject": "Physics",
+    "label": "Student textbook",
+    "resource_type": "Textbook",
+    "file_name": "G12-Physics-STB-2023-web.pdf",
+    "source_name": "G12-Physics-STB-2023-web.pdf"
+  }
+]

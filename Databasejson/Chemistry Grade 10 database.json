@@ -1,0 +1,194 @@
+{
+  "grade": 10,
+  "subject": "Chemistry",
+  "curriculum": "Ethiopian New Curriculum",
+  "textbook": "Chemistry Student Textbook Grade 10",
+  "units": [
+    {
+      "unit_number": 1,
+      "unit_title": "Chemical Reactions and Stoichiometry",
+      "sections": [
+        {
+          "section_number": "1.1",
+          "section_title": "Introduction",
+          "page": 2
+        },
+        {
+          "section_number": "1.2",
+          "section_title": "Chemical Equations",
+          "page": 3
+        },
+        {
+          "section_number": "1.3",
+          "section_title": "Types of Chemical Reactions",
+          "page": 11
+        },
+        {
+          "section_number": "1.4",
+          "section_title": "Oxidation and Reduction Reactions",
+          "page": 20
+        },
+        {
+          "section_number": "1.5",
+          "section_title": "Molecular and Formula Masses, the Mole Concept and Chemical Formulas",
+          "page": 28
+        },
+        {
+          "section_number": "1.6",
+          "section_title": "Stoichiometry",
+          "page": 34
+        }
+      ]
+    },
+    {
+      "unit_number": 2,
+      "unit_title": "Solutions",
+      "sections": [
+        {
+          "section_number": "2.1",
+          "section_title": "Heterogeneous and Homogeneous Mixtures",
+          "page": 53
+        },
+        {
+          "section_number": "2.2",
+          "section_title": "The Solution Process",
+          "page": 59
+        },
+        {
+          "section_number": "2.3",
+          "section_title": "Solubility as an Equilibrium Process",
+          "page": 73
+        },
+        {
+          "section_number": "2.4",
+          "section_title": "Ways of Expressing Concentration of Solution",
+          "page": 81
+        },
+        {
+          "section_number": "2.5",
+          "section_title": "Preparation of Solutions",
+          "page": 94
+        },
+        {
+          "section_number": "2.6",
+          "section_title": "Solution Stoichiometry",
+          "page": 98
+        },
+        {
+          "section_number": "2.7",
+          "section_title": "Describing Reactions in Solution",
+          "page": 101
+        }
+      ]
+    },
+    {
+      "unit_number": 3,
+      "unit_title": "Important Inorganic Compounds",
+      "sections": [
+        {
+          "section_number": "3.1",
+          "section_title": "Introduction",
+          "page": 110
+        },
+        {
+          "section_number": "3.2",
+          "section_title": "Oxides",
+          "page": 111
+        },
+        {
+          "section_number": "3.3",
+          "section_title": "Acids",
+          "page": 122
+        },
+        {
+          "section_number": "3.4",
+          "section_title": "Bases",
+          "page": 140
+        },
+        {
+          "section_number": "3.5",
+          "section_title": "Salts",
+          "page": 148
+        }
+      ]
+    },
+    {
+      "unit_number": 4,
+      "unit_title": "Energy Changes and Electrochemistry",
+      "sections": [
+        {
+          "section_number": "4.1",
+          "section_title": "Introduction",
+          "page": 167
+        },
+        {
+          "section_number": "4.2",
+          "section_title": "Energy Changes in Electrochemistry",
+          "page": 174
+        },
+        {
+          "section_number": "4.3",
+          "section_title": "Electrochemical Cells",
+          "page": 182
+        },
+        {
+          "section_number": "4.4",
+          "section_title": "Electrolysis",
+          "page": 187
+        }
+      ]
+    },
+    {
+      "unit_number": 5,
+      "unit_title": "Metals and Nonmetals",
+      "sections": [
+        {
+          "section_number": "5.1",
+          "section_title": "Introduction",
+          "page": 199
+        },
+        {
+          "section_number": "5.2",
+          "section_title": "General Properties of Metals and Production of Some Metals",
+          "page": 200
+        },
+        {
+          "section_number": "5.3",
+          "section_title": "Production of Some Important Nonmetals",
+          "page": 218
+        }
+      ]
+    },
+    {
+      "unit_number": 6,
+      "unit_title": "Hydrocarbons and Their Natural Sources",
+      "sections": [
+        {
+          "section_number": "6.1",
+          "section_title": "Introduction",
+          "page": 235
+        },
+        {
+          "section_number": "6.2",
+          "section_title": "Saturated Hydrocarbons: Alkanes (CₙH₂ₙ₊₂)",
+          "page": 240
+        },
+        {
+          "section_number": "6.3",
+          "section_title": "Unsaturated Hydrocarbons: Alkenes, Alkynes and Aromatic Hydrocarbons",
+          "page": 262
+        },
+        {
+          "section_number": "6.4",
+          "section_title": "Aromatic Hydrocarbons: Benzene",
+          "page": 285
+        },
+        {
+          "section_number": "6.5",
+          "section_title": "Natural Sources of Hydrocarbons",
+          "page": 290
+        }
+      ]
+    }
+  ]
+}

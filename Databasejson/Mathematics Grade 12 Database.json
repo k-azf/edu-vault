@@ -1,0 +1,121 @@
+{
+  "grade": 12,
+  "subject": "Mathematics",
+  "curriculum": "Ethiopian New Curriculum",
+  "units": [
+    {
+      "unit_number": 1,
+      "unit_title": "Sequence and Series",
+      "sections": [
+        {
+          "section_number": "1.1",
+          "section_title": "Sequences"
+        },
+        {
+          "section_number": "1.2",
+          "section_title": "Arithmetic and Geometric Sequences"
+        },
+        {
+          "section_number": "1.3",
+          "section_title": "The Sigma Notation and Partial Sums"
+        },
+        {
+          "section_number": "1.4",
+          "section_title": "Infinite Series"
+        },
+        {
+          "section_number": "1.5",
+          "section_title": "Applications of Arithmetic and Geometric Progressions"
+        }
+      ]
+    },
+    {
+      "unit_number": 2,
+      "unit_title": "Introduction to Calculus",
+      "sections": [
+        {
+          "section_number": "2.1",
+          "section_title": "Introduction to Derivatives"
+        },
+        {
+          "section_number": "2.2",
+          "section_title": "Application of Derivative"
+        },
+        {
+          "section_number": "2.3",
+          "section_title": "Introduction to Integrals"
+        }
+      ]
+    },
+    {
+      "unit_number": 3,
+      "unit_title": "Statistics",
+      "sections": [
+        {
+          "section_number": "3.1",
+          "section_title": "Measures of Absolute Dispersions"
+        },
+        {
+          "section_number": "3.2",
+          "section_title": "Relative Dispersions and Their Interpretations"
+        },
+        {
+          "section_number": "3.3",
+          "section_title": "Use of Cumulative Frequency Curves"
+        },
+        {
+          "section_number": "3.4",
+          "section_title": "Sampling Techniques"
+        }
+      ]
+    },
+    {
+      "unit_number": 4,
+      "unit_title": "Introduction to Linear Programming",
+      "sections": [
+        {
+          "section_number": "4.1",
+          "section_title": "Revision on Linear Graphs"
+        },
+        {
+          "section_number": "4.2",
+          "section_title": "Graphical Solutions of System of Linear Inequalities"
+        },
+        {
+          "section_number": "4.3",
+          "section_title": "Maximum and Minimum Value"
+        },
+        {
+          "section_number": "4.4",
+          "section_title": "Applications"
+        },
+        {
+          "section_number": "4.5",
+          "section_title": "Solving Linear Programming Problems Using Spreadsheet"
+        }
+      ]
+    },
+    {
+      "unit_number": 5,
+      "unit_title": "Mathematical Applications in Business",
+      "sections": [
+        {
+          "section_number": "5.1",
+          "section_title": "Business Mathematics"
+        },
+        {
+          "section_number": "5.2",
+          "section_title": "Time Value of Money"
+        },
+        {
+          "section_number": "5.3",
+          "section_title": "Saving, Investment and Borrowing"
+        },
+        {
+          "section_number": "5.4",
+          "section_title": "Taxation"
+        }
+      ]
+    }
+  ]
+}

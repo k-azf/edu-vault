@@ -1,0 +1,152 @@
+{
+  "grade": 11,
+  "subject": "Mathematics",
+  "curriculum": "Ethiopian New Curriculum",
+  "source_note": "Structured to match the supplied Grade 10 Database.json format, using the Ethiopian Grade 11 New Curriculum unit structure verified from online curriculum/textbook sources.",
+  "units": [
+    {
+      "unit_number": 1,
+      "unit_title": "Relations and Functions",
+      "sections": [
+        {
+          "section_number": "1.1",
+          "section_title": "Relations"
+        },
+        {
+          "section_number": "1.2",
+          "section_title": "Functions"
+        },
+        {
+          "section_number": "1.3",
+          "section_title": "Composition and Inverse Functions"
+        }
+      ]
+    },
+    {
+      "unit_number": 2,
+      "unit_title": "Rational Expressions and Rational Functions",
+      "sections": [
+        {
+          "section_number": "2.1",
+          "section_title": "Rational Expressions"
+        },
+        {
+          "section_number": "2.2",
+          "section_title": "Rational Equations and Inequalities"
+        },
+        {
+          "section_number": "2.3",
+          "section_title": "Rational Functions"
+        }
+      ]
+    },
+    {
+      "unit_number": 3,
+      "unit_title": "Matrices",
+      "sections": [
+        {
+          "section_number": "3.1",
+          "section_title": "Introduction to Matrices"
+        },
+        {
+          "section_number": "3.2",
+          "section_title": "Operations on Matrices"
+        },
+        {
+          "section_number": "3.3",
+          "section_title": "Applications of Matrices"
+        }
+      ]
+    },
+    {
+      "unit_number": 4,
+      "unit_title": "Determinants and Their Properties",
+      "sections": [
+        {
+          "section_number": "4.1",
+          "section_title": "Determinants"
+        },
+        {
+          "section_number": "4.2",
+          "section_title": "Properties of Determinants"
+        },
+        {
+          "section_number": "4.3",
+          "section_title": "Inverse Matrices and Systems"
+        }
+      ]
+    },
+    {
+      "unit_number": 5,
+      "unit_title": "Vectors",
+      "sections": [
+        {
+          "section_number": "5.1",
+          "section_title": "Introduction to Vectors"
+        },
+        {
+          "section_number": "5.2",
+          "section_title": "Operations on Vectors"
+        },
+        {
+          "section_number": "5.3",
+          "section_title": "Scalar Product and Applications"
+        }
+      ]
+    },
+    {
+      "unit_number": 6,
+      "unit_title": "Transformations of the Plane",
+      "sections": [
+        {
+          "section_number": "6.1",
+          "section_title": "Translations"
+        },
+        {
+          "section_number": "6.2",
+          "section_title": "Reflections and Rotations"
+        },
+        {
+          "section_number": "6.3",
+          "section_title": "Dilations and Combined Transformations"
+        }
+      ]
+    },
+    {
+      "unit_number": 7,
+      "unit_title": "Statistics",
+      "sections": [
+        {
+          "section_number": "7.1",
+          "section_title": "Data and Its Presentation"
+        },
+        {
+          "section_number": "7.2",
+          "section_title": "Measures of Central Tendency"
+        },
+        {
+          "section_number": "7.3",
+          "section_title": "Measures of Dispersion"
+        }
+      ]
+    },
+    {
+      "unit_number": 8,
+      "unit_title": "Probability",
+      "sections": [
+        {
+          "section_number": "8.1",
+          "section_title": "Counting Principles"
+        },
+        {
+          "section_number": "8.2",
+          "section_title": "Probability of Events"
+        },
+        {
+          "section_number": "8.3",
+          "section_title": "Probability Applications"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,238 @@
+{
+  "grade": 9,
+  "subject": "Mathematics",
+  "curriculum": "Ethiopian New Curriculum",
+  "units": [
+    {
+      "unit_number": 1,
+      "unit_title": "Further on Sets",
+      "page": 10,
+      "sections": [
+        {
+          "section_number": "1.1",
+          "section_title": "Sets and Elements"
+        },
+        {
+          "section_number": "1.2",
+          "section_title": "Set Description"
+        },
+        {
+          "section_number": "1.3",
+          "section_title": "The Notion of Sets"
+        },
+        {
+          "section_number": "1.4",
+          "section_title": "Operations on Sets"
+        },
+        {
+          "section_number": "1.5",
+          "section_title": "Application of Sets"
+        }
+      ]
+    },
+    {
+      "unit_number": 2,
+      "unit_title": "The Number System",
+      "page": 43,
+      "sections": [
+        {
+          "section_number": "2.1",
+          "section_title": "Revision on Natural Numbers and Integers"
+        },
+        {
+          "section_number": "2.2",
+          "section_title": "Rational Numbers"
+        },
+        {
+          "section_number": "2.3",
+          "section_title": "Irrational Numbers"
+        },
+        {
+          "section_number": "2.4",
+          "section_title": "Real Numbers"
+        },
+        {
+          "section_number": "2.5",
+          "section_title": "Applications"
+        }
+      ]
+    },
+    {
+      "unit_number": 3,
+      "unit_title": "Solving Equations",
+      "page": 105,
+      "sections": [
+        {
+          "section_number": "3.1",
+          "section_title": "Revision on Linear Equations in One Variable"
+        },
+        {
+          "section_number": "3.2",
+          "section_title": "Systems of Linear Equations in Two Variables"
+        },
+        {
+          "section_number": "3.3",
+          "section_title": "Solving Non-linear Equations"
+        },
+        {
+          "section_number": "3.4",
+          "section_title": "Applications of Equations"
+        }
+      ]
+    },
+    {
+      "unit_number": 4,
+      "unit_title": "Solving Inequalities",
+      "page": 151,
+      "sections": [
+        {
+          "section_number": "4.1",
+          "section_title": "Revision on Linear Inequalities in One Variable"
+        },
+        {
+          "section_number": "4.2",
+          "section_title": "Systems of Linear Inequalities in Two Variables"
+        },
+        {
+          "section_number": "4.3",
+          "section_title": "Inequalities Involving Absolute Value"
+        },
+        {
+          "section_number": "4.4",
+          "section_title": "Quadratic Inequalities"
+        },
+        {
+          "section_number": "4.5",
+          "section_title": "Applications of Inequalities"
+        }
+      ]
+    },
+    {
+      "unit_number": 5,
+      "unit_title": "Introduction to Trigonometry",
+      "page": 185,
+      "sections": [
+        {
+          "section_number": "5.1",
+          "section_title": "Revision on Right-angled Triangles"
+        },
+        {
+          "section_number": "5.2",
+          "section_title": "Trigonometric Ratios"
+        }
+      ]
+    },
+    {
+      "unit_number": 6,
+      "unit_title": "Regular Polygons",
+      "page": 207,
+      "sections": [
+        {
+          "section_number": "6.1",
+          "section_title": "Sum of Interior Angles of a Convex Polygon"
+        },
+        {
+          "section_number": "6.2",
+          "section_title": "Sum of Exterior Angles of a Convex Polygon"
+        },
+        {
+          "section_number": "6.3",
+          "section_title": "Measures of Each Interior Angle and Exterior Angle of a Regular Polygon"
+        },
+        {
+          "section_number": "6.4",
+          "section_title": "Properties of Regular Polygons"
+        }
+      ]
+    },
+    {
+      "unit_number": 7,
+      "unit_title": "Congruency and Similarity",
+      "page": 239,
+      "sections": [
+        {
+          "section_number": "7.1",
+          "section_title": "Revision on Congruency of Triangles"
+        },
+        {
+          "section_number": "7.2",
+          "section_title": "Definition of Similar Figures"
+        },
+        {
+          "section_number": "7.3",
+          "section_title": "Theorems on Similar Plane Figures"
+        },
+        {
+          "section_number": "7.4",
+          "section_title": "Ratio of Perimeters of Similar Plane Figures"
+        },
+        {
+          "section_number": "7.5",
+          "section_title": "Ratio of Areas of Similar Plane Figures"
+        },
+        {
+          "section_number": "7.6",
+          "section_title": "Construction of Similar Figures"
+        },
+        {
+          "section_number": "7.7",
+          "section_title": "Applications of Similarity"
+        }
+      ]
+    },
+    {
+      "unit_number": 8,
+      "unit_title": "Vectors in Two Dimensions",
+      "page": 277,
+      "sections": [
+        {
+          "section_number": "8.1",
+          "section_title": "Vector and Scalar Quantities"
+        },
+        {
+          "section_number": "8.2",
+          "section_title": "Representation of a Vector"
+        },
+        {
+          "section_number": "8.3",
+          "section_title": "Vector Operations"
+        },
+        {
+          "section_number": "8.4",
+          "section_title": "Position Vector"
+        },
+        {
+          "section_number": "8.5",
+          "section_title": "Applications of Vectors in Two Dimensions"
+        }
+      ]
+    },
+    {
+      "unit_number": 9,
+      "unit_title": "Statistics and Probability",
+      "page": 311,
+      "sections": [
+        {
+          "section_number": "9.1.1",
+          "section_title": "Collection and Tabulation of Statistical Data"
+        },
+        {
+          "section_number": "9.1.2",
+          "section_title": "Graphical Presentations of Statistical Data"
+        },
+        {
+          "section_number": "9.1.3",
+          "section_title": "Measures of Central Tendency"
+        },
+        {
+          "section_number": "9.1.4",
+          "section_title": "Measures of Dispersion"
+        },
+        {
+          "section_number": "9.2",
+          "section_title": "Probability"
+        }
+      ]
+    }
+  ]
+}

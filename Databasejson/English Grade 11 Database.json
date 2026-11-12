@@ -1,0 +1,267 @@
+{
+  "grade": 11,
+  "subject": "English",
+  "curriculum": "Ethiopian New Curriculum",
+  "units": [
+    {
+      "unit_number": 1,
+      "unit_title": "Environmental Hazards",
+      "sections": [
+        {
+          "section_number": "1.1",
+          "section_title": "Listening and Speaking"
+        },
+        {
+          "section_number": "1.2",
+          "section_title": "Reading"
+        },
+        {
+          "section_number": "1.3",
+          "section_title": "Vocabulary"
+        },
+        {
+          "section_number": "1.4",
+          "section_title": "Grammar"
+        },
+        {
+          "section_number": "1.5",
+          "section_title": "Writing and Pronunciation"
+        }
+      ]
+    },
+    {
+      "unit_number": 2,
+      "unit_title": "Civilization",
+      "sections": [
+        {
+          "section_number": "2.1",
+          "section_title": "Listening and Speaking"
+        },
+        {
+          "section_number": "2.2",
+          "section_title": "Reading"
+        },
+        {
+          "section_number": "2.3",
+          "section_title": "Vocabulary"
+        },
+        {
+          "section_number": "2.4",
+          "section_title": "Grammar"
+        },
+        {
+          "section_number": "2.5",
+          "section_title": "Writing"
+        }
+      ]
+    },
+    {
+      "unit_number": 3,
+      "unit_title": "Causes of Road Traffic Accidents",
+      "sections": [
+        {
+          "section_number": "3.1",
+          "section_title": "Listening and Speaking"
+        },
+        {
+          "section_number": "3.2",
+          "section_title": "Reading"
+        },
+        {
+          "section_number": "3.3",
+          "section_title": "Vocabulary"
+        },
+        {
+          "section_number": "3.4",
+          "section_title": "Grammar"
+        },
+        {
+          "section_number": "3.5",
+          "section_title": "Writing"
+        }
+      ]
+    },
+    {
+      "unit_number": 4,
+      "unit_title": "People and Natural Resources",
+      "sections": [
+        {
+          "section_number": "4.1",
+          "section_title": "Listening and Speaking"
+        },
+        {
+          "section_number": "4.2",
+          "section_title": "Reading"
+        },
+        {
+          "section_number": "4.3",
+          "section_title": "Vocabulary"
+        },
+        {
+          "section_number": "4.4",
+          "section_title": "Grammar"
+        },
+        {
+          "section_number": "4.5",
+          "section_title": "Writing"
+        }
+      ]
+    },
+    {
+      "unit_number": 5,
+      "unit_title": "Irrigation",
+      "sections": [
+        {
+          "section_number": "5.1",
+          "section_title": "Listening and Speaking"
+        },
+        {
+          "section_number": "5.2",
+          "section_title": "Reading"
+        },
+        {
+          "section_number": "5.3",
+          "section_title": "Vocabulary"
+        },
+        {
+          "section_number": "5.4",
+          "section_title": "Grammar"
+        },
+        {
+          "section_number": "5.5",
+          "section_title": "Writing"
+        }
+      ]
+    },
+    {
+      "unit_number": 6,
+      "unit_title": "Global Warming",
+      "sections": [
+        {
+          "section_number": "6.1",
+          "section_title": "Listening and Speaking"
+        },
+        {
+          "section_number": "6.2",
+          "section_title": "Reading"
+        },
+        {
+          "section_number": "6.3",
+          "section_title": "Vocabulary"
+        },
+        {
+          "section_number": "6.4",
+          "section_title": "Grammar"
+        },
+        {
+          "section_number": "6.5",
+          "section_title": "Writing"
+        }
+      ]
+    },
+    {
+      "unit_number": 7,
+      "unit_title": "Patriotism",
+      "sections": [
+        {
+          "section_number": "7.1",
+          "section_title": "Listening and Speaking"
+        },
+        {
+          "section_number": "7.2",
+          "section_title": "Reading"
+        },
+        {
+          "section_number": "7.3",
+          "section_title": "Vocabulary"
+        },
+        {
+          "section_number": "7.4",
+          "section_title": "Grammar"
+        },
+        {
+          "section_number": "7.5",
+          "section_title": "Writing"
+        }
+      ]
+    },
+    {
+      "unit_number": 8,
+      "unit_title": "Efficiency of Health Services",
+      "sections": [
+        {
+          "section_number": "8.1",
+          "section_title": "Listening and Speaking"
+        },
+        {
+          "section_number": "8.2",
+          "section_title": "Reading"
+        },
+        {
+          "section_number": "8.3",
+          "section_title": "Vocabulary"
+        },
+        {
+          "section_number": "8.4",
+          "section_title": "Grammar"
+        },
+        {
+          "section_number": "8.5",
+          "section_title": "Writing"
+        }
+      ]
+    },
+    {
+      "unit_number": 9,
+      "unit_title": "Indigenous Conflict Resolution",
+      "sections": [
+        {
+          "section_number": "9.1",
+          "section_title": "Listening and Speaking"
+        },
+        {
+          "section_number": "9.2",
+          "section_title": "Reading"
+        },
+        {
+          "section_number": "9.3",
+          "section_title": "Vocabulary"
+        },
+        {
+          "section_number": "9.4",
+          "section_title": "Grammar"
+        },
+        {
+          "section_number": "9.5",
+          "section_title": "Writing"
+        }
+      ]
+    },
+    {
+      "unit_number": 10,
+      "unit_title": "Artificial Intelligence",
+      "sections": [
+        {
+          "section_number": "10.1",
+          "section_title": "Listening and Speaking"
+        },
+        {
+          "section_number": "10.2",
+          "section_title": "Reading"
+        },
+        {
+          "section_number": "10.3",
+          "section_title": "Vocabulary"
+        },
+        {
+          "section_number": "10.4",
+          "section_title": "Grammar"
+        },
+        {
+          "section_number": "10.5",
+          "section_title": "Writing"
+        }
+      ]
+    }
+  ]
+}
