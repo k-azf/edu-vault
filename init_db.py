@@ -347,7 +347,10 @@ def init_db():
         cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_exams_scope_section ON exams(scope_section_id) WHERE scope_section_id IS NOT NULL")
 
         cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone_number ON users(phone_number) WHERE phone_number IS NOT NULL AND phone_number <> ''")
-        cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_unified_phone_number ON unified_accounts(phone_number) WHERE phone_number IS NOT NULL AND phone_number <> ''")
+        # Older production data may contain repeated contact numbers. Keep the
+        # index for lookups, while application validation prevents new repeats.
+        cursor.execute("DROP INDEX IF EXISTS idx_unified_phone_number")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_unified_phone_number ON unified_accounts(phone_number) WHERE phone_number IS NOT NULL AND phone_number <> ''")
         cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(LOWER(email)) WHERE email IS NOT NULL AND email <> ''")
         cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_unified_email ON unified_accounts(LOWER(email)) WHERE email IS NOT NULL AND email <> ''")
 
@@ -664,7 +667,10 @@ def init_db():
 
         cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_student_code ON users(student_code) WHERE student_code IS NOT NULL")
         cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone_number ON users(phone_number) WHERE phone_number IS NOT NULL AND phone_number <> ''")
-        cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_unified_phone_number ON unified_accounts(phone_number) WHERE phone_number IS NOT NULL AND phone_number <> ''")
+        # Older production data may contain repeated contact numbers. Keep the
+        # index for lookups, while application validation prevents new repeats.
+        cursor.execute("DROP INDEX IF EXISTS idx_unified_phone_number")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_unified_phone_number ON unified_accounts(phone_number) WHERE phone_number IS NOT NULL AND phone_number <> ''")
         cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(LOWER(email)) WHERE email IS NOT NULL AND email <> ''")
         cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_unified_email ON unified_accounts(LOWER(email)) WHERE email IS NOT NULL AND email <> ''")
         cursor.execute("UPDATE users SET account_status = 'ACTIVE' WHERE account_status IS NULL OR account_status = ''")

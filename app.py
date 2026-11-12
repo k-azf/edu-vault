@@ -1376,6 +1376,8 @@ def create_unified_student():
         cursor.execute(f"SELECT 1 FROM unified_accounts WHERE username = {param}", (username,))
         if cursor.fetchone():
             return jsonify({"success": False, "error": "This username is already registered in the Examination System."}), 409
+        if phone_number and phone_is_registered(cursor, phone_number):
+            return jsonify({"success": False, "error": "This phone number is already registered."}), 409
         if email_address:
             cursor.execute(f"SELECT 1 FROM unified_accounts WHERE LOWER(email) = {param}", (email_address.lower(),))
             if cursor.fetchone():
