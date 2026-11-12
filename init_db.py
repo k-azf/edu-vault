@@ -352,7 +352,10 @@ def init_db():
         cursor.execute("DROP INDEX IF EXISTS idx_unified_phone_number")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_unified_phone_number ON unified_accounts(phone_number) WHERE phone_number IS NOT NULL AND phone_number <> ''")
         cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(LOWER(email)) WHERE email IS NOT NULL AND email <> ''")
-        cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_unified_email ON unified_accounts(LOWER(email)) WHERE email IS NOT NULL AND email <> ''")
+        # Existing duplicate emails must not prevent startup; account creation
+        # checks for duplicates before inserting new unified accounts.
+        cursor.execute("DROP INDEX IF EXISTS idx_unified_email")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_unified_email ON unified_accounts(LOWER(email)) WHERE email IS NOT NULL AND email <> ''")
 
         # Seed Default Administrator
         cursor.execute("SELECT * FROM users WHERE username = 'admin'")
@@ -672,7 +675,10 @@ def init_db():
         cursor.execute("DROP INDEX IF EXISTS idx_unified_phone_number")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_unified_phone_number ON unified_accounts(phone_number) WHERE phone_number IS NOT NULL AND phone_number <> ''")
         cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(LOWER(email)) WHERE email IS NOT NULL AND email <> ''")
-        cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_unified_email ON unified_accounts(LOWER(email)) WHERE email IS NOT NULL AND email <> ''")
+        # Existing duplicate emails must not prevent startup; account creation
+        # checks for duplicates before inserting new unified accounts.
+        cursor.execute("DROP INDEX IF EXISTS idx_unified_email")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_unified_email ON unified_accounts(LOWER(email)) WHERE email IS NOT NULL AND email <> ''")
         cursor.execute("UPDATE users SET account_status = 'ACTIVE' WHERE account_status IS NULL OR account_status = ''")
         cursor.execute("UPDATE users SET registered_at = CURRENT_TIMESTAMP WHERE registered_at IS NULL")
 
